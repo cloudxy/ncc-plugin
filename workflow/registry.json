@@ -10,19 +10,19 @@
     "ncc-new": {
       "skill": "ncc-new",
       "mode": "new",
-      "description": "开一本新书：S0 立书（选题→三层问答→书魂四问→类型契约，G0 书魂闸）→ S1 立骨（设定 G1 → 大纲 G2）。每个决策点给推荐与备选，停在作者确认点。",
+      "description": "开一本新书：S0 立书（作者种子→选题→三层问答→书魂四问→类型契约，G0 书魂闸）→ S1 立骨（写作模式→设定与人物引擎 G1 → 大纲 G2，深浅随模式）。每个决策点给推荐与备选，推荐从作者种子长出来；停在作者确认点。",
       "argument_hint": "[一句话想法或书名，可留空]"
     },
     "ncc-write": {
       "skill": "ncc-write",
       "mode": "write",
-      "description": "写章循环：S2 开篇（黄金三章，G3 开篇闸）或 S3 连载。每章走 上下文包（含读者此刻）→写作→机械检查（含水章）→审稿→修订→复评→落盘回写三本账。",
+      "description": "写章循环：S2 开篇（黄金三章，G3 开篇闸）或 S3 连载。先审故事，后写文字：场景卡→故事审→写作简报→写作（关键节拍写 2–3 版）→机械检查（含水章）→硬伤审→修订→复审→关键章作者比选→落盘回写三本账。",
       "argument_hint": "[第N章 | 接着写 | 黄金三章 | 今更3章]"
     },
     "ncc-review": {
       "skill": "ncc-review",
       "mode": "review",
-      "description": "独立审稿与修订闭环：八域累加分制（契约、底蕴两域分别在 M2、M3 启用）、正文证据锚点、SHA 新鲜度绑定、修订后强制复评。审稿者不产稿，修订是显式动作。",
+      "description": "独立审稿与修订闭环，三层评价：硬伤层通过／不通过（正文证据锚点）、故事层（场景卡，正文之前）、品质层（关键章成对比较＋读者记忆测试，不打分）。SHA 新鲜度绑定、修订后强制复审。审稿者不产稿，修订是显式动作。",
       "argument_hint": "[章号或范围 | 全书 | 第3章打回重写]"
     },
     "ncc-deconstruct": {
@@ -33,22 +33,85 @@
     }
   },
   "layers": {
-    "L0-soul": {"name": "书魂", "content": "书魂四问、类型契约、毒点、终局", "reversibility": "几乎不可逆", "decider": "author", "change_via": "G0-soul 或 G4-volume 的变更提议", "reader_signal": "不直接影响"},
-    "L1-skeleton": {"name": "骨架", "content": "力量体系、地图序列、主要势力、暗线、各卷走向", "reversibility": "低", "decider": "author+worldbuilder/outliner", "change_via": "G4-volume 卷间闸", "reader_signal": "经卷复盘间接影响"},
-    "L2-unit": {"name": "单元", "content": "10–40 章的剧情单元、爽点弧", "reversibility": "中", "decider": "author+manager", "change_via": "滚动窗更新", "reader_signal": "可以影响"},
-    "L3-chapter": {"name": "章", "content": "章纲、场景、钩子", "reversibility": "高（发布前）", "decider": "writer", "change_via": "章循环", "reader_signal": "可以影响"},
-    "L4-prose": {"name": "文字", "content": "句子、对话、描写", "reversibility": "最高", "decider": "writer+editor", "change_via": "随时", "reader_signal": "可以影响"}
+    "L0-soul": {
+      "name": "书魂",
+      "content": "书魂四问、类型契约、毒点、终局",
+      "reversibility": "几乎不可逆",
+      "decider": "author",
+      "change_via": "G0-soul 或 G4-volume 的变更提议",
+      "reader_signal": "不直接影响"
+    },
+    "L1-skeleton": {
+      "name": "骨架",
+      "content": "力量体系、地图序列、主要势力、暗线、各卷走向",
+      "reversibility": "低",
+      "decider": "author+worldbuilder/outliner",
+      "change_via": "G4-volume 卷间闸",
+      "reader_signal": "经卷复盘间接影响"
+    },
+    "L2-unit": {
+      "name": "单元",
+      "content": "10–40 章的剧情单元、爽点弧",
+      "reversibility": "中",
+      "decider": "author+manager",
+      "change_via": "滚动窗更新",
+      "reader_signal": "可以影响"
+    },
+    "L3-chapter": {
+      "name": "章",
+      "content": "章纲、场景、钩子",
+      "reversibility": "高（发布前）",
+      "decider": "writer",
+      "change_via": "章循环",
+      "reader_signal": "可以影响"
+    },
+    "L4-prose": {
+      "name": "文字",
+      "content": "句子、对话、描写",
+      "reversibility": "最高",
+      "decider": "writer+editor",
+      "change_via": "随时",
+      "reader_signal": "可以影响"
+    }
   },
   "ledgers": {
-    "promises": {"file": "06-台账/承诺台账.json", "answers": "我们欠读者什么", "types": ["伏笔", "悬念", "爽点欠账", "人物弧", "感情线", "卷目标", "期权", "暂定决策"], "tool": "ncc_state.py promise"},
-    "knowledge_states": {"file": "06-台账/知情台账.json", "answers": "谁知道什么", "tool": "ncc_state.py know"},
-    "world": {"files": ["06-台账/状态事件.json", "06-台账/知识台账.json", "01-设定/"], "answers": "世界此刻是什么样", "tool": "ncc_state.py fact（知识台账）；状态事件由写手按 book-state.md 格式回写"}
+    "promises": {
+      "file": "06-台账/承诺台账.json",
+      "answers": "我们欠读者什么",
+      "types": [
+        "伏笔",
+        "悬念",
+        "爽点欠账",
+        "人物弧",
+        "感情线",
+        "卷目标",
+        "名场面",
+        "母题",
+        "期权",
+        "暂定决策"
+      ],
+      "tool": "ncc_state.py promise"
+    },
+    "knowledge_states": {
+      "file": "06-台账/知情台账.json",
+      "answers": "谁知道什么",
+      "tool": "ncc_state.py know"
+    },
+    "world": {
+      "files": [
+        "06-台账/状态事件.json",
+        "06-台账/知识台账.json",
+        "01-设定/"
+      ],
+      "answers": "世界此刻是什么样",
+      "tool": "ncc_state.py fact（知识台账）；状态事件由写手按 book-state.md 格式回写，主角失去的东西记 attribute: 失去"
+    }
   },
   "roles": {
     "scout": {
       "skill": "ncc-new",
       "task": "ideation",
-      "description": "Use this agent when picking a genre, scanning bestseller boards, or generating 2–3 whole-book direction candidates before a book starts. Produces briefing, benchmark list and direction options with a recommendation; never writes settings. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent when picking a genre, scanning bestseller boards, or generating 2–3 whole-book direction candidates grown from the author's seeds before a book starts. Produces briefing, benchmark list and direction options, each citing which author seed it grows from, with a recommendation and at least one unconventional option; never writes settings. Do NOT use while /ncc runs in the parent window.",
       "color": "cyan",
       "fresh": false,
       "function": "策划"
@@ -56,7 +119,7 @@
     "worldbuilder": {
       "skill": "ncc-new",
       "task": "settings",
-      "description": "Use this agent for the world bible, power system, character cards, the setting lexicon and per-book rule/dimension tables. Owns G1 freeze evidence; never outlines plots. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent for the world bible, power system, setting lexicon, per-book rule/dimension tables, the fact ledger's initial values, and the character engine: full character cards (desire, need, fear, wound, the lie, inner contradiction, secret, voice, relationships) with in-character interviews. Owns G1 freeze evidence; never outlines plots. Do NOT use while /ncc runs in the parent window.",
       "color": "purple",
       "fresh": false,
       "function": "创作"
@@ -64,15 +127,23 @@
     "outliner": {
       "skill": "ncc-new",
       "task": "outline",
-      "description": "Use this agent for the three-level outline (master → volume → chapter), the emotion/pulse curve, the 50-chapter rolling window, and registering outline-level promises in the promise ledger. Owns G2 freeze evidence. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent for the outline scaled to the writing mode (master → volume → chapter), signature scenes and core motifs, the emotion curve, registering promises, and drafting just-in-time scene cards (task: scene) for the next chapter. Owns G2 freeze evidence. Do NOT use while /ncc runs in the parent window.",
       "color": "blue",
       "fresh": false,
       "function": "创作"
     },
+    "story-editor": {
+      "skill": "ncc-write",
+      "task": "story-review",
+      "description": "Use this agent as the developmental (structural) editor: story review of scene cards before any prose is written, and big-picture questions at unit and volume level — turns, real dilemmas, target emotion, escalation, character desire and need. Asks questions and recommends directions; never scores and never writes prose. Do NOT use while /ncc runs in the parent window.",
+      "color": "teal",
+      "fresh": false,
+      "function": "质量"
+    },
     "writer": {
       "skill": "ncc-write",
       "task": "draft",
-      "description": "Use this agent to draft chapters from an assembled context pack (including the reader-now block): opening chapters and serialized daily chapters. Must establish, advance or pay off at least one promise per chapter and write back the three ledgers; never reviews its own text. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent to draft chapters from the writing brief and context pack (reader-now, character voices, materials, previous chapter's ending): opening and serialized chapters. Never sees review checklists or the book-soul text; dramatizes the scene's dilemma instead of explaining it, avoids the listed default moves, writes 2–3 versions of key beats when asked, then writes back the three ledgers. Never reviews its own text. Do NOT use while /ncc runs in the parent window.",
       "color": "green",
       "fresh": false,
       "function": "创作"
@@ -88,7 +159,7 @@
     "continuity": {
       "skill": "ncc-review",
       "task": "audit",
-      "description": "Use this agent for continuity audit: setting conflicts, timeline, promise-ledger obligations, knowledge-state leaks (POV discipline), state-event replay, fact-ledger consistency. Produces evidence-cited observations only — never edits manuscripts. Fresh context, no producer memory. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent for the hard-defect layer of review: setting conflicts, timeline, promise-ledger obligations, whether the scene card's turn and dilemma actually happen on the page, knowledge-state leaks (POV discipline), state-event replay, fact-ledger consistency. Pass/fail with evidence-cited observations only — never edits manuscripts, never scores quality. Fresh context, no producer memory. Do NOT use while /ncc runs in the parent window.",
       "color": "red",
       "fresh": true,
       "function": "质量"
@@ -96,7 +167,7 @@
     "pulse": {
       "skill": "ncc-review",
       "task": "pulse",
-      "description": "Use this agent for rhythm and satisfaction review: tension peaks, emotion-point density, hook type and intensity, debt-earn-exceed-witness of payoffs, three-dimension pacing. Scores with body-text anchors only. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent for the genre-contract part of the hard-defect layer (poison list, signing points, missing debt/earn/exceed/witness in payoffs, AI-flavor) and, on key chapters, pairwise comparison of versions (which is better and why, order-swapped to check bias). Never gives absolute quality scores. Do NOT use while /ncc runs in the parent window.",
       "color": "orange",
       "fresh": true,
       "function": "质量"
@@ -104,7 +175,7 @@
     "reader": {
       "skill": "ncc-review",
       "task": "blind-read",
-      "description": "Use this agent as a simulated fresh reader for the opening chapters and key chapters: would they keep reading, where do they skim, where do they drop. Blind — no outlines, no settings, no producer context. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent as a simulated fresh reader for the opening chapters and key chapters: would they keep reading, where do they skim, where do they drop, and a memory test — what they remember and the one line they would screenshot. Blind — no outlines, no settings, no producer context. Do NOT use while /ncc runs in the parent window.",
       "color": "magenta",
       "fresh": true,
       "function": "质量"
@@ -122,92 +193,197 @@
     "S0-founding": {
       "name": "立书",
       "layer": "L0-soul",
-      "roles": ["scout"],
-      "steps": ["选题（可跳过，记理由）", "三层问答", "书魂四问（可暂定，D7）", "类型契约与毒点"],
+      "roles": [
+        "scout"
+      ],
+      "steps": [
+        "作者种子",
+        "选题（可跳过，记理由）",
+        "三层问答",
+        "书魂四问（可暂定，D7）",
+        "类型契约与毒点"
+      ],
       "book_stage": "founding",
       "gate": "G0-soul",
-      "outputs": ["00-策划/briefing.md", "author-intent.md"]
+      "outputs": [
+        "00-策划/作者种子.md",
+        "00-策划/briefing.md",
+        "author-intent.md"
+      ]
     },
     "S1-skeleton": {
       "name": "立骨",
       "layer": "L1-skeleton",
-      "roles": ["worldbuilder", "outliner"],
-      "steps": ["设定（G1）", "大纲（G2）"],
-      "book_stage": ["settings", "outline"],
-      "gate": ["G1-settings-frozen", "G2-outline-frozen"],
-      "outputs": ["01-设定/世界观圣经.md", "01-设定/力量体系.md", "01-设定/设定词典.md", "01-设定/人物卡/", "02-大纲/总纲.md", "02-大纲/卷纲/", "02-大纲/章纲/", "06-台账/承诺台账.json"]
+      "roles": [
+        "worldbuilder",
+        "outliner"
+      ],
+      "steps": [
+        "写作模式（D15）",
+        "设定与人物引擎（G1）",
+        "大纲（G2，深浅随模式）"
+      ],
+      "book_stage": [
+        "settings",
+        "outline"
+      ],
+      "gate": [
+        "G1-settings-frozen",
+        "G2-outline-frozen"
+      ],
+      "outputs": [
+        "01-设定/世界观圣经.md",
+        "01-设定/力量体系.md",
+        "01-设定/设定词典.md",
+        "01-设定/人物卡/",
+        "02-大纲/总纲.md",
+        "02-大纲/卷纲/",
+        "02-大纲/章纲/",
+        "06-台账/承诺台账.json"
+      ]
     },
     "S2-opening": {
       "name": "开篇",
       "layer": "L2-unit",
-      "roles": ["writer", "editor", "continuity", "pulse", "reader"],
+      "roles": [
+        "outliner",
+        "story-editor",
+        "writer",
+        "editor",
+        "continuity",
+        "pulse",
+        "reader"
+      ],
       "book_stage": "opening",
       "gate": "G3-opening-accepted",
-      "outputs": ["04-正文/第0001-0003章", "05-审稿/", "03-文风/文风基准.md"]
+      "outputs": [
+        "04-正文/第0001-0003章",
+        "05-审稿/",
+        "03-文风/文风基准.md"
+      ]
     },
     "S3-serial": {
       "name": "连载",
       "layer": "L2-unit..L4-prose",
-      "roles": ["writer", "editor", "continuity", "pulse"],
+      "roles": [
+        "outliner",
+        "story-editor",
+        "writer",
+        "editor",
+        "continuity",
+        "pulse",
+        "reader"
+      ],
       "book_stage": "serial",
       "gate": "G-chapter",
-      "outputs": ["04-正文/", "05-审稿/", "06-台账/"]
+      "outputs": [
+        "02-大纲/场景卡/",
+        "04-正文/",
+        "05-审稿/",
+        "06-台账/"
+      ]
     },
     "S4-volume": {
       "name": "卷复盘",
       "layer": "L1-skeleton..L2-unit",
-      "roles": ["pulse", "outliner", "scout"],
+      "roles": [
+        "story-editor",
+        "pulse",
+        "outliner",
+        "scout"
+      ],
       "book_stage": "volume",
       "gate": "G4-volume",
-      "planned": "M2-1",
-      "outputs": ["00-策划/卷复盘-卷N.md"]
+      "planned": "M3-1",
+      "outputs": [
+        "00-策划/卷复盘-卷N.md"
+      ]
     },
     "S5-finale": {
       "name": "收束",
       "layer": "L0-soul..L2-unit",
-      "roles": ["outliner", "continuity"],
+      "roles": [
+        "outliner",
+        "continuity"
+      ],
       "book_stage": "finale",
       "gate": "G5-finale",
-      "planned": "M2-2",
-      "outputs": ["00-策划/收束清单.md"]
+      "planned": "M3-2",
+      "outputs": [
+        "00-策划/收束清单.md"
+      ]
     }
   },
   "gates": {
     "G0-soul": {
       "decider": "author",
-      "checks": ["书魂四问齐全（可暂定，暂定须写最晚决定点）", "类型契约含主契约与毒点清单", "已设引导档位", "author-intent.md 含书魂一节"],
+      "checks": [
+        "书魂四问齐全（可暂定，暂定须写最晚决定点）",
+        "类型契约含主契约与毒点清单",
+        "已设引导档位",
+        "author-intent.md 含书魂一节"
+      ],
       "source": "scripts/ncc_state.py gate <书目录> soul"
     },
     "G1-settings-frozen": {
       "decider": "author",
-      "checks": ["设定文件齐全且非空", "设定词典条目数 ≥ 30", "力量体系含境界阶梯与量纲定义"],
+      "checks": [
+        "设定文件齐全且非空",
+        "设定词典条目数 ≥ 30",
+        "力量体系含境界阶梯与量纲定义",
+        "至少一张完整人物卡（欲望、需要、恐惧、声音）",
+        "主角弧光类型已选"
+      ],
       "source": "scripts/ncc_state.py gate <书目录> settings"
     },
     "G2-outline-frozen": {
       "decider": "author",
-      "checks": ["总纲含主线与情绪曲线", "卷一卷纲完整", "黄金三章章纲含钩子设计", "承诺台账已登记大纲层承诺"],
+      "checks": [
+        "总纲非空",
+        "建筑师：卷一卷纲＋黄金三章章纲；混合：当前单元；园丁：只要总纲",
+        "承诺台账已登记（园丁模式可事后补记）"
+      ],
       "source": "scripts/ncc_state.py gate <书目录> outline"
     },
     "G3-opening-accepted": {
       "decider": "author",
-      "checks": ["三章机械检查通过", "审稿总分 ≥ 70 且无未处置 critical", "读者盲评报告已出", "签约点五项在黄金三章内落地"],
+      "checks": [
+        "三章硬伤层通过且未改稿后失效",
+        "三章都有作者的版本选定",
+        "读者盲评报告已出且含记忆测试",
+        "签约点五项在黄金三章内落地"
+      ],
       "source": "scripts/ncc_state.py gate <书目录> opening"
     },
     "G-chapter": {
       "decider": "script+editor",
-      "checks": ["check_chapter.py 通过（字数/钩子/AI味/水章）", "审稿总分 ≥ 70", "正文变更后已复评（SHA 一致）"],
-      "source": "scripts/check_chapter.py"
+      "checks": [
+        "场景卡已过故事审且之后未改动",
+        "check_chapter.py 通过（字数/钩子/AI味/水章）",
+        "硬伤层通过",
+        "关键章：作者已从 2–3 版中选定",
+        "正文变更后已复审（SHA 一致）"
+      ],
+      "source": "scripts/check_chapter.py；scripts/ncc_state.py complete"
     },
     "G4-volume": {
       "decider": "author",
-      "planned": "M2-1",
-      "checks": ["承诺盘点：逾期、作废均已处置", "书魂检验：本卷从哪个角度考验了主题之问", "L1 变更提议已拍板"],
+      "planned": "M3-1",
+      "checks": [
+        "承诺盘点：逾期、作废均已处置",
+        "书魂检验：本卷从哪个角度考验了主题之问",
+        "L1 变更提议已拍板"
+      ],
       "source": "scripts/ncc_state.py gate <书目录> volume"
     },
     "G5-finale": {
       "decider": "author",
-      "planned": "M2-2",
-      "checks": ["开放承诺全部兑现或交代（期权除外）", "暗线收拢", "书魂给出最终回答"],
+      "planned": "M3-2",
+      "checks": [
+        "开放承诺全部兑现或交代（期权除外）",
+        "暗线收拢",
+        "书魂给出最终回答"
+      ],
       "source": "scripts/ncc_state.py gate <书目录> finale"
     }
   },
@@ -219,16 +395,29 @@
     "AI 扩展选项，人做选择。",
     "好钢用在刀刃上：文学投入按章节分量分配。",
     "作者可持续。",
-    "模糊之处给推荐，不把空白题丢给作者。"
+    "模糊之处给推荐，不把空白题丢给作者；推荐从作者种子里长出来。"
   ],
   "iron_rules": [
     "写这章的帽不审这章；审稿帽只产带证据的 observation，不改稿。",
     "book.json 与 06-台账 是状态权威；markdown 投影与正文永不回写状态。",
     "修订是显式独立动作；正文 SHA 一变，旧评审即作废，必须复评。",
-    "每章动笔前必组装并留档上下文包（含读者此刻），无包不写。",
+    "每章动笔前必组装并留档上下文包（含写作简报与读者此刻），无包不写；场景卡没过故事审不写正文。",
     "创作决策点（G0–G5）作者拍板；执行阶段（写作/审稿循环）禁停顿——循环内的决策按推荐项执行、记为暂定，单元复盘时集中呈给作者。",
     "宁可记「待定/文本未明确」，不可编造设定；场景用到的学科知识须有出处。",
-    "审稿用累加分制：只有引用正文的准则计分，问题不扣分，覆盖率独立；不适用的准则从分母剔除。",
-    "每个要作者决定的地方，都给推荐、理由和备选；作者可以先用推荐、以后再改。"
-  ]
+    "审稿三层：硬伤层只判通过／不通过，每条带正文引用；故事层在正文之前审场景卡；品质层只在关键章做成对比较与读者记忆测试，不打绝对分。",
+    "每个要作者决定的地方，都给推荐、理由和备选；作者可以先用推荐、以后再改。",
+    "写作简报与质检清单分离：写手的上下文里不放审稿清单、分数阈值与书魂原文。"
+  ],
+  "scene_cards": {
+    "dir": "02-大纲/场景卡/",
+    "per_chapter": "1–3",
+    "tool": "ncc_state.py scene check|review",
+    "rule": "场景卡过故事审之后才能标 drafting 与 complete；审后改动须重审；关键章须作者过目"
+  },
+  "writing_modes": {
+    "建筑师": "大纲冻结后动笔",
+    "园丁": "只定书魂、第一卷方向与主要人物，按场景探索着写，台账事后补记",
+    "混合": "默认：书魂与人物先定，情节只规划到当前单元"
+  },
+  "principle": "下限靠系统，上限靠作者与选择。"
 }

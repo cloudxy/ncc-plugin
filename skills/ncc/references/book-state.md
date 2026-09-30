@@ -6,8 +6,8 @@
 
 ```
 书:  founding → settings → outline → opening → serial ⇄ volume → finale → finished
-章:  pending → drafting → drafted → checking → reviewing → revising → done | failed
-闸门: soul / settings_frozen / outline_frozen / opening_accepted（volume、finale 于 M2）
+章:  pending →(场景卡过故事审)→ drafting → drafted → checking → reviewing → revising →(硬伤层通过；关键章作者选定)→ done | failed
+闸门: soul / settings_frozen / outline_frozen / opening_accepted（volume、finale 于 M3）
       各自 {status: waiting|passed|rejected, at, quote[, forced_over]}
 ```
 
@@ -21,9 +21,10 @@
   "premise": "一句话前提",
   "target": {"chapters": 300, "words_per_chapter": [3000, 5000]},
   "stage": "opening",
+  "mode": "建筑师 | 园丁 | 混合",
   "writing_mode": "serial | batch",
   "experience_level": "新手 | 熟手 | 老手",
-  "soul": {"question": "", "answer": "", "injustice": "", "ending": "", "status": "未填|暂定|确定", "deadline": "第一卷卷复盘"},
+  "soul": {"question": "", "answer": "", "injustice": "", "ending": "", "status": "未填|暂定|确定", "deadline": "第一卷卷复盘", "arc": "正向|负向|平弧"},
   "contract": {"main": "凡人逆袭＋守护", "extras": [], "poison": ["主角降智"], "signing": {"主角与欲望": 1}},
   "gates": {"soul": {"status": "passed", "at": "…", "quote": "立书"}, "settings_frozen": {}, "outline_frozen": {}, "opening_accepted": {}},
   "chapters": [
@@ -31,16 +32,19 @@
       "seq": 1,
       "file": "04-正文/第0001章-雨夜地铁.md",
       "status": "done",
+      "key": true,
       "word_count": 3480,
       "hook": {"type": "悬念", "intensity": 4, "line": "一句话"},
-      "mood": "压抑 | 释放 | 平",
+      "mood": {"tension": "压 | 放 | 平", "colors": ["燃", "悲"]},
+      "scenes": {"count": 2, "review": "passed | revise | pending", "by": "story-editor | author", "at": "…", "sha": "…场景卡sha…"},
+      "selection": {"version": "B", "note": "B 的反转更意外", "by": "author", "at": "…"},
       "retry": 0,
       "sha": "…正文sha256前16位…",
-      "review": {"score": 78, "coverage": 0.9, "report": "05-审稿/ch-0001-review.md", "sha": "…评审时正文sha…"},
+      "review": {"hard": "pass", "decidable": 0.9, "report": "05-审稿/ch-0001-review.md", "sha": "…评审时正文sha…"},
       "pack": "04-正文/_packs/ch-0001.json"
     }
   ],
-  "promises": {"open": 12, "resolved": 3, "dropped": 0, "overdue": 0, "options": 2, "pending_decisions": 1},
+  "promises": {"open": 12, "resolved": 3, "dropped": 0, "overdue": 0, "options": 2, "motifs": 2, "pending_decisions": 1},
   "host_spawn": false,
   "updated_at": "2026-09-30T10:00:00"
 }
@@ -61,8 +65,8 @@
 }]}
 ```
 
-- 类型：伏笔（id 前缀 FS）、悬念、爽点欠账、人物弧、感情线、卷目标、期权、暂定决策（前缀 TD，必须有 `deadline`：章号或节点名）。
-- 期权、暂定决策不计入水章判定，也不进"读者在等什么"。
+- 类型：伏笔（id 前缀 FS）、悬念、爽点欠账、人物弧、感情线、卷目标、名场面（SC）、母题（MT，核心意象）、期权、暂定决策（TD，必须有 `deadline`：章号或节点名）。
+- 期权、暂定决策、母题不计入水章判定，也不进"读者在等什么"；名场面计入。
 - 逾期：开放中的承诺 `window` 末章 < 当前章；暂定决策的章号 `deadline` < 当前章。
 - 作废必须写 `compensation`。
 
@@ -88,7 +92,8 @@
 
 ```json
 {"events": [{"entity": "陆言", "chapter": 12, "attribute": "境界", "old": "凡武三重", "new": "凡武四重",
-  "reason": "吞服…", "evidence": "5–15 字定位词"}]}
+  "reason": "吞服…", "evidence": "5–15 字定位词"},
+  {"entity": "陆言", "chapter": 15, "attribute": "失去", "old": "父亲的工作", "new": "无", "reason": "…", "evidence": "…"}]}
 ```
 
 ## 规则
@@ -96,7 +101,8 @@
 1. **SHA 新鲜度**：`review.sha` 必须 == 当前正文 `sha`。不等 = 评审作废，必须复评。
 2. **恢复协议**：`resume` 时按 stage＋第一个非 done 章节定位断点；`drafting/reviewing` 状态的章按「文件存在＋字数＋sha」重建事实，不信内存。
 3. **重写计数**：`chapter retry` 达 `max_retry`（默认 3）自动转 `failed`，呈报作者，不自动第 4 轮。
-4. **章节登记**：每章动笔前 `chapter add`；写完登记 `chapter hook`（`check_chapter.py` 要查）与 `chapter mood`；审完 `complete`。
+4. **章节登记**：每章先 `chapter add`（第 1–3 章默认关键章，其余用 `chapter key` 标注）；场景卡写好后 `scene check`、`scene review`；过了故事审才能 `chapter mark … drafting`；写完登记 `chapter hook`（`check_chapter.py` 要查）与 `chapter mood`；关键章 `chapter pick`；审完 `complete --hard pass`。场景卡在审过之后被改动，要重审。
+   **主角失去的东西**记为状态事件 `attribute: 失去`，"读者此刻"会列出最近的失去。
 5. **v0.1 书**：`ncc_state.py migrate` 升级到 schema 2（原伏笔台账保留）。
 6. **book.json 损坏**：按文件存在性＋check_chapter.py 重建，重建后 diff 给作者看一眼。
 
@@ -107,12 +113,12 @@
   book.json               # 唯一状态源
   author-intent.md        # L0：书魂、类型契约、签约点、目标读者、终局（写给所有帽）
   current-focus.md        # 近1-3章焦点，writer 每章更新
-  00-策划/  briefing.md  对标分析.md  变更提议.md  数据回流.md
-  01-设定/  世界观圣经.md  力量体系.md  设定词典.md  规则表.md  人物卡/
-  02-大纲/  总纲.md  卷纲/卷1.md  章纲/ch-0001.md
+  00-策划/  作者种子.md  briefing.md  对标分析.md  变更提议.md  数据回流.md
+  01-设定/  世界观圣经.md  力量体系.md  设定词典.md  规则表.md  人物卡/（含 <名字>-采访.md）
+  02-大纲/  总纲.md  卷纲/卷1.md  章纲/ch-0001.md  场景卡/ch-0001.md
   03-文风/  文风基准.md
-  04-正文/  第0001章-标题.md  _packs/ch-0001.json
-  05-审稿/  ch-0001-review.md  blind-ch-0001-0003.md
+  04-正文/  第0001章-标题.md  _packs/ch-0001.json  _versions/ch-0001-<节拍>-A.md
+  05-审稿/  story-ch-0001.md  ch-0001-review.md  blind-ch-0001-0003.md
   06-台账/  承诺台账.json  知情台账.json  知识台账.json  状态事件.json  冲突登记.md  待校验池.md
   07-导出/
   memory/  manager.md  writer.md  editor.md  …（每帽一份）

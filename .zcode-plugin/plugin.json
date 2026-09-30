@@ -1,10 +1,10 @@
 {
   "name": "ncc-workflow",
-  "version": "0.2.0",
-  "description": "Novel Create Center：长篇网文从立书到收束的工作流——书魂与类型契约、五层决策、三本账（承诺/知情/世界）、读者此刻、水章判据、八域审稿与修订闭环、开篇盲评与签约点、拆书喂设定库；每个决策点给推荐与备选，新手一句话也能开书。经理窗口调度九个创作角色，book.json 单一状态源，写-审-改分离。",
+  "version": "0.3.0",
+  "description": "Novel Create Center：长篇网文从立书到收束的工作流。下限引擎——书魂与类型契约、五层决策、三本账（承诺/知情/世界）、读者此刻、水章判据、硬伤审；上限引擎——作者种子、人物引擎、场景卡先审故事后写文字、写作简报与质检清单分离、关键节拍写多版由作者挑、三层评价（不打绝对分）、发展编辑、三种写作模式。每个决策点给推荐与备选，推荐从作者种子长出来。经理窗口调度十个创作角色，book.json 单一状态源，写-审-改分离。",
   "description_i18n": {
-    "en": "Novel Create Center: a long-form web-novel workflow from founding to finale — book soul and genre contract, five decision layers, three ledgers (promises / knowledge states / world), a reader-now block per chapter, water-chapter detection, eight-domain review with revision loop, blind-read opening with signing points, and book deconstruction feeding the setting vault. Every decision point offers a recommendation and alternatives. A manager window dispatches nine creative roles over a single book.json state source, with write/review/revise separated.",
-    "zh-CN": "Novel Create Center：长篇网文从立书到收束的工作流——书魂与类型契约、五层决策、三本账（承诺/知情/世界）、读者此刻、水章判据、八域审稿与修订闭环、开篇盲评与签约点、拆书喂设定库；每个决策点给推荐与备选，新手一句话也能开书。经理窗口调度九个创作角色，book.json 单一状态源，写-审-改分离。"
+    "en": "Novel Create Center: a long-form web-novel workflow from founding to finale. Floor engine — book soul and genre contract, five decision layers, three ledgers (promises / knowledge states / world), reader-now, water-chapter detection, hard-defect review. Ceiling engine — author seeds, character engine, scene cards reviewed for story before any prose, writing briefs kept separate from review checklists, key beats written in several versions for the author to pick, three-layer evaluation with no absolute quality scores, a developmental editor, and architect / gardener / hybrid writing modes. Every decision point offers a recommendation grown from the author's own seeds. A manager window dispatches ten creative roles over a single book.json state source, with write/review/revise separated.",
+    "zh-CN": "Novel Create Center：长篇网文从立书到收束的工作流。下限引擎——书魂与类型契约、五层决策、三本账（承诺/知情/世界）、读者此刻、水章判据、硬伤审；上限引擎——作者种子、人物引擎、场景卡先审故事后写文字、写作简报与质检清单分离、关键节拍写多版由作者挑、三层评价（不打绝对分）、发展编辑、三种写作模式。每个决策点给推荐与备选，推荐从作者种子长出来。经理窗口调度十个创作角色，book.json 单一状态源，写-审-改分离。"
   },
   "author": {
     "name": "xuyun"

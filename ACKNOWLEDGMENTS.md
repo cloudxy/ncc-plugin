@@ -64,3 +64,16 @@
 | [bmad-code-org/BMAD-METHOD](https://github.com/bmad-code-org/BMAD-METHOD)（约 5.4 万星） | 见其仓库（GitHub 未识别为标准许可） | 高级启发：选一种推理方法（事前复盘等）二次审视已有方案 | guidance.md 第 7 步 |
 | [zenstory-ai/oh-story-claudecode](https://github.com/zenstory-ai/oh-story-claudecode)（约 7200 星） | MIT | 候选真相带最晚可改章；作者真相与读者已知分开记录；一句话路由 | 暂定决策的 deadline、知情台账、一句话入口 |
 | [ExplosiveCoderflome/AI-Novel-Writing-Assistant](https://github.com/ExplosiveCoderflome/AI-Novel-Writing-Assistant)（约 3000 星） | AGPL-3.0（据其 README；只借思想） | 面向新手：一句灵感生成多套整本方向与书名组、附推荐理由、可只重做某一套；简易/专业两种模式 | scout 的整本方向候选、定向重做、引导档位 |
+
+## v0.3 上限引擎的依据（研究与创作理论）
+
+| 来源 | 结论 | 落点 |
+|---|---|---|
+| Russell et al., StoryScope（2026 预印本） | AI 小说爱把主题说破、情节整齐单线、主角选择缺少道德两难、事件升级平淡、从外部描写人物 | 书魂不进写手提示；场景卡的两难与风险升级；写作简报要求从视角人物的身体写起 |
+| Chakrabarty et al., Art or Artifice?（CHI 2024） | 大模型给创意写作打分与专家相关性接近零 | 三层评价：不打绝对分 |
+| Chakrabarty et al., Can AI writing be salvaged?（LAMP，CHI 2025） | AI 文本的七类毛病（陈词滥调、不必要的说明等） | 写手的"先写后删"；硬伤层的文风检查 |
+| Doshi & Hauser（Science Advances 2024） | AI 创意帮个人变好，但让作品彼此变像 | 作者种子：挖掘在前、推荐在后，推荐标来源 |
+| Nakayashiki & Watanabe（2026 预印本） | 多个模型彼此一致，却不与读者一致 | 品质层用读者记忆测试，真实读者数据回流校准（M3） |
+| oh-story 章纲到正文指南 | 细纲写"本章必须发生什么变化"，过结构验收才写正文 | 场景卡与故事审 |
+| 麦基《故事》；Swain；Maass；Weiland；埃格里；李渔《闲情偶寄》；恩格斯致哈克奈斯 | 价值翻转、场景与续场、情感旅程、人物弧光与"信错的那句话"、前提、立主脑密针线减头绪脱窠臼、典型人物 | mind-frame.md 第二节；scene-card.md；character.md |
+

@@ -11,11 +11,13 @@ framework_candidates:
   - ~/Documents/word_wx/ai-skills/小说拆分总纲5.0.md
   - ~/Documents/网文拆解/小说拆分总纲5.0.md
 
-# 审稿阈值（G-chapter / G3 用）
+# 审稿（三层评价，D13：硬伤层通过/不通过，不打总分）
 review:
-  pass_score: 70        # 八域累加分制总分阈值（不适用项从分母剔除后折算）
-  min_coverage: 0.8     # 覆盖率下限
+  min_decidable: 0.8    # 硬伤层可判定率下限（能下结论的检查项占比）
   max_retry: 3          # 同章重写上限
+
+# 新书默认写作模式：建筑师 | 园丁 | 混合（D15）
+default_mode: 混合
 
 # 每章机械检查（check_chapter.py 用）
 chapter:

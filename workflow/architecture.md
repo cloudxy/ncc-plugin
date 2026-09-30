@@ -1,6 +1,6 @@
-# NCC 架构（v0.2）
+# NCC 架构（v0.3）
 
-五层决策 · 三本账 · 四循环 · 读者模型 · 引导层。设计全文见作者的完善计划（`~/Documents/grok-files/ncc-workflow/2026-09-30-ncc-workflow-完善计划.md`）；本文件是插件内的落地说明，机器可读部分以 `registry.json` 为准。
+五层决策 · 三本账 · 四循环 · 读者模型 · 引导层 · 上限引擎。**下限靠系统，上限靠作者与选择。**设计全文见作者的完善计划（`~/Documents/grok-files/ncc-workflow/2026-09-30-ncc-workflow-完善计划.md`）；本文件是插件内的落地说明，机器可读部分以 `registry.json` 为准。
 
 ## 一、五层决策（按可逆度）
 
@@ -44,10 +44,10 @@ v0.1 的 `revise-settings` 意图并入此流程：冻结后的设定改动一�
 
 | 循环 | 频率 | v0.2 状态 |
 |---|---|---|
-| 章循环 | 每章 | 已有（ncc-write），v0.2 加读者此刻、水章检测、三本账回写 |
-| 单元循环 | 10–40 章 | M2-1 |
-| 卷循环 | 每卷 | M2-1（S4 卷复盘，G4） |
-| 书循环 | 每本书 | M2-1（技艺库） |
+| 章循环 | 每章 | 已有（ncc-write）；v0.2 加读者此刻、水章检测、三本账回写；v0.3 加场景卡与故事审、写作简报、关键章比选 |
+| 单元循环 | 10–40 章 | M3-1（v0.3 先做：单元结束时集中呈示暂定决策与故事审结论） |
+| 卷循环 | 每卷 | M3-1（S4 卷复盘，G4） |
+| 书循环 | 每本书 | M3-1（技艺库） |
 
 ## 四、读者模型
 
@@ -65,11 +65,33 @@ v0.1 的 `revise-settings` 意图并入此流程：冻结后的设定改动一�
 | S1 立骨 | S1-skeleton | settings → outline | G1-settings-frozen、G2-outline-frozen |
 | S2 开篇 | S2-opening | opening | G3-opening-accepted |
 | S3 连载 | S3-serial | serial | G-chapter |
-| S4 卷复盘 | S4-volume | volume | G4-volume（M2） |
-| S5 收束 | S5-finale | finale → finished | G5-finale（M2） |
+| S4 卷复盘 | S4-volume | volume | G4-volume（M3） |
+| S5 收束 | S5-finale | finale → finished | G5-finale（M3） |
 
 v0.1 书用 `ncc_state.py migrate` 升级：`ideation→founding`、`golden→opening`、`golden_accepted→opening_accepted`、伏笔台账迁入承诺台账（原文件保留），并补一个待填的书魂闸。
 
-## 七、审稿八域（D11）
+## 七、审稿：三层评价（D13，调整 D11）
 
-连贯逻辑 15｜角色关系 12｜情节承诺 15｜节奏爽点 13｜文风表达 12｜正典一致 11｜契约 12（M2-8 启用）｜底蕴 10（M3-5 启用）。未启用的域与不适用的准则从分母剔除，总分按"已得分 ÷ 适用满分 × 100"折算。
+八个类别（连贯逻辑、角色关系、情节承诺、节奏爽点、文风表达、正典一致、契约、底蕴）保留为检查项分类，不再合成 100 分：
+
+| 层 | 审什么 | 谁审 | 输出 |
+|---|---|---|---|
+| 硬伤层 | 可验证的对错：一致性、承诺、场景卡是否落地、知情越权、毒点与签约点、底蕴（M4 起） | continuity＋pulse＋脚本 | 通过／不通过 |
+| 故事层 | 场景卡：翻转、两难、目标情感、风险升级 | story-editor（关键章作者过目） | 通过／退回（正文之前） |
+| 品质层 | 好不好看 | 关键章：成对比较＋读者记忆测试＋作者选定 | 选择与理由，不打分 |
+
+章定稿闸 ＝ 硬伤层通过 ∧ 场景卡已过故事审且未改动 ∧（关键章）作者已选定 ∧ SHA 一致。依据：大模型给创意写作打绝对分与专家相关性接近零（TTCW，CHI 2024）；多个模型彼此一致而不与读者一致（2026 预印本）。
+
+## 八、上限引擎（D12，v0.3）
+
+| 部件 | 落地 |
+|---|---|
+| U1 作者种子 | `00-策划/作者种子.md`；guidance §〇：推荐标明源自哪条种子 |
+| U2 人物引擎 | `skills/ncc-new/references/character.md`；角色采访；主角弧光（`soul --arc`）；`gate settings` 查人物卡 |
+| U3 场景层 | `skills/ncc-write/references/scene-card.md`；`scene check/review`；没过故事审不能开写、不能定稿 |
+| 写作简报 | `skills/ncc-write/references/writing-brief.md`；写手包不放审稿清单与书魂原文 |
+| U4 发散—收敛 | 关键节拍写 2–3 版（`04-正文/_versions/`）→ 成对比较 → 作者 `chapter pick` |
+| U5 情感设计 | `chapter mood` 压／放／平＋情绪色（`--colors`）；"失去"记状态事件；reader-now 提示同色重复 |
+| U6 经典性元素 | 承诺类型"名场面""母题"；书魂不进写手提示 |
+| U7 发展编辑 | `agents/story-editor.md` |
+| 写作模式（D15） | `mode` 建筑师／园丁／混合；`gate outline` 按模式检查 |
