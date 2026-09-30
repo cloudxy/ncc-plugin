@@ -23,3 +23,8 @@ default_mode: 混合
 chapter:
   words_min: 3000
   words_max: 5000
+  ai_level1_max: 3      # 高危句式（五星除外）与一级禁用词合计上限；五星句式出现即须改
+
+# 作者可持续（sustain.md）
+sustain:
+  buffer_min: 5         # 存稿线：已定稿未发布的章数低于它时，推荐保更模式

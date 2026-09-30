@@ -77,3 +77,9 @@
 | oh-story 章纲到正文指南 | 细纲写"本章必须发生什么变化"，过结构验收才写正文 | 场景卡与故事审 |
 | 麦基《故事》；Swain；Maass；Weiland；埃格里；李渔《闲情偶寄》；恩格斯致哈克奈斯 | 价值翻转、场景与续场、情感旅程、人物弧光与"信错的那句话"、前提、立主脑密针线减头绪脱窠臼、典型人物 | mind-frame.md 第二节；scene-card.md；character.md |
 
+## v0.4 借用的清单
+
+| 来源 | 许可 | 借用 | 落点 |
+|---|---|---|---|
+| [zenstory-ai/oh-story-claudecode](https://github.com/zenstory-ai/oh-story-claudecode) 的 story-deslop（`banned-words.md`） | MIT，Copyright (c) 2025-2026 oh-story-claudecode | 一级禁用词、二级密度词、高危句式与五星句式分级、作者白名单的做法 | `scripts/check_chapter.py`（清单为整理后的子集；正则与判定逻辑为本插件自写） |
+

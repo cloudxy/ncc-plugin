@@ -22,8 +22,9 @@ chapter add → 场景卡(outliner) → 故事审(story-editor；关键章作者
 ## Step 0 — 定位
 
 1. `ncc_state.py status <书目录>` 确认 stage、写作模式与断点。`opening` 阶段从第 1 章开始；`serial` 阶段找第一个非 done 章。
-2. 单元开始时（每 10–40 章一次）：经理和作者一起确认本单元的**关键章**（系统按"卷首卷末、名场面兑现、重要人物登场与退场、主题显形"先推荐，作者确认，约占两成，D8），用 `chapter key` 标注。第 1–3 章默认是关键章。
-3. `writing_mode: batch` 时按批推进（每批 3–5 章），批间走一次审稿；默认 `serial` 单章循环。
+2. 单元开始时（每 10–40 章一次）：`ncc_state.py unit open <书目录> --start N --title …`；经理和作者一起确认本单元的**关键章**（系统按"卷首卷末、名场面兑现、重要人物登场与退场、主题显形"先推荐，作者确认，约占两成，D8），用 `chapter key` 标注。第 1–3 章默认是关键章。
+3. `status` 提示存稿低于存稿线时，按 `../ncc/references/sustain.md` 进入保更模式（关键章后挪或降为常规工序，登记为暂定决策）。
+4. `writing_mode: batch` 时按批推进（每批 3–5 章），批间走一次审稿；默认 `serial` 单章循环。
 
 ## Step 1 — 登记与场景卡
 
@@ -78,5 +79,8 @@ task: draft。写手按 [references/chapter-loop.md](references/chapter-loop.md)
 
 - 每章完成即是一个可发布单元；`07-导出/` 由作者手动或要求时生成合稿。
 - 存稿：作者可要求「先攒 N 章再更」——batch 模式即为此设计。
-- 每个剧情单元结束：汇总本单元的暂定决策、故事审结论与审稿放行项，按问题卡格式呈给作者（完整单元复盘在 M3-1）。
-- 每卷收官：outliner 扩下一卷，story-editor 提结构层问题，pulse 出卷级节奏复盘（完整卷复盘与 G4 在 M3-1）。
+- 每次发布后 `ncc_state.py chapter publish <书目录> --upto N`，存稿线才有意义。
+- 每个剧情单元结束：按 `../ncc/references/loops.md` §一做单元复盘（`report unit` 生成底稿 → 发展编辑的单元问题 → 下一单元走向 → 作者集中确认暂定决策 → `unit close`）。
+- 每卷收官：按 `loops.md` §二做卷复盘（`volume end` → `report volume` → 承诺盘点、书魂检验、数据归因、变更提议 → G4）。
+- 最后一卷：按 `../ncc/references/finale.md` 进入收束（`finale begin` → 收束清单 → G5）。
+- 读者数据：真实数据与模拟判断都用 `feedback add` 登记，复盘时用来校准模拟读者。

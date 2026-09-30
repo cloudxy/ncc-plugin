@@ -16,8 +16,8 @@ S0 立书 ─G0书魂闸─▶ S1 立骨(设定 ─G1─▶ 大纲 ─G2─) ─
 | S1 立骨·大纲 | L1 | outliner | worldbuilder（答疑） | 总纲、卷纲/、章纲/（深浅随模式）、名场面与母题、承诺台账 | **G2** 大纲冻结 |
 | S2 开篇 | L2 | writer | outliner、story-editor、editor、continuity、pulse、reader | 第 1–3 章（关键章：场景卡作者过目、多版比选）、审稿报告、盲评与记忆测试、文风基准回填、签约点登记 | **G3** 开篇闸 |
 | S3 连载 | L2–L4 | writer | outliner（场景卡）、story-editor（故事审）、editor、continuity、pulse、reader（关键章） | 场景卡＋逐章正文＋三本账回写 | **G-chapter** 章定稿闸 |
-| S4 卷复盘 | L1–L2 | story-editor、pulse、outliner | scout（数据归因） | 卷复盘报告、变更提议 | **G4** 卷间闸（M3） |
-| S5 收束 | L0–L2 | outliner、continuity | — | 收束清单（承诺清算） | **G5** 完本闸（M3） |
+| S4 卷复盘 | L1–L2 | story-editor、pulse、outliner | scout（数据归因） | 复盘/卷N.md（承诺盘点、书魂检验、数据归因、变更提议） | **G4** 卷间闸 |
+| S5 收束 | L0–L2 | outliner、continuity | story-editor、writer | 收束清单（承诺清算、暗线收拢、书魂回答）、全书复盘、技艺库条目 | **G5** 完本闸 |
 
 book.json 的 `stage`：`founding → settings → outline → opening → serial ⇄ volume → finale → finished`。
 
@@ -31,6 +31,8 @@ chapter add → 场景卡(outliner) → 故事审(story-editor；关键章作者
   → 关键章: 成对比较(pulse) + 记忆测试(reader) → 作者 chapter pick
   → ncc_state.py complete --hard pass
 ```
+
+单元（10–40 章）夹在 S3 里：`unit open` → 章循环 → `report unit` 单元复盘 → `unit close`。详见 `loops.md`。
 
 ## 角色分工速查
 

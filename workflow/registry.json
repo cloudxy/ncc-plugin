@@ -4,8 +4,8 @@
     "ncc": {
       "skill": "ncc",
       "mode": "auto",
-      "description": "Novel Create Center 主入口：一句话入口（识别意图并推荐下一步）、书项目状态、续写恢复、派单与闸门记账。本窗口始终是经理。",
-      "argument_hint": "[一句话 | 开新书 | 续写 | 审稿 | 拆书 | continue | status]"
+      "description": "Novel Create Center 主入口：一句话入口（识别意图并推荐下一步）、书项目状态（含存稿与倦怠信号）、续写恢复、单元与卷复盘、收束、读者数据登记、团队认领、派单与闸门记账。本窗口始终是经理。",
+      "argument_hint": "[一句话 | 开新书 | 续写 | 审稿 | 拆书 | 复盘 | 收尾 | continue | status]"
     },
     "ncc-new": {
       "skill": "ncc-new",
@@ -105,13 +105,23 @@
       ],
       "answers": "世界此刻是什么样",
       "tool": "ncc_state.py fact（知识台账）；状态事件由写手按 book-state.md 格式回写，主角失去的东西记 attribute: 失去"
+    },
+    "reader_data": {
+      "file": "06-台账/读者数据.json",
+      "answers": "读者实际怎么反应（真实）与模拟读者怎么判断（模拟）",
+      "tool": "ncc_state.py feedback"
+    },
+    "oplog": {
+      "file": "06-台账/操作日志.jsonl",
+      "answers": "谁在什么时候做了什么写操作（团队交接）",
+      "tool": "ncc_state.py 自动追加；操作者取环境变量 NCC_ACTOR"
     }
   },
   "roles": {
     "scout": {
       "skill": "ncc-new",
       "task": "ideation",
-      "description": "Use this agent when picking a genre, scanning bestseller boards, or generating 2–3 whole-book direction candidates grown from the author's seeds before a book starts. Produces briefing, benchmark list and direction options, each citing which author seed it grows from, with a recommendation and at least one unconventional option; never writes settings. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent when picking a genre, scanning bestseller boards, or generating 2–3 whole-book direction candidates grown from the author's seeds before a book starts. Produces briefing, benchmark list and direction options, each citing which author seed it grows from, with a recommendation and at least one unconventional option; never writes settings. At volume review, attributes changes in real reader data to chapters and writing patterns. Do NOT use while /ncc runs in the parent window.",
       "color": "cyan",
       "fresh": false,
       "function": "策划"
@@ -135,7 +145,7 @@
     "story-editor": {
       "skill": "ncc-write",
       "task": "story-review",
-      "description": "Use this agent as the developmental (structural) editor: story review of scene cards before any prose is written, and big-picture questions at unit and volume level — turns, real dilemmas, target emotion, escalation, character desire and need. Asks questions and recommends directions; never scores and never writes prose. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent as the developmental (structural) editor: story review of scene cards before any prose is written (task: story-review), and structural questions at unit and volume review (task: unit-questions) — turns, real dilemmas, target emotion, escalation, character desire and need, human agency within structural constraints, what the protagonist lost. Asks questions and recommends directions; never scores and never writes prose. Do NOT use while /ncc runs in the parent window.",
       "color": "teal",
       "fresh": false,
       "function": "质量"
@@ -175,7 +185,7 @@
     "reader": {
       "skill": "ncc-review",
       "task": "blind-read",
-      "description": "Use this agent as a simulated fresh reader for the opening chapters and key chapters: would they keep reading, where do they skim, where do they drop, and a memory test — what they remember and the one line they would screenshot. Blind — no outlines, no settings, no producer context. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent as a simulated fresh reader for the opening chapters and key chapters: would they keep reading, where do they skim, where do they drop, and a memory test — what they remember and the one line they would screenshot. Reads its calibration notes from past real-reader data when provided. Blind — no outlines, no settings, no producer context. Do NOT use while /ncc runs in the parent window.",
       "color": "magenta",
       "fresh": true,
       "function": "质量"
@@ -281,6 +291,12 @@
         "04-正文/",
         "05-审稿/",
         "06-台账/"
+      ],
+      "steps": [
+        "unit open",
+        "章循环",
+        "单元复盘（report unit）",
+        "unit close"
       ]
     },
     "S4-volume": {
@@ -294,9 +310,13 @@
       ],
       "book_stage": "volume",
       "gate": "G4-volume",
-      "planned": "M3-1",
       "outputs": [
-        "00-策划/卷复盘-卷N.md"
+        "00-策划/复盘/卷N.md"
+      ],
+      "steps": [
+        "volume end",
+        "report volume：承诺盘点、书魂检验、数据归因、变更提议",
+        "G4 卷间闸"
       ]
     },
     "S5-finale": {
@@ -304,13 +324,23 @@
       "layer": "L0-soul..L2-unit",
       "roles": [
         "outliner",
-        "continuity"
+        "story-editor",
+        "continuity",
+        "writer"
       ],
       "book_stage": "finale",
       "gate": "G5-finale",
-      "planned": "M3-2",
       "outputs": [
-        "00-策划/收束清单.md"
+        "00-策划/收束清单.md",
+        "00-策划/复盘/全书.md",
+        "{book_root}/_craft-library/<书名>.md"
+      ],
+      "steps": [
+        "finale begin",
+        "report finale：承诺清算、暗线收拢、书魂回答",
+        "收束章",
+        "书复盘与技艺库",
+        "G5 完本闸"
       ]
     }
   },
@@ -368,21 +398,22 @@
     },
     "G4-volume": {
       "decider": "author",
-      "planned": "M3-1",
       "checks": [
-        "承诺盘点：逾期、作废均已处置",
-        "书魂检验：本卷从哪个角度考验了主题之问",
-        "L1 变更提议已拍板"
+        "卷复盘四节齐全（承诺盘点、书魂检验、数据归因、变更提议）",
+        "逾期承诺已处置（兑现、带补偿作废或带强化延期）",
+        "本卷单元都已关闭",
+        "第一卷：书魂已确定（D7）"
       ],
       "source": "scripts/ncc_state.py gate <书目录> volume"
     },
     "G5-finale": {
       "decider": "author",
-      "planned": "M3-2",
       "checks": [
-        "开放承诺全部兑现或交代（期权除外）",
-        "暗线收拢",
-        "书魂给出最终回答"
+        "开放承诺（期权、母题除外）与暂定决策全部清算",
+        "书魂已确定",
+        "收束清单三节齐全（承诺清算、暗线收拢、书魂回答）",
+        "全书复盘已写",
+        "技艺库有本书条目"
       ],
       "source": "scripts/ncc_state.py gate <书目录> finale"
     }
@@ -419,5 +450,11 @@
     "园丁": "只定书魂、第一卷方向与主要人物，按场景探索着写，台账事后补记",
     "混合": "默认：书魂与人物先定，情节只规划到当前单元"
   },
-  "principle": "下限靠系统，上限靠作者与选择。"
+  "principle": "下限靠系统，上限靠作者与选择。",
+  "loops": {
+    "章": "ncc-write",
+    "单元": "unit open/close＋report unit（loops.md §一）",
+    "卷": "volume end＋report volume＋G4（loops.md §二）",
+    "书": "全书复盘＋技艺库（loops.md §三，finale.md）"
+  }
 }

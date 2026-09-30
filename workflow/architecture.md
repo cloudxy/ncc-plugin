@@ -1,4 +1,4 @@
-# NCC 架构（v0.3）
+# NCC 架构（v0.4）
 
 五层决策 · 三本账 · 四循环 · 读者模型 · 引导层 · 上限引擎。**下限靠系统，上限靠作者与选择。**设计全文见作者的完善计划（`~/Documents/grok-files/ncc-workflow/2026-09-30-ncc-workflow-完善计划.md`）；本文件是插件内的落地说明，机器可读部分以 `registry.json` 为准。
 
@@ -45,9 +45,9 @@ v0.1 的 `revise-settings` 意图并入此流程：冻结后的设定改动一�
 | 循环 | 频率 | v0.2 状态 |
 |---|---|---|
 | 章循环 | 每章 | 已有（ncc-write）；v0.2 加读者此刻、水章检测、三本账回写；v0.3 加场景卡与故事审、写作简报、关键章比选 |
-| 单元循环 | 10–40 章 | M3-1（v0.3 先做：单元结束时集中呈示暂定决策与故事审结论） |
-| 卷循环 | 每卷 | M3-1（S4 卷复盘，G4） |
-| 书循环 | 每本书 | M3-1（技艺库） |
+| 单元循环 | 10–40 章 | `unit open/close`＋`report unit`；作者集中确认暂定决策、选下一单元走向（loops.md §一） |
+| 卷循环 | 每卷 | `volume end`＋`report volume`＋G4：承诺盘点、书魂检验、数据归因、变更提议（loops.md §二） |
+| 书循环 | 每本书 | 收束（finale.md，G5）后写全书复盘与跨书技艺库（loops.md §三） |
 
 ## 四、读者模型
 
@@ -65,8 +65,8 @@ v0.1 的 `revise-settings` 意图并入此流程：冻结后的设定改动一�
 | S1 立骨 | S1-skeleton | settings → outline | G1-settings-frozen、G2-outline-frozen |
 | S2 开篇 | S2-opening | opening | G3-opening-accepted |
 | S3 连载 | S3-serial | serial | G-chapter |
-| S4 卷复盘 | S4-volume | volume | G4-volume（M3） |
-| S5 收束 | S5-finale | finale → finished | G5-finale（M3） |
+| S4 卷复盘 | S4-volume | volume | G4-volume |
+| S5 收束 | S5-finale | finale → finished | G5-finale |
 
 v0.1 书用 `ncc_state.py migrate` 升级：`ideation→founding`、`golden→opening`、`golden_accepted→opening_accepted`、伏笔台账迁入承诺台账（原文件保留），并补一个待填的书魂闸。
 
@@ -95,3 +95,15 @@ v0.1 书用 `ncc_state.py migrate` 升级：`ideation→founding`、`golden→op
 | U6 经典性元素 | 承诺类型"名场面""母题"；书魂不进写手提示 |
 | U7 发展编辑 | `agents/story-editor.md` |
 | 写作模式（D15） | `mode` 建筑师／园丁／混合；`gate outline` 按模式检查 |
+
+## 九、循环、收束与作者（M3，v0.4）
+
+| 部件 | 落地 |
+|---|---|
+| 四循环 | `skills/ncc/references/loops.md`；`unit`、`volume`、`report`；读者数据回流与模拟读者校准（`feedback`） |
+| 收束 | `skills/ncc/references/finale.md`；`finale begin`＋`report finale`＋G5 |
+| 创作宪法 | `skills/ncc/references/craft-canon.md`：文风诊断八问与放行机制、主体性四问、杂学四通道、文论锚点（写手不读） |
+| 机械检查分级 | `check_chapter.py`：五星句式出现即改，其余高危句式与一级词合计限额，二级词只告警，句长起伏只作参考；`03-文风/放行清单.md` |
+| 作者可持续 | `skills/ncc/references/sustain.md`：存稿线（`chapter publish`）与保更模式、倦怠信号、噪音隔离、卡文协议 |
+| 团队 | `skills/ncc/references/team.md`：`team set`；`NCC_ACTOR`＋操作日志 |
+

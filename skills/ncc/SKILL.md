@@ -47,7 +47,11 @@ when_to_use: "User asks to start a book, continue writing, review chapters, deco
 | `resume` | continue / 接着来 | 读 book.json 与三本账，从断点恢复到最近的未完成动作 |
 | `status` | 写到哪了 / 状态 | 汇报脚本输出：阶段、章数、承诺（开放/逾期/暂定决策）、闸门 |
 | `change` | 改设定 / 改大纲 / 改书魂（已冻结后） | 按 `workflow/architecture.md` §一 写变更提议，路由到对应层的决定人；不悄悄改 |
-| `guide` | 一句模糊的话（"这章卡住了""感觉不对""数据掉了"），或作者不知道该用哪个功能 | 按 guidance.md §六 给推荐的下一步和 1–2 个备选 |
+| `guide` | 一句模糊的话（"这章卡住了""感觉不对""数据掉了"），或作者不知道该用哪个功能 | 按 guidance.md §六 给推荐的下一步和 1–2 个备选；卡文走 sustain.md §四 |
+| `loop` | 单元写完了 / 这卷写完了 / 复盘 | 按 [references/loops.md](references/loops.md) 做单元或卷复盘 |
+| `finale` | 准备收尾 / 完本 | 按 [references/finale.md](references/finale.md) 进入收束 |
+| `feedback` | 贴来追读数据、评论 | 汇总成信号后 `feedback add` 登记（噪音隔离，sustain.md §三），复盘时呈给作者 |
+| `team` | 多人协作、分工 | 按 [references/team.md](references/team.md) 认领位置 |
 
 意图本身拿不准时，不猜，也归入 `guide`：给出最可能的两种理解，推荐一种。
 
@@ -105,7 +109,8 @@ authority: 只产出草稿，不审稿，不改 book.json
 
 - 每次会话开头读 `book.json`（一次），不要整本重读正文；需要细节时按台账定位。
 - 你的记忆文件 `书目录/memory/manager.md`：跨会话记录作者偏好、本书特殊约定、作者否决过的推荐。每个角色有自己的记忆文件，互不读写。
-- 汇报永远带数字：第几章、字数、审稿分、承诺开放/逾期数、暂定决策数。
+- 汇报永远带数字：第几章、字数、硬伤层结论、承诺开放/逾期数、暂定决策数、存稿。
+- 照看作者（公理 7，[references/sustain.md](references/sustain.md)）：存稿低于存稿线时推荐保更模式；出现倦怠信号时给调节奏的推荐；评论原文不直接推给作者。
 
 ## 禁止
 
@@ -119,6 +124,9 @@ authority: 只产出草稿，不审稿，不改 book.json
 | 文件 | 何时读 |
 |---|---|
 | [references/mind-frame.md](references/mind-frame.md) | 开工前；审方案时 |
+| [references/craft-canon.md](references/craft-canon.md) | 大纲、故事审、审稿时（文风八问、主体性四问、杂学四通道；写手不读） |
+| [references/loops.md](references/loops.md)、[references/finale.md](references/finale.md) | 单元、卷、书复盘；收束 |
+| [references/sustain.md](references/sustain.md)、[references/team.md](references/team.md) | 作者可持续；团队认领 |
 | [references/guidance.md](references/guidance.md) | 任何需要作者决定、或作者需求模糊时 |
 | `skills/ncc-write/references/scene-card.md`、`writing-brief.md` | 写章前组装场景卡与写作简报 |
 | [references/stage-map.md](references/stage-map.md) | 派单前查阶段、角色、产物、闸门 |

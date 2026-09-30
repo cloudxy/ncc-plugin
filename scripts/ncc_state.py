@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ncc_state.py — book.json 与 06-台账 的确定性读写工具（schema v2，v0.3 上限引擎）。
+"""ncc_state.py — book.json 与 06-台账 的确定性读写工具（schema v2，v0.4 循环与收束）。
 
 状态只从这里（和经理派单回收）写入；markdown 投影与正文永不回写状态。
 只依赖标准库。
@@ -16,6 +16,18 @@
   contract <book> [--main M] [--extra X]... [--poison a,b]
   sign <book> <签约点> --ch N             签约点：主角与欲望|世界的不公|主角的机会|第一次小兑现|长线钩子
 
+循环与收束（M3）
+  unit open <book> --start N [--title T]   开一个剧情单元（10–40 章）
+  unit close <book> --end N               关单元：须先有 00-策划/复盘/单元-Uk.md
+  unit list <book>
+  volume end <book> --end N               本卷写完，进入卷复盘（stage → volume），之后过 gate volume
+  finale begin <book>                     进入收束（stage → finale），之后过 gate finale
+  report <book> unit|volume|finale        按台账生成复盘或收束清单的底稿（打印到标准输出）
+  feedback add <book> --ch N --source 真实|模拟 --kind 追读|弃读|划线|评论 --value V [--note X]
+  feedback list <book> [--ch N]
+  team set <book> <位> <名字>              团队认领：主编|主笔|设定|考据|发展编辑|审稿|试读|拆书
+  team list <book>
+
 场景卡（先审故事，后写文字）
   scene check <book> <seq>               校验 02-大纲/场景卡/ch-NNNN.md 的格式
   scene review <book> <seq> --result pass|revise --by story-editor|author [--note N]
@@ -29,6 +41,7 @@
   chapter mood <book> <seq> 压|放|平 [--colors 爽,燃,虐,甜,怕,笑,悲,敬,叹]
   chapter pick <book> <seq> --version V [--note N]   关键章：作者从 2–3 版里选定
   chapter retry <book> <seq>             重写计数 +1，达上限转 failed
+  chapter publish <book> --upto N        记录已发布到第 N 章（用于存稿线）
   complete <book> <seq> --words N --hard pass|fail [--decidable R] [--report P]
                                          章定稿闸：硬伤层通过 ∧ 场景卡已过故事审 ∧（关键章）作者已选定
   water <book> <seq>                     水章检测：本章未建立、推进或兑现任何读者向承诺 → 退出 1
@@ -37,6 +50,7 @@
   promise add <book> --type T --content C --ch N [--strength 1-5] [--window A-B] [--deadline D] [--desire K]
   promise touch|resolve <book> <id> --ch N [--note X]
   promise drop <book> <id> --ch N --compensation X
+  promise reschedule <book> <id> --window A-B --note X   延期（须写强化手段）
   promise list <book> [--open] [--type T]
   know add <book> --fact F --ch N [--known-by a,b] [--unknown-to x,y]
   know learn <book> <id> --who X --ch N
@@ -48,6 +62,8 @@
 
 其他
   sha <file>
+
+环境变量 NCC_ACTOR：团队模式下写入操作日志（06-台账/操作日志.jsonl）的操作者名字。
 """
 import argparse
 import datetime
@@ -63,7 +79,7 @@ SCHEMA = 2
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 
 DIRS = [
-    "00-策划", "01-设定/人物卡", "02-大纲/卷纲", "02-大纲/章纲", "02-大纲/场景卡",
+    "00-策划", "00-策划/复盘", "01-设定/人物卡", "02-大纲/卷纲", "02-大纲/章纲", "02-大纲/场景卡",
     "03-文风", "04-正文/_packs", "05-审稿", "06-台账", "07-导出", "memory",
 ]
 LEDGER = "06-台账"
@@ -74,6 +90,11 @@ EVENTS = f"{LEDGER}/状态事件.json"
 OLD_FORESHADOW = f"{LEDGER}/伏笔台账.json"
 SCENE_DIR = "02-大纲/场景卡"
 SEEDS = "00-策划/作者种子.md"
+REVIEW_DIR = "00-策划/复盘"
+FINALE_LIST = "00-策划/收束清单.md"
+READER_DATA = f"{LEDGER}/读者数据.json"
+OPLOG = f"{LEDGER}/操作日志.jsonl"
+CRAFT_LIBRARY = "_craft-library"
 
 LEVELS = ("新手", "熟手", "老手")
 MODES = ("建筑师", "园丁", "混合")
@@ -90,6 +111,12 @@ SIGNING_POINTS = ("主角与欲望", "世界的不公", "主角的机会", "第�
 SCENE_REQUIRED = ("视角", "目标", "翻转", "两难", "情感")
 SCENE_KEY_REQUIRED = ("盲区", "阻碍", "画面", "风险")
 CHARACTER_REQUIRED = ("欲望", "需要", "恐惧", "声音")
+UNIT_REVIEW_REQUIRED = ("暂定决策", "故事审", "下一单元")
+VOLUME_REVIEW_REQUIRED = ("承诺盘点", "书魂检验", "数据归因", "变更提议")
+FINALE_REQUIRED = ("承诺清算", "暗线收拢", "书魂回答")
+TEAM_POSITIONS = ("主编", "主笔", "设定", "考据", "发展编辑", "审稿", "试读", "拆书")
+FEEDBACK_SOURCES = ("真实", "模拟")
+FEEDBACK_KINDS = ("追读", "弃读", "划线", "评论")
 
 # 阶段（D10）：founding → settings → outline → opening → serial ⇄ volume → finale → finished
 GATES = {
@@ -97,10 +124,10 @@ GATES = {
     "settings": ("settings_frozen", "outline"),
     "outline": ("outline_frozen", "opening"),
     "opening": ("opening_accepted", "serial"),
-    "volume": ("volume", None),
+    "volume": ("volume", "serial"),
     "finale": ("finale", "finished"),
 }
-PLANNED_GATES = {"volume": "M3-1", "finale": "M3-2"}
+PLANNED_GATES = {}
 
 
 # ---------- 基础 ----------
@@ -147,7 +174,7 @@ def save(book_dir: Path, data: dict):
 
 
 def load_cfg(book_dir: Path) -> dict:
-    cfg = {"words_min": 3000, "words_max": 5000, "max_retry": 3}
+    cfg = {"words_min": 3000, "words_max": 5000, "max_retry": 3, "buffer_min": 5}
     for p in (book_dir.parent / "ncc.config.yaml", book_dir / "ncc.config.yaml"):
         if p.exists():
             text = p.read_text("utf-8")
@@ -330,6 +357,235 @@ def cmd_scene(a):
     print(f"OK ch{a.seq} 场景卡故事审: {c['scenes']['review']}（{a.by}）")
 
 
+# ---------- M3：单元、卷、读者数据、团队 ----------
+
+def ensure_m3_fields(d: dict):
+    """v0.3 及更早建的书补齐 M3 字段。"""
+    d.setdefault("units", [])
+    d.setdefault("volumes", [{"n": 1, "start": 1, "end": None, "status": "open"}])
+    d.setdefault("published_upto", 0)
+    d.setdefault("team", {})
+    return d
+
+
+def open_unit(d):
+    return next((u for u in d.get("units", []) if u.get("status") == "open"), None)
+
+
+def open_volume(d):
+    return next((v for v in d.get("volumes", []) if v.get("status") in ("open", "reviewing")), None)
+
+
+def has_sections(p: Path, needed) -> list:
+    if not p.exists() or not p.read_text("utf-8").strip():
+        return [f"缺文件或为空: {p.name}"]
+    text = p.read_text("utf-8")
+    return [f"{p.name} 缺「{x}」一节" for x in needed if x not in text]
+
+
+def cmd_unit(a):
+    book_dir = Path(a.book_dir)
+    d = ensure_m3_fields(load(book_dir))
+    units = d["units"]
+    if a.action == "list":
+        for u in units:
+            print(f"{u['id']} 第{u['start']}–{u.get('end') or '…'}章 {u['status']}  {u.get('title', '')}")
+        return
+    if a.action == "open":
+        if open_unit(d):
+            die(f"单元 {open_unit(d)['id']} 还没关，先 unit close")
+        uid = f"U{len(units) + 1}"
+        units.append({"id": uid, "start": a.start, "end": None, "title": a.title or "", "status": "open",
+                      "opened_at": now()})
+        msg = f"OK 单元 {uid} 从第 {a.start} 章开始"
+    else:  # close
+        u = open_unit(d)
+        if not u:
+            die("没有进行中的单元")
+        if a.end < u["start"]:
+            die("--end 早于单元起点")
+        problems = has_sections(book_dir / REVIEW_DIR / f"单元-{u['id']}.md", UNIT_REVIEW_REQUIRED)
+        if problems:
+            print(f"UNIT {u['id']}: 不能关闭——先做单元复盘（ncc_state.py report {book_dir} unit 生成底稿）")
+            for p in problems:
+                print(f"  - {p}")
+            sys.exit(1)
+        u.update({"end": a.end, "status": "closed", "closed_at": now()})
+        msg = f"OK 单元 {u['id']} 关闭（第{u['start']}–{a.end}章）"
+    save(book_dir, d)
+    print(msg)
+
+
+def cmd_volume(a):
+    book_dir = Path(a.book_dir)
+    d = ensure_m3_fields(load(book_dir))
+    v = open_volume(d)
+    if d.get("stage") != "serial" or not v or v.get("status") != "open":
+        die(f"只能在连载阶段结束进行中的卷（当前 stage={d.get('stage')}）")
+    v.update({"end": a.end, "status": "reviewing"})
+    d["stage"] = "volume"
+    save(book_dir, d)
+    print(f"OK 第{v['n']}卷写到第 {a.end} 章，进入卷复盘；复盘写到 {REVIEW_DIR}/卷{v['n']}.md 后过 gate volume")
+
+
+def cmd_finale(a):
+    book_dir = Path(a.book_dir)
+    d = ensure_m3_fields(load(book_dir))
+    if d.get("stage") != "serial":
+        die(f"只能从连载阶段进入收束（当前 stage={d.get('stage')}）")
+    d["stage"] = "finale"
+    save(book_dir, d)
+    print(f"OK 进入收束；用 report {book_dir} finale 生成收束清单底稿，写到 {FINALE_LIST}")
+
+
+def cmd_feedback(a):
+    book_dir = Path(a.book_dir)
+    load(book_dir)
+    data = ledger(book_dir, READER_DATA)
+    if a.action == "list":
+        for f in data["items"]:
+            if a.ch and f.get("ch") != a.ch:
+                continue
+            print(f"第{f['ch']}章 [{f['source']}] {f['kind']}={f['value']}  {f.get('note', '')}")
+        return
+    if a.source not in FEEDBACK_SOURCES:
+        die(f"--source 只能是 {'/'.join(FEEDBACK_SOURCES)}")
+    if a.kind not in FEEDBACK_KINDS:
+        die(f"--kind 只能是 {'/'.join(FEEDBACK_KINDS)}")
+    data["items"].append({"ch": a.ch, "source": a.source, "kind": a.kind, "value": a.value,
+                          "note": a.note or "", "at": now()})
+    write_json(book_dir / READER_DATA, data)
+    print(f"OK 第{a.ch}章 {a.source}{a.kind}={a.value}")
+
+
+def cmd_team(a):
+    book_dir = Path(a.book_dir)
+    d = ensure_m3_fields(load(book_dir))
+    if a.action == "list":
+        for pos in TEAM_POSITIONS:
+            print(f"{pos}: {d['team'].get(pos) or '（未认领，个人模式下由作者兼任）'}")
+        return
+    if a.position not in TEAM_POSITIONS:
+        die(f"位置只能是 {'/'.join(TEAM_POSITIONS)}")
+    d["team"][a.position] = a.name
+    save(book_dir, d)
+    print(f"OK {a.position} 由 {a.name} 认领")
+
+
+def sustain_lines(book_dir: Path, d: dict) -> list:
+    """存稿线与倦怠信号（M3-7）。"""
+    out = []
+    done = [c for c in d.get("chapters", []) if c.get("status") == "done"]
+    pub = d.get("published_upto", 0)
+    if pub:
+        buffer = sum(1 for c in done if c["seq"] > pub)
+        cfg = load_cfg(book_dir)
+        line = f"存稿: {buffer} 章（已发布到第 {pub} 章，存稿线 {cfg['buffer_min']}）"
+        if buffer < cfg["buffer_min"]:
+            line += "  ⚠ 低于存稿线，建议进入保更模式（见 sustain.md）"
+        out.append(line)
+    timed = [c for c in done if c.get("drafting_at") and c.get("done_at")]
+    if len(timed) >= 6:
+        def hours(c):
+            t0 = datetime.datetime.fromisoformat(c["drafting_at"])
+            t1 = datetime.datetime.fromisoformat(c["done_at"])
+            return max((t1 - t0).total_seconds() / 3600, 0.0)
+        recent, before = timed[-3:], timed[-6:-3]
+        h_r, h_b = sum(map(hours, recent)) / 3, sum(map(hours, before)) / 3
+        r_r = sum(c.get("retry", 0) for c in recent) / 3
+        r_b = sum(c.get("retry", 0) for c in before) / 3
+        if h_b > 0 and h_r > h_b * 1.5 and r_r >= r_b:
+            out.append(f"⚠ 倦怠信号：近 3 章平均耗时 {h_r:.1f} 小时（此前 {h_b:.1f}），返工没有减少。建议调节奏（见 sustain.md）")
+    return out
+
+
+def range_chapters(d, lo, hi):
+    return [c for c in d.get("chapters", []) if lo <= c["seq"] <= hi]
+
+
+def cmd_report(a):
+    book_dir = Path(a.book_dir)
+    d = ensure_m3_fields(load(book_dir))
+    items = ledger(book_dir, PROMISES)["items"]
+    know = ledger(book_dir, KNOWLEDGE)["items"]
+    events = read_json(book_dir / EVENTS, {"events": []}).get("events", [])
+    fb = ledger(book_dir, READER_DATA)["items"]
+    cur = current_chapter(d)
+    if a.kind == "unit":
+        u = open_unit(d)
+        if not u:
+            die("没有进行中的单元（unit open）")
+        lo, hi, title = u["start"], cur, f"单元 {u['id']} 复盘（第{u['start']}–{cur}章）"
+    elif a.kind == "volume":
+        v = open_volume(d)
+        if not v:
+            die("没有进行中的卷")
+        lo, hi, title = v["start"], v.get("end") or cur, f"第{v['n']}卷 卷复盘（第{v['start']}–{v.get('end') or cur}章）"
+    else:
+        lo, hi, title = 1, cur, "收束清单"
+    chs = range_chapters(d, lo, hi)
+    out = [f"# {title}", "", f"> 由 ncc_state.py report {a.kind} 生成的底稿：数据部分已填，带「（待填）」的由对应角色与作者补写。", ""]
+
+    def plist(ps, empty="（无）"):
+        return [f"- {p['id']} [{p['type']}] 强度{p.get('strength')} {p['status']}：{p['content']}" for p in ps] or [f"- {empty}"]
+
+    open_reader = [p for p in items if p.get("type") not in ("期权", "暂定决策") and p.get("status") in OPEN_STATES]
+    pending = [p for p in items if p.get("type") == "暂定决策" and p.get("status") in OPEN_STATES]
+    overdue = [p for p in items if promise_overdue(p, cur)]
+
+    if a.kind in ("unit", "volume"):
+        out += ["## 本段章节", ""]
+        for c in chs:
+            sc = c.get("scenes") or {}
+            m = mood_of(c) if c.get("mood") else None
+            out.append(f"- 第{c['seq']}章 {c['status']}" + ("（关键章，作者选定 " + str((c.get("selection") or {}).get("version", "—")) + "）" if c.get("key") else "")
+                       + f"｜故事审：{sc.get('review', '—')}（{sc.get('by', '—')}）"
+                       + (f"｜{m['tension']}{'、'.join(m.get('colors', []))}" if m else "")
+                       + (f"｜钩子 {c['hook']['type']}/{c['hook']['intensity']}" if c.get("hook") else ""))
+        out += ["", "## 暂定决策（请作者逐条确认或推翻）", ""] + plist(pending)
+        by_editor = [c["seq"] for c in chs if (c.get("scenes") or {}).get("by") == "story-editor"]
+        out += ["", "## 故事审回顾", "", f"- 由发展编辑放行、待作者复看的章：{by_editor or '（无）'}",
+                "- 发展编辑的单元问题（待填）：最打动人的是什么？主角的选择够不够难？哪个配角比主角更鲜活？哪条线该删？主角失去了什么？主题之问从哪个角度被考验？"]
+        made = [p for p in items if lo <= (p.get("created_ch") or -1) <= hi]
+        paid = [p for p in items if lo <= (p.get("resolved_ch") or -1) <= hi]
+        water = [c["seq"] for c in chs if c.get("status") == "done" and not chapter_touches(items, c["seq"])]
+        lost = [e for e in events if e.get("attribute") == "失去" and lo <= (e.get("chapter") or -1) <= hi]
+        out += ["", "## 承诺", "", f"- 本段建立 {len(made)} 条，兑现或作废 {len(paid)} 条；水章：{water or '（无）'}", "- 逾期："] + plist(overdue)
+        out += ["", "## 失去", ""] + ([f"- 第{e.get('chapter')}章 {e.get('entity')}：{e.get('old')} → {e.get('new')}" for e in lost] or ["- （本段主角没有失去任何东西——检查是否只有爽没有痛）"])
+        seg_fb = [f for f in fb if lo <= f.get("ch", -1) <= hi]
+        out += ["", "## 读者数据", ""] + ([f"- 第{f['ch']}章 [{f['source']}] {f['kind']}={f['value']} {f.get('note', '')}" for f in seg_fb] or ["- （无回流数据）"])
+        sim = {f["ch"]: f["value"] for f in seg_fb if f["source"] == "模拟" and f["kind"] == "追读"}
+        real = {f["ch"]: f["value"] for f in seg_fb if f["source"] == "真实" and f["kind"] == "追读"}
+        both = sorted(set(sim) & set(real))
+        if both:
+            out += ["", "**模拟读者校准**（同一章的模拟追读 vs 真实追读）", ""]
+            out += [f"- 第{ch}章：模拟 {sim[ch]}｜真实 {real[ch]}" for ch in both]
+            out += ["- 偏差规律（待填）：模拟读者在哪类章节高估或低估？写进 reader 的校准备注"]
+    if a.kind == "unit":
+        out += ["", "## 下一单元", "", "- 候选走向 2–3 个（outliner 从承诺账、读者此刻、书魂推出；标推荐与理由，至少一个非主流）（待填）",
+                "- 下一单元的关键章（系统先按规则推荐，作者确认）（待填）"]
+    if a.kind == "volume":
+        soul = d.get("soul", {})
+        out += ["", "## 承诺盘点", "", "开放中的读者向承诺："] + plist(open_reader)
+        out += ["", "## 书魂检验", "", f"- 书魂状态：{soul.get('status')}" + (f"（最晚 {soul.get('deadline')}）" if soul.get("status") == "暂定" else ""),
+                "- 本卷从哪个角度考验了主题之问？主角的答案变了吗？（待填）"]
+        out += ["", "## 数据归因", "", "- 追读与弃读的变化落在哪几章、对应哪类写法（scout 与 pulse 填）（待填）"]
+        out += ["", "## 变更提议", "", "- 需要调整的骨架（L1）条目，按 architecture.md 的变更提议格式（待填）", "- 下一卷走向候选 2–3 个，标推荐（待填）"]
+    if a.kind == "finale":
+        gaps = [k for k in know if k.get("unknown_to")]
+        scenes_left = [p for p in items if p.get("type") == "名场面" and p.get("status") in OPEN_STATES]
+        motifs = [p for p in items if p.get("type") == "母题" and p.get("status") in OPEN_STATES]
+        out += ["## 承诺清算", "", "终局前必须兑现或交代的读者向承诺（期权除外）："] + plist(open_reader)
+        out += ["", "未定的暂定决策："] + plist(pending)
+        out += ["", "## 暗线收拢", "", "知情账里仍有人不知道的事（哪些要在终局揭开）："]
+        out += [f"- {k['id']} {k['fact']}——{'、'.join(k['unknown_to'])} 还不知道" for k in gaps] or ["- （无）"]
+        out += ["", "未兑现的名场面："] + plist(scenes_left) + ["", "核心意象的最后一次变化："] + plist(motifs)
+        out += ["", "## 书魂回答", "", f"- 主题之问：{d.get('soul', {}).get('question') or '（未填）'}",
+                "- 终局给出的回答：主角答案的胜利、修正，还是胜利的代价？（待填）",
+                "- 收束方案候选 2–3 个，标推荐（outliner 填）（待填）"]
+    print("\n".join(out))
+
+
 # ---------- 书与闸门 ----------
 
 def new_book(title, genre, chapters, level, mode):
@@ -349,6 +605,10 @@ def new_book(title, genre, chapters, level, mode):
         "gates": {k: {"status": "waiting"} for k in
                   ("soul", "settings_frozen", "outline_frozen", "opening_accepted")},
         "chapters": [],
+        "units": [],
+        "volumes": [{"n": 1, "start": 1, "end": None, "status": "open"}],
+        "published_upto": 0,
+        "team": {},
         "promises": {},
         "host_spawn": False,
         "updated_at": now(),
@@ -364,11 +624,12 @@ def copy_template(name: str, dest: Path):
 
 def init_ledgers(book_dir: Path):
     for rel, empty in ((PROMISES, {"items": []}), (KNOWLEDGE, {"items": []}),
-                       (FACTS, {"facts": {}}), (EVENTS, {"events": []})):
+                       (FACTS, {"facts": {}}), (EVENTS, {"events": []}), (READER_DATA, {"items": []})):
         p = book_dir / rel
         if not p.exists():
             write_json(p, empty)
     (book_dir / SCENE_DIR).mkdir(parents=True, exist_ok=True)
+    (book_dir / REVIEW_DIR).mkdir(parents=True, exist_ok=True)
     copy_template("author-intent.md", book_dir / "author-intent.md")
     copy_template("author-seeds.md", book_dir / SEEDS)
     cf = book_dir / "current-focus.md"
@@ -417,6 +678,7 @@ def cmd_migrate(a):
     d.setdefault("soul", fresh["soul"])
     d.setdefault("contract", fresh["contract"])
     d["schema_version"] = SCHEMA
+    ensure_m3_fields(d)
     save(book_dir, d)
 
     migrated = 0
@@ -485,6 +747,14 @@ def cmd_status(a):
     water = [c["seq"] for c in done if not chapter_touches(items, c["seq"])]
     if water:
         print(f"警告: 以下已完成章未建立、推进或兑现任何承诺（水章）: {water}")
+    ensure_m3_fields(d)
+    u, v = open_unit(d), open_volume(d)
+    print(f"卷: 第{v['n']}卷（{v['status']}，自第{v['start']}章）" if v else "卷: 无进行中的卷",
+          f"  单元: {u['id']}（自第{u['start']}章）" if u else "  单元: 无进行中的单元")
+    for line in sustain_lines(book_dir, d):
+        print(line)
+    if d.get("team"):
+        print("团队: " + "，".join(f"{k}={v}" for k, v in d["team"].items()))
     print(f"更新于: {d.get('updated_at')}")
 
 
@@ -599,6 +869,35 @@ def gate_check(book_dir: Path, name: str, d: dict) -> list:
                 problems.append(f"签约点未落地: {pt}")
             elif ch > 3:
                 problems.append(f"签约点「{pt}」落在第 {ch} 章，晚于黄金三章")
+    elif name == "volume":
+        v = open_volume(d)
+        if d.get("stage") != "volume" or not v or v.get("status") != "reviewing":
+            problems.append("当前不在卷复盘阶段（先 volume end）")
+        else:
+            problems += has_sections(book_dir / REVIEW_DIR / f"卷{v['n']}.md", VOLUME_REVIEW_REQUIRED)
+            items = ledger(book_dir, PROMISES)["items"]
+            late = [p["id"] for p in items if promise_overdue(p, v["end"])]
+            if late:
+                problems.append(f"逾期承诺未处置（兑现、带补偿作废，或带强化延期）：{late}")
+            if open_unit(d):
+                problems.append(f"单元 {open_unit(d)['id']} 还没关（先做单元复盘并 unit close）")
+            soul = d.get("soul", {})
+            if v["n"] == 1 and soul.get("status") == "暂定":
+                problems.append("书魂仍是暂定——D7 要求最晚在第一卷卷复盘时定下（soul --status 确定）")
+    elif name == "finale":
+        if d.get("stage") != "finale":
+            problems.append("当前不在收束阶段（先 finale begin）")
+        items = ledger(book_dir, PROMISES)["items"]
+        left = [p["id"] for p in items if p.get("type") not in ("期权", "母题") and p.get("status") in OPEN_STATES]
+        if left:
+            problems.append(f"还有未清算的承诺（含暂定决策）：{left}")
+        if d.get("soul", {}).get("status") != "确定":
+            problems.append("书魂还没定下")
+        problems += has_sections(book_dir / FINALE_LIST, FINALE_REQUIRED)
+        problems += [x.replace("缺文件或为空", "缺书复盘") for x in has_sections(book_dir / REVIEW_DIR / "全书.md", ())]
+        lib = book_dir.parent / CRAFT_LIBRARY / f"{d.get('title')}.md"
+        if not lib.exists():
+            problems.append(f"技艺库还没有这本书的条目：{CRAFT_LIBRARY}/{d.get('title')}.md（见 loops.md 书循环）")
     return problems
 
 
@@ -608,7 +907,7 @@ def cmd_gate(a):
         print(f"GATE {a.name}: 尚未实现（计划于 {PLANNED_GATES[a.name]}）")
         sys.exit(3)
     key, next_stage = GATES[a.name]
-    d = load(book_dir)
+    d = ensure_m3_fields(load(book_dir))
     if a.action == "check":
         problems = gate_check(book_dir, a.name, d)
         if problems:
@@ -633,6 +932,10 @@ def cmd_gate(a):
         "status": "passed" if a.action == "pass" else "rejected", "at": now(), "quote": a.quote or ""}
     if forced:
         d["gates"][key]["forced_over"] = forced
+    if a.action == "pass" and a.name == "volume":
+        v = open_volume(d)
+        v.update({"status": "closed", "closed_at": now()})
+        d["volumes"].append({"n": v["n"] + 1, "start": (v.get("end") or 0) + 1, "end": None, "status": "open"})
     if a.action == "pass" and next_stage:
         d["stage"] = next_stage
     save(book_dir, d)
@@ -711,6 +1014,11 @@ def cmd_sign(a):
 def cmd_chapter(a):
     book_dir = Path(a.book_dir)
     d = load(book_dir)
+    if a.action == "publish":
+        d["published_upto"] = max(d.get("published_upto", 0), a.upto)
+        save(book_dir, d)
+        print(f"OK 已发布到第 {d['published_upto']} 章")
+        return
     if a.action == "add":
         if any(c["seq"] == a.seq for c in d.get("chapters", [])):
             die(f"第 {a.seq} 章已登记")
@@ -740,6 +1048,8 @@ def cmd_chapter(a):
                 if why:
                     die(f"第 {a.seq} 章不能开写：{why}。先审故事，后写文字。")
             c["status"] = a.status
+            if a.status == "drafting" and not c.get("drafting_at"):
+                c["drafting_at"] = now()
             msg = f"OK ch{a.seq} status={a.status}"
         elif a.action == "mood":
             t = LEGACY_MOOD.get(a.tension, a.tension)
@@ -777,6 +1087,7 @@ def cmd_complete(a):
     if c.get("key") and not c.get("selection"):
         die(f"章定稿闸：第 {a.seq} 章是关键章，须作者从 2–3 版中选定（chapter pick）")
     c["status"] = "done"
+    c["done_at"] = now()
     c["word_count"] = a.words
     c["sha"] = sha16(book_dir / c.get("file", ""))
     c["review"] = {"hard": a.hard, "decidable": a.decidable,
@@ -849,6 +1160,13 @@ def cmd_promise(a):
             if a.note:
                 p["resolve_note"] = a.note
             msg = f"OK {a.id} 第{a.ch}章兑现"
+        elif a.action == "reschedule":
+            if not (a.note or "").strip():
+                die("延期必须写 --note（用什么强化让读者继续等，如\"第 30 章再露一角\"）")
+            old = p.get("window")
+            p["window"] = parse_window(a.window)
+            p.setdefault("progress", []).append({"ch": None, "note": f"延期 {old}→{p['window']}：{a.note}"})
+            msg = f"OK {a.id} 延期到第 {p['window'][0]}–{p['window'][1]} 章"
         elif a.action == "drop":
             if not (a.compensation or "").strip():
                 die("承诺作废必须写 --compensation（给读者的交代或替代兑现）")
@@ -1047,7 +1365,32 @@ def main():
     q = cs.add_parser("pick"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
     q.add_argument("--version", required=True); q.add_argument("--note")
     q = cs.add_parser("retry"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
+    q = cs.add_parser("publish"); q.add_argument("book_dir"); q.add_argument("--upto", type=int, required=True)
     p.set_defaults(fn=cmd_chapter)
+
+    p = sub.add_parser("unit"); us = p.add_subparsers(dest="action", required=True)
+    q = us.add_parser("open"); q.add_argument("book_dir"); q.add_argument("--start", type=int, required=True); q.add_argument("--title")
+    q = us.add_parser("close"); q.add_argument("book_dir"); q.add_argument("--end", type=int, required=True)
+    q = us.add_parser("list"); q.add_argument("book_dir")
+    p.set_defaults(fn=cmd_unit)
+    p = sub.add_parser("volume"); vs = p.add_subparsers(dest="action", required=True)
+    q = vs.add_parser("end"); q.add_argument("book_dir"); q.add_argument("--end", type=int, required=True)
+    p.set_defaults(fn=cmd_volume)
+    p = sub.add_parser("finale"); fns = p.add_subparsers(dest="action", required=True)
+    q = fns.add_parser("begin"); q.add_argument("book_dir")
+    p.set_defaults(fn=cmd_finale)
+    p = sub.add_parser("report"); p.add_argument("book_dir"); p.add_argument("kind", choices=["unit", "volume", "finale"])
+    p.set_defaults(fn=cmd_report)
+    p = sub.add_parser("feedback"); fbs = p.add_subparsers(dest="action", required=True)
+    q = fbs.add_parser("add"); q.add_argument("book_dir"); q.add_argument("--ch", type=int, required=True)
+    q.add_argument("--source", required=True); q.add_argument("--kind", required=True); q.add_argument("--value", required=True)
+    q.add_argument("--note")
+    q = fbs.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--ch", type=int)
+    p.set_defaults(fn=cmd_feedback)
+    p = sub.add_parser("team"); ts = p.add_subparsers(dest="action", required=True)
+    q = ts.add_parser("set"); q.add_argument("book_dir"); q.add_argument("position"); q.add_argument("name")
+    q = ts.add_parser("list"); q.add_argument("book_dir")
+    p.set_defaults(fn=cmd_team)
 
     p = sub.add_parser("complete"); p.add_argument("book_dir"); p.add_argument("seq", type=int)
     p.add_argument("--words", type=int, required=True); p.add_argument("--hard", choices=["pass", "fail"], required=True)
@@ -1062,6 +1405,8 @@ def main():
     for act in ("touch", "resolve"):
         q = ps.add_parser(act); q.add_argument("book_dir"); q.add_argument("id")
         q.add_argument("--ch", type=int, required=True); q.add_argument("--note")
+    q = ps.add_parser("reschedule"); q.add_argument("book_dir"); q.add_argument("id")
+    q.add_argument("--window", required=True); q.add_argument("--note", required=True); q.add_argument("--ch", type=int)
     q = ps.add_parser("drop"); q.add_argument("book_dir"); q.add_argument("id")
     q.add_argument("--ch", type=int, required=True); q.add_argument("--compensation", required=True)
     q = ps.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--open", action="store_true"); q.add_argument("--type")
@@ -1089,6 +1434,27 @@ def main():
 
     a = ap.parse_args()
     a.fn(a)
+    log_op(a)
+
+
+READ_ONLY = {("status", None), ("next", None), ("report", None), ("sha", None), ("water", None),
+             ("reader-now", None), ("scene", "check"), ("promise", "list"), ("know", "list"),
+             ("fact", "get"), ("fact", "list"), ("feedback", "list"), ("team", "list"), ("unit", "list")}
+
+
+def log_op(a):
+    """团队交接用：每个成功的写操作追加一行到 06-台账/操作日志.jsonl。"""
+    key = (a.cmd, getattr(a, "action", None))
+    if key in READ_ONLY or (a.cmd, None) in READ_ONLY or a.cmd == "gate" and getattr(a, "action", "") == "check":
+        return
+    book = getattr(a, "book_dir", None)
+    if not book or not (Path(book) / "book.json").exists():
+        return
+    p = Path(book) / OPLOG
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "a", encoding="utf-8") as f:
+        f.write(json.dumps({"at": now(), "actor": os.environ.get("NCC_ACTOR", ""),
+                            "argv": sys.argv[1:]}, ensure_ascii=False) + "\n")
 
 
 if __name__ == "__main__":

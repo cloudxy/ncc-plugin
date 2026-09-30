@@ -7,7 +7,7 @@
 ```
 书:  founding → settings → outline → opening → serial ⇄ volume → finale → finished
 章:  pending →(场景卡过故事审)→ drafting → drafted → checking → reviewing → revising →(硬伤层通过；关键章作者选定)→ done | failed
-闸门: soul / settings_frozen / outline_frozen / opening_accepted（volume、finale 于 M3）
+闸门: soul / settings_frozen / outline_frozen / opening_accepted / volume（每卷一次）/ finale
       各自 {status: waiting|passed|rejected, at, quote[, forced_over]}
 ```
 
@@ -39,11 +39,16 @@
       "scenes": {"count": 2, "review": "passed | revise | pending", "by": "story-editor | author", "at": "…", "sha": "…场景卡sha…"},
       "selection": {"version": "B", "note": "B 的反转更意外", "by": "author", "at": "…"},
       "retry": 0,
+      "drafting_at": "…", "done_at": "…",
       "sha": "…正文sha256前16位…",
       "review": {"hard": "pass", "decidable": 0.9, "report": "05-审稿/ch-0001-review.md", "sha": "…评审时正文sha…"},
       "pack": "04-正文/_packs/ch-0001.json"
     }
   ],
+  "units": [{"id": "U1", "start": 1, "end": 24, "title": "工厂夜班", "status": "closed"}],
+  "volumes": [{"n": 1, "start": 1, "end": 120, "status": "closed"}, {"n": 2, "start": 121, "end": null, "status": "open"}],
+  "published_upto": 118,
+  "team": {"主编": "作者", "主笔": "小李"},
   "promises": {"open": 12, "resolved": 3, "dropped": 0, "overdue": 0, "options": 2, "motifs": 2, "pending_decisions": 1},
   "host_spawn": false,
   "updated_at": "2026-09-30T10:00:00"
@@ -103,8 +108,11 @@
 3. **重写计数**：`chapter retry` 达 `max_retry`（默认 3）自动转 `failed`，呈报作者，不自动第 4 轮。
 4. **章节登记**：每章先 `chapter add`（第 1–3 章默认关键章，其余用 `chapter key` 标注）；场景卡写好后 `scene check`、`scene review`；过了故事审才能 `chapter mark … drafting`；写完登记 `chapter hook`（`check_chapter.py` 要查）与 `chapter mood`；关键章 `chapter pick`；审完 `complete --hard pass`。场景卡在审过之后被改动，要重审。
    **主角失去的东西**记为状态事件 `attribute: 失去`，"读者此刻"会列出最近的失去。
-5. **v0.1 书**：`ncc_state.py migrate` 升级到 schema 2（原伏笔台账保留）。
-6. **book.json 损坏**：按文件存在性＋check_chapter.py 重建，重建后 diff 给作者看一眼。
+5. **v0.1 书**：`ncc_state.py migrate` 升级到 schema 2（原伏笔台账保留）。v0.2/v0.3 建的书缺 M3 字段（units、volumes、published_upto、team）时，脚本在用到时自动补齐。
+6. **单元与卷**：`unit open/close`（关单元前须有复盘文件）、`volume end` 后过 `gate volume`；卷通过后下一卷自动从下一章开始。
+7. **读者数据**：`06-台账/读者数据.json`，`feedback add --source 真实|模拟 --kind 追读|弃读|划线|评论`。
+8. **操作日志**：`06-台账/操作日志.jsonl`，每次写操作自动追加（时间、操作者 `NCC_ACTOR`、命令），团队交接用。
+9. **book.json 损坏**：按文件存在性＋check_chapter.py 重建，重建后 diff 给作者看一眼。
 
 ## 目录契约
 
@@ -113,13 +121,15 @@
   book.json               # 唯一状态源
   author-intent.md        # L0：书魂、类型契约、签约点、目标读者、终局（写给所有帽）
   current-focus.md        # 近1-3章焦点，writer 每章更新
-  00-策划/  作者种子.md  briefing.md  对标分析.md  变更提议.md  数据回流.md
+  00-策划/  作者种子.md  briefing.md  对标分析.md  变更提议.md  收束清单.md  复盘/单元-U1.md 卷1.md 全书.md
   01-设定/  世界观圣经.md  力量体系.md  设定词典.md  规则表.md  人物卡/（含 <名字>-采访.md）
   02-大纲/  总纲.md  卷纲/卷1.md  章纲/ch-0001.md  场景卡/ch-0001.md
-  03-文风/  文风基准.md
+  03-文风/  文风基准.md  放行清单.md
   04-正文/  第0001章-标题.md  _packs/ch-0001.json  _versions/ch-0001-<节拍>-A.md
   05-审稿/  story-ch-0001.md  ch-0001-review.md  blind-ch-0001-0003.md
-  06-台账/  承诺台账.json  知情台账.json  知识台账.json  状态事件.json  冲突登记.md  待校验池.md
+  06-台账/  承诺台账.json  知情台账.json  知识台账.json  状态事件.json  读者数据.json  操作日志.jsonl  冲突登记.md  待校验池.md
   07-导出/
-  memory/  manager.md  writer.md  editor.md  …（每帽一份）
+  memory/  manager.md  writer.md  editor.md  reader.md（校准备注）…（每帽一份）
+
+{book_root}/_craft-library/<书名>.md   # 跨书技艺库（书循环写入，下一本书开书时读）
 ```

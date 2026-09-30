@@ -1,6 +1,6 @@
 # ncc-workflow — Novel Create Center
 
-ZCode 插件 · v0.3.0 · 个人本地插件
+ZCode 插件 · v0.4.0 · 个人本地插件
 
 **小说创作中心**：长篇网文从立书到收束的完整工作流。它把长篇网文当作"边写边发、不可撤回、读者每章投票"的活来设计，由两台引擎组成：
 
@@ -48,7 +48,11 @@ flowchart TD
 
   D --> G3{{"G3 开篇闸<br/>盲评＋签约点"}}
   G3 --> SER["S3 连载：日更循环"]
-  SER -.->|"M3"| VOL["S4 卷复盘 G4 → S5 收束 G5"]
+  SER --> UNIT["单元复盘<br/>report unit → 作者集中确认 → unit close"]
+  UNIT --> SER
+  SER --> VOL["S4 卷复盘<br/>承诺盘点·书魂检验·数据归因·变更提议 → G4"]
+  VOL --> SER
+  SER --> FIN["S5 收束<br/>承诺清算·暗线收拢·书魂回答 → 全书复盘与技艺库 → G5"]
   D -.->|"随时"| DC["ncc-deconstruct 拆对标书<br/>喂设定库与词典"]
 ```
 
@@ -62,6 +66,8 @@ flowchart TD
 /ncc                                         # 看状态（含承诺开放/逾期、暂定决策）
 /ncc-write 接着写                            # 日更
 /ncc 这章卡住了                              # 卡文协议：先查该还哪笔账
+/ncc 这个单元写完了                          # 单元复盘：底稿自动生成，集中确认暂定决策
+/ncc 准备收尾                                # 收束：承诺清算、暗线收拢、书魂回答
 /ncc-review 第12章 打回重写                  # 独立审稿
 /ncc-deconstruct ~/Documents/网文拆解/Novels/某书.txt
 ```
@@ -89,14 +95,16 @@ ncc-workflow/
   agents/                       # 10 角色：scout worldbuilder outliner story-editor writer
                                 #          editor continuity pulse reader deconstructor
   skills/
-    ncc/                        # 经理：mind-frame / guidance / stage-map / book-state / context-pack；模板含作者种子
+    ncc/                        # 经理：mind-frame / guidance / craft-canon / loops / finale / sustain / team /
+                                #       stage-map / book-state / context-pack；模板含作者种子
     ncc-new/                    # 立书与立骨：qa-layers / book-soul / character / worldbuilding / outline
     ncc-write/                  # 写章：scene-card / writing-brief / chapter-loop / golden-three
     ncc-review/                 # 审稿：review-domains（三层评价细则+报告模板）
     ncc-deconstruct/            # 拆书：对接《小说拆分总纲 5.0》
   scripts/
-    ncc_state.py                # 状态机：书/闸门/写作模式/场景卡/章节与比选/三本账/读者此刻/迁移
-    check_chapter.py            # 章节机械检查（汉字数/钩子/AI味/水章）
+    ncc_state.py                # 状态机：书/闸门/写作模式/场景卡/章节与比选/三本账/读者此刻/
+                                #         单元与卷/复盘底稿/收束/读者数据/存稿/团队与操作日志/迁移
+    check_chapter.py            # 章节机械检查（汉字数/钩子/AI味分级与放行/水章/句长起伏参考）
     test_ncc_state.py           # 自测
   docs/usage.md                 # 使用指南
   ACKNOWLEDGMENTS.md            # 设计出处与许可说明
@@ -124,6 +132,10 @@ ncc-workflow/
 | 写作简报与质检清单分离 | 写手只拿简报；审稿清单、分数阈值、书魂原文不进写手上下文 | 本插件（对治应试写作） |
 | 发散—收敛 | 关键节拍写 2–3 版，成对比较后由作者选定 | 本插件 |
 | 写作模式 | 建筑师／园丁／混合，大纲闸按模式检查 | 本插件 |
+| 四循环与收束 | 单元、卷复盘由台账生成底稿，作者集中确认暂定决策；收束按清单清算承诺、收拢暗线；完本后写跨书技艺库 | 本插件 |
+| 读者数据回流 | 真实数据与模拟读者判断并排登记，复盘时校准模拟读者 | 本插件（对治"模型与读者不一致"） |
+| 作者可持续 | 存稿线与保更模式、倦怠信号、噪音隔离、卡文协议 | 本插件 |
+| AI 味分级 | 五星句式出现即改、高危句式与一级词合计限额、二级词密度告警、作者放行清单 | oh-story story-deslop 清单（MIT）＋本插件 |
 | SHA 新鲜度＋强制复评 | 正文一变旧评审作废；修订是显式动作，写者不审己稿 | Openwrite ＋ InkOS ＋ sdlc 铁律 |
 | 事件溯源台账 | 人物/关系/设定变化记状态事件，当前态=重放 | 拆书总纲 5.0 ＋ InkOS |
 | 开篇盲评＋签约点 | reader 无上下文模拟真实读者；五个签约点须在前三章落地 | 网文共识 ＋ sdlc G-fresh |
@@ -132,13 +144,14 @@ ncc-workflow/
 ## 路线
 
 - v0.2（M1 架构核心）：书魂与契约、三本账、读者此刻、水章、五层与变更提议、引导层（S0–S1）、阶段重编（D10）。
-- **v0.3（本版，M2 上限引擎）**：作者种子、人物引擎、场景卡与故事审、写作简报与质检清单分离、发散—收敛与关键章比选、情绪调色板与"失去"线、名场面与母题、三层评价（D13）、发展编辑、写作模式（D15）、思维框架重写。
-- M3：单元/卷/书循环、S4 卷复盘与 S5 收束、作者可持续、团队按层认领、引导层扩到 S3–S5。M4：底蕴卡库与 scholar。M5：素材流。M6：文风与读者画像。
+- v0.3（M2 上限引擎）：作者种子、人物引擎、场景卡与故事审、写作简报与质检清单分离、发散—收敛与关键章比选、情绪调色板与"失去"线、名场面与母题、三层评价（D13）、发展编辑、写作模式（D15）、思维框架重写。
+- **v0.4（本版，M3 循环与收束）**：单元、卷、书三级复盘与复盘底稿、S4 卷复盘（G4）、S5 收束（G5）与技艺库、读者数据回流与模拟读者校准、创作宪法、文风放行机制、AI 味分级、主体性四问、作者可持续、团队认领与操作日志、S3–S5 引导决策点。
+- M4：底蕴卡库与 scholar。M5：素材流。M6：文风、读者画像与技艺库回灌。
 
 ## 边界
 
 - 一书一 `book.json`＋一套 `06-台账/`；多书共存于书库根目录。
-- 不做：平台后台操作、发布排期、稿费合同、实时多人协同（团队按层认领在 M3）。
+- 不做：平台后台操作、发布排期、稿费合同、实时多人协同（按位置认领的团队用法已支持，见 team.md）。
 - 拆书只拆作者合法持有的作品；产物只存 5–15 字定位词引用。
 - 文风基准每书一份；正文是正文，状态是状态，永不互写。
 
