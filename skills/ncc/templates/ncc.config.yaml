@@ -1,0 +1,23 @@
+# NCC 项目配置 —— 放在写作项目根目录
+# 书库根目录：所有书项目 {书名}/ 的父目录
+book_root: ./novels
+
+# 偏好记忆：跨书共享的作者偏好（三层问答用它做推荐与⭐标记）
+preferences: ./novels/_preferences.json
+
+# 拆书总纲 5.0 路径：ncc-deconstruct 的字段规范来源（按序探测第一个存在的）
+framework_candidates:
+  - ./小说拆分总纲5.0.md
+  - ~/Documents/word_wx/ai-skills/小说拆分总纲5.0.md
+  - ~/Documents/网文拆解/小说拆分总纲5.0.md
+
+# 审稿阈值（G-chapter / G3 用）
+review:
+  pass_score: 70        # 五域累加分制总分阈值
+  min_coverage: 0.8     # 覆盖率下限
+  max_retry: 3          # 同章重写上限
+
+# 每章机械检查（check_chapter.py 用）
+chapter:
+  words_min: 3000
+  words_max: 5000

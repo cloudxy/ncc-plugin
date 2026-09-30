@@ -1,0 +1,23 @@
+{
+  "name": "ncc-workflow",
+  "version": "0.1.0",
+  "description": "Novel Create Center：网文创作流水线——选题、三层问答开书、设定冻结、三级大纲、黄金三章、日更连载、五域审稿与修订闭环、拆书喂设定库。经理窗口调度九个创作角色，book.json 单一状态源，写-审-改分离。",
+  "description_i18n": {
+    "en": "Novel Create Center: a gated web-novel pipeline — ideation, layered intake Q&A, frozen settings, three-level outline, golden three chapters, serialized daily chapters, five-domain review with revision loop, and book deconstruction feeding the setting vault. A manager window dispatches nine creative roles over a single book.json state source, with write/review/revise separated.",
+    "zh-CN": "Novel Create Center：网文创作流水线——选题、三层问答开书、设定冻结、三级大纲、黄金三章、日更连载、五域审稿与修订闭环、拆书喂设定库。经理窗口调度九个创作角色，book.json 单一状态源，写-审-改分离。"
+  },
+  "author": {
+    "name": "xuyun"
+  },
+  "keywords": [
+    "novel",
+    "writing",
+    "webnovel",
+    "workflow",
+    "agents",
+    "quality-gates"
+  ],
+  "skills": "skills",
+  "commands": "commands",
+  "agents": "agents"
+}
