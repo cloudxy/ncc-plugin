@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ncc_state.py — book.json 与 06-台账 的确定性读写工具（schema v2，v0.4 循环与收束）。
+"""ncc_state.py — book.json 与 06-台账 的确定性读写工具（schema v2，v0.4.1 减重）。
 
 状态只从这里（和经理派单回收）写入；markdown 投影与正文永不回写状态。
 只依赖标准库。
@@ -28,9 +28,16 @@
   team set <book> <位> <名字>              团队认领：主编|主笔|设定|考据|发展编辑|审稿|试读|拆书
   team list <book>
 
-场景卡（先审故事，后写文字）
+场景卡（先审故事，后写文字；小批量，D16）
+  scene next <book>                      按写作模式给出下一批要做场景卡的章（混合 3、建筑师 5、园丁 2）
   scene check <book> <seq>               校验 02-大纲/场景卡/ch-NNNN.md 的格式
-  scene review <book> <seq> --result pass|revise --by story-editor|author [--note N]
+  scene review <book> <seq>... --result pass|revise --by story-editor|author [--note N]
+                                         可一次审一批；关键章须 --by author；有一张不合格则整批不写入
+
+写手包与审稿（D17、D18）
+  pack <book> <seq> [--note 本章特别提醒]   脚本组装写手包 04-正文/_packs/ch-NNNN.md（审稿文件与书魂原文一律不进）
+  review plan <book> <seq>               本章该派谁审（continuity 必派；pulse 仅兑现章、关键章、开篇），并存一份正文快照
+  review delta <book> <seq>              列出快照之后改动过的段落（复审只看这些），然后更新快照
 
 章节
   chapter add <book> <seq> --file F [--key]      第 1–3 章默认为关键章
@@ -109,7 +116,11 @@ LEGACY_MOOD = {"压抑": "压", "释放": "放"}
 COLORS = ("爽", "燃", "虐", "甜", "怕", "笑", "悲", "敬", "叹")
 SIGNING_POINTS = ("主角与欲望", "世界的不公", "主角的机会", "第一次小兑现", "长线钩子")
 SCENE_REQUIRED = ("视角", "目标", "翻转", "两难", "情感")
-SCENE_KEY_REQUIRED = ("盲区", "阻碍", "画面", "风险")
+SCENE_KEY_REQUIRED = ("盲区", "阻碍", "画面", "风险", "默认写法")
+SCENE_BATCH = {"建筑师": 5, "混合": 3, "园丁": 2}
+PACK_BUDGET = 12000
+SNAPSHOT_DIR = "05-审稿/_snapshots"
+WRITER_SEEDS = ("1", "3", "6")   # 画面、亲历、生活经验；#2"最在乎的问题"离主题太近，不进写手包
 CHARACTER_REQUIRED = ("欲望", "需要", "恐惧", "声音")
 UNIT_REVIEW_REQUIRED = ("暂定决策", "故事审", "下一单元")
 VOLUME_REVIEW_REQUIRED = ("承诺盘点", "书魂检验", "数据归因", "变更提议")
@@ -330,31 +341,259 @@ def scene_ready(book_dir: Path, c: dict):
 def cmd_scene(a):
     book_dir = Path(a.book_dir)
     d = load(book_dir)
-    c = find_ch(d, a.seq)
-    problems, n = scene_problems(book_dir, a.seq, c.get("key", False))
-    if a.action == "check":
-        if problems:
-            print(f"SCENE ch{a.seq}: FAIL")
-            for p in problems:
-                print(f"  - {p}")
-            sys.exit(1)
-        print(f"SCENE ch{a.seq}: {n} 场，格式完整")
+    if a.action == "next":
+        size = SCENE_BATCH.get(d.get("mode", "混合"), 3)
+        chs = d.get("chapters", [])
+        pending = [c["seq"] for c in chs if c.get("status") != "done" and (c.get("scenes") or {}).get("review") != "passed"]
+        start = pending[0] if pending else max([c["seq"] for c in chs] or [0]) + 1
+        batch = list(range(start, start + size))
+        print(f"下一批场景卡：第 {batch[0]}–{batch[-1]} 章（{d.get('mode', '混合')}模式一批 {size} 章）")
+        missing = [n for n in batch if n not in {c["seq"] for c in chs}]
+        if missing:
+            print(f"  先登记：{missing}（chapter add）")
+        keys = [c["seq"] for c in chs if c["seq"] in batch and c.get("key")]
+        if keys:
+            print(f"  其中关键章 {keys}：场景卡须写完整版，由作者过目")
         return
-    # review
+    seqs = a.seq if isinstance(a.seq, list) else [a.seq]
+    if a.action == "check":
+        bad = False
+        for seq in seqs:
+            c = find_ch(d, seq)
+            problems, n = scene_problems(book_dir, seq, c.get("key", False))
+            if problems:
+                bad = True
+                print(f"SCENE ch{seq}: FAIL")
+                for p in problems:
+                    print(f"  - {p}")
+            else:
+                print(f"SCENE ch{seq}: {n} 场，格式完整")
+        sys.exit(1 if bad else 0)
+    # review（整批校验通过才写入）
     if a.by not in ("story-editor", "author"):
         die("--by 只能是 story-editor 或 author")
-    if a.result == "pass":
-        if problems:
-            print(f"SCENE ch{a.seq}: 格式不完整，不能记为通过")
-            for p in problems:
-                print(f"  - {p}")
-            sys.exit(1)
-        if c.get("key") and a.by != "author":
-            die(f"第 {a.seq} 章是关键章，场景卡须由作者过目（--by author）")
-    c["scenes"] = {"count": n, "review": "passed" if a.result == "pass" else "revise", "by": a.by,
-                   "at": now(), "note": a.note or "", "sha": sha16(scene_path(book_dir, a.seq))}
+    results, errors = [], []
+    for seq in seqs:
+        c = find_ch(d, seq)
+        problems, n = scene_problems(book_dir, seq, c.get("key", False))
+        if a.result == "pass":
+            if problems:
+                errors += [f"ch{seq}: {p}" for p in problems]
+            if c.get("key") and a.by != "author":
+                errors.append(f"ch{seq} 是关键章，场景卡须由作者过目（--by author）")
+        results.append((c, n))
+    if errors:
+        print("SCENE: 整批未写入")
+        for e in errors:
+            print(f"  - {e}")
+        sys.exit(1)
+    for c, n in results:
+        c["scenes"] = {"count": n, "review": "passed" if a.result == "pass" else "revise", "by": a.by,
+                       "at": now(), "note": a.note or "", "sha": sha16(scene_path(book_dir, c["seq"]))}
     save(book_dir, d)
-    print(f"OK ch{a.seq} 场景卡故事审: {c['scenes']['review']}（{a.by}）")
+    done_list = "、".join("ch" + str(c[0]["seq"]) for c in results)
+    print(f"OK 场景卡故事审: {done_list} → "
+          f"{'passed' if a.result == 'pass' else 'revise'}（{a.by}）")
+
+
+# ---------- 写手包与审稿计划（D17、D18） ----------
+
+def section(text: str, title: str) -> str:
+    m = re.search(rf"^##\s*{re.escape(title)}[^\n]*\n(.*?)(?=^##\s|\Z)", text, flags=re.M | re.S)
+    return m.group(1).strip() if m else ""
+
+
+def plain(text: str) -> str:
+    return re.sub(r"^[#>*\-|`\s]+", "", text, flags=re.M)
+
+
+def reader_now_lines(book_dir: Path, d: dict, seq: int, top: int = 5):
+    items = ledger(book_dir, PROMISES)["items"]
+    know = ledger(book_dir, KNOWLEDGE)["items"]
+    events = read_json(book_dir / EVENTS, {"events": []}).get("events", [])
+    before = [c for c in d.get("chapters", []) if c["seq"] < seq]
+    out = [f"## 读者此刻（写第 {seq} 章前）", ""]
+    out.append("**知道什么（读者知道、角色还不知道）**")
+    gaps = [k for k in know if "读者" in k.get("known_by", []) and k.get("unknown_to")
+            and (k.get("since_ch") or 0) < seq]
+    out += [f"- {k['id']} {k['fact']}——{'、'.join(k['unknown_to'])} 还不知道" for k in gaps[:top]] or ["- （无登记的信息差）"]
+    out += ["", "**在等什么（强度最高的开放承诺）**"]
+    waiting = [p for p in items if p.get("type") not in NON_READER_TYPES
+               and p.get("status") in OPEN_STATES and (p.get("created_ch") or 0) < seq]
+    waiting.sort(key=lambda p: (-(p.get("strength") or 0), p.get("created_ch") or 0))
+    lines = []
+    for p in waiting[:top]:
+        age = seq - (p.get("created_ch") or seq)
+        w = p.get("window")
+        tail = f"，计划第{w[0]}–{w[1]}章兑现" if w else ""
+        lines.append(f"- {p['id']} [{p['type']}] 强度{p.get('strength')}：{p['content']}（已等 {age} 章{tail}）")
+    out += lines or ["- （没有开放承诺——本章至少要建立一条）"]
+    out += ["", "**情绪在哪**"]
+    moods = [(c["seq"], mood_of(c)) for c in before if c.get("mood")][-5:]
+    if moods:
+        out.append("- 近几章：" + " → ".join(
+            f"{s_}{m['tension']}" + (f"（{'、'.join(m['colors'])}）" if m.get("colors") else "") for s_, m in moods))
+        last_release = max((s_ for s_, m in moods if m["tension"] == "放"), default=None)
+        out.append(f"- 距上次释放：{seq - last_release} 章" if last_release else "- 近几章没有释放段")
+    else:
+        out.append("- （近几章未登记情绪，chapter mood 登记）")
+    losses = [e for e in events if e.get("attribute") == "失去" and (e.get("chapter") or 0) < seq][-3:]
+    if losses:
+        out += ["", "**最近失去了什么**"]
+        out += [f"- 第{e.get('chapter')}章 {e.get('entity')}：{e.get('old')} → {e.get('new')}" for e in losses]
+    out += ["", "**可能腻了什么**"]
+    hooks = [c["hook"]["type"] for c in before if c.get("hook")][-5:]
+    tired = [f"章尾钩子「{t}」近 5 章用了 {hooks.count(t)} 次" for t in dict.fromkeys(hooks) if hooks.count(t) >= 3]
+    colors = [x for _, m in moods for x in m.get("colors", [])]
+    tired += [f"情绪「{x}」近 5 章出现 {colors.count(x)} 次" for x in dict.fromkeys(colors) if colors.count(x) >= 3]
+    desires = [p.get("desire") for p in items if p.get("type") == "爽点欠账" and p.get("status") == "已兑现"
+               and p.get("desire") and seq - 10 <= (p.get("resolved_ch") or -99) < seq]
+    tired += [f"爽感谱系第 {x} 型近 10 章兑现了 {desires.count(x)} 次" for x in dict.fromkeys(desires) if desires.count(x) >= 3]
+    out += [f"- {t}" for t in tired] or ["- （无明显重复）"]
+    cur = current_chapter(d)
+    alerts = [p for p in items if promise_overdue(p, cur) or promise_due_soon(p, cur)]
+    if alerts:
+        out += ["", "**到期提醒**"]
+        out += [f"- {p['id']} [{p['type']}] {p['content']}" for p in alerts]
+    return out
+
+
+BRIEF_TAIL = ("两难里的两个选项都不完全对。把人物的选择演出来，不要替他解释，也不要让任何人（包括叙述者）说出这场的意义。"
+              "从视角人物能感知到的写起；他不知道的事，叙述也不知道。写完删掉解释情绪、复述前情、结尾点题的句子。")
+
+
+def cmd_pack(a):
+    book_dir = Path(a.book_dir)
+    d = load(book_dir)
+    c = find_ch(d, a.seq)
+    why = scene_ready(book_dir, c)
+    if why:
+        die(f"不能组装写手包：{why}")
+    card = scene_path(book_dir, a.seq).read_text("utf-8")
+    blocks = re.split(r"^##\s*场景", card, flags=re.M)[1:]
+    out = [f"# 第 {a.seq} 章 写手包", "", "> 由 ncc_state.py pack 组装。阅读顺序：写作简报 → 读者此刻 → 人物声音 → 可用材料 → 前情 → 前一章结尾 → 文风基准。", ""]
+
+    out += ["## 写作简报", ""]
+    for i, b in enumerate(blocks, 1):
+        body = b.split("\n", 1)[1] if "\n" in b else ""
+        out += [f"### 场景 {i}", body.strip()]
+        if "默认写法" in body:
+            out.append("- 上面\"默认写法\"列的是这场最容易想到的走法：不要这样写。")
+        if c.get("key") and "关键节拍" in body:
+            out.append("- 关键节拍写 2–3 个版本，彼此走法不同，存到 04-正文/_versions/，不要自己挑。")
+        out += [f"- {BRIEF_TAIL}", ""]
+    if a.note:
+        out += ["### 经理的特别提醒（只写意图与材料）", a.note, ""]
+
+    out += reader_now_lines(book_dir, d, a.seq) + [""]
+
+    out += ["## 人物声音", ""]
+    names = []
+    for p in sorted((book_dir / "01-设定" / "人物卡").glob("*.md")):
+        if p.stem.endswith("-采访") or p.stem not in card:
+            continue
+        names.append(p.stem)
+        t = p.read_text("utf-8")
+        out.append(f"### {p.stem}")
+        for sec in ("欲望", "恐惧", "声音"):
+            v = section(t, sec)
+            if v:
+                out.append(f"- {sec}：{v}")
+        out.append("")
+    if not names:
+        out += ["（场景卡里没有出现已建卡的人物名）", ""]
+
+    out += ["## 可用材料", ""]
+    seeds = book_dir / SEEDS
+    if seeds.exists():
+        for line in seeds.read_text("utf-8").splitlines():
+            m = re.match(r"^\|\s*(\d+)\s*\|[^|]*\|\s*([^|]+?)\s*\|", line)
+            if m and m.group(1) in WRITER_SEEDS and m.group(2).strip():
+                out.append(f"- 作者种子 #{m.group(1)}：{m.group(2).strip()}")
+    facts = read_json(book_dir / FACTS, {"facts": {}}).get("facts", {})
+    for k, f in facts.items():
+        if k in card:
+            out.append(f"- {k} = {f['value']}（知识台账）")
+    lex = book_dir / "01-设定" / "设定词典.md"
+    if lex.exists():
+        rows = [[x.strip() for x in line.strip().strip("|").split("|")] for line in lex.read_text("utf-8").splitlines()
+                if line.strip().startswith("|") and not set(line.strip()) <= {"|", "-", " ", ":"}]
+        head = rows[0] if rows else []
+        col = head.index("读者已知") if "读者已知" in head else None
+        for r in rows[1:]:
+            if r and r[0] and r[0] in card:
+                known = r[col] if col is not None and col < len(r) else ""
+                out.append(f"- {r[0]}：读者目前知道「{known or '（未登记）'}」（设定词典；完整真相不进写手包）")
+    out.append("")
+
+    focus = book_dir / "current-focus.md"
+    if focus.exists() and focus.read_text("utf-8").strip():
+        out += ["## 前情与当前焦点", "", plain(focus.read_text("utf-8")).strip(), ""]
+    prev = next((x for x in d.get("chapters", []) if x["seq"] == a.seq - 1), None)
+    if prev and (book_dir / prev.get("file", "")).is_file():
+        tail = plain((book_dir / prev["file"]).read_text("utf-8")).strip()[-800:]
+        out += ["## 前一章结尾（原文）", "", tail, ""]
+    style = book_dir / "03-文风" / "文风基准.md"
+    if style.exists() and style.read_text("utf-8").strip():
+        out += ["## 文风基准（最后读）", "", style.read_text("utf-8").strip(), ""]
+
+    text = "\n".join(out)
+    soul = d.get("soul", {})
+    leaks = [v for v in (soul.get("question"), soul.get("answer"), soul.get("injustice"), soul.get("ending"))
+             if v and len(v) >= 6 and v in text]
+    if leaks:
+        die("写手包里出现了书魂原文（多半写进了场景卡）：" + "；".join(leaks) + "。书魂不进写手提示，请改场景卡后重审。")
+    size = len(re.findall(r"[\u4e00-\u9fff]", text))
+    dest = book_dir / "04-正文" / "_packs" / f"ch-{a.seq:04d}.md"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(text + "\n", "utf-8")
+    c["pack"] = str(dest.relative_to(book_dir))
+    save(book_dir, d)
+    print(f"OK 写手包 {c['pack']}（{size} 字" + (f"，超过预算 {PACK_BUDGET}，请删减材料" if size > PACK_BUDGET else "") + "）")
+
+
+def paragraphs(text: str):
+    return [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+
+
+def cmd_review(a):
+    book_dir = Path(a.book_dir)
+    d = load(book_dir)
+    c = find_ch(d, a.seq)
+    body = book_dir / c.get("file", "")
+    if not body.is_file():
+        die(f"找不到第 {a.seq} 章正文：{c.get('file')}")
+    snap = book_dir / SNAPSHOT_DIR / f"ch-{a.seq:04d}.md"
+    if a.action == "plan":
+        items = ledger(book_dir, PROMISES)["items"]
+        payoff = [p["id"] for p in items if p.get("resolved_ch") == a.seq and p.get("type") in ("爽点欠账", "名场面")]
+        reasons = []
+        if c.get("key"):
+            reasons.append("关键章（另做成对比较）")
+        if a.seq <= 3:
+            reasons.append("开篇（查签约点）")
+        if payoff:
+            reasons.append(f"本章兑现 {payoff}（查欠·挣·超·证）")
+        print(f"第 {a.seq} 章审稿计划：continuity 必派（硬伤层，含契约与毒点）")
+        print("  pulse：" + ("派——" + "；".join(reasons) if reasons else "不派（常规章、无兑现）"))
+        snap.parent.mkdir(parents=True, exist_ok=True)
+        snap.write_text(body.read_text("utf-8"), "utf-8")
+        print(f"  已存正文快照：{snap.relative_to(book_dir)}（修订后用 review delta 只看改动）")
+        return
+    # delta
+    if not snap.exists():
+        die("没有快照：先 review plan")
+    old, new = paragraphs(snap.read_text("utf-8")), paragraphs(body.read_text("utf-8"))
+    old_set = set(old)
+    changed = [(i, p) for i, p in enumerate(new, 1) if p not in old_set]
+    removed = len([p for p in old if p not in set(new)])
+    if not changed and not removed:
+        print(f"第 {a.seq} 章：快照之后没有改动")
+    else:
+        print(f"第 {a.seq} 章改动：{len(changed)} 段新增或修改，{removed} 段删除。复审只看这些段落与上次不通过的项：")
+        for i, p in changed:
+            print(f"\n[第 {i} 段]\n{p}")
+    snap.write_text(body.read_text("utf-8"), "utf-8")
 
 
 # ---------- M3：单元、卷、读者数据、团队 ----------
@@ -1257,61 +1496,7 @@ def mood_of(c):
 def cmd_reader_now(a):
     book_dir = Path(a.book_dir)
     d = load(book_dir)
-    seq, top = a.seq, a.top
-    items = ledger(book_dir, PROMISES)["items"]
-    know = ledger(book_dir, KNOWLEDGE)["items"]
-    events = read_json(book_dir / EVENTS, {"events": []}).get("events", [])
-    before = [c for c in d.get("chapters", []) if c["seq"] < seq]
-    out = [f"## 读者此刻（写第 {seq} 章前）", ""]
-
-    out.append("**知道什么（读者知道、角色还不知道）**")
-    gaps = [k for k in know if "读者" in k.get("known_by", []) and k.get("unknown_to")
-            and (k.get("since_ch") or 0) < seq]
-    out += [f"- {k['id']} {k['fact']}——{'、'.join(k['unknown_to'])} 还不知道" for k in gaps[:top]] or ["- （无登记的信息差）"]
-
-    out += ["", "**在等什么（强度最高的开放承诺）**"]
-    waiting = [p for p in items if p.get("type") not in NON_READER_TYPES
-               and p.get("status") in OPEN_STATES and (p.get("created_ch") or 0) < seq]
-    waiting.sort(key=lambda p: (-(p.get("strength") or 0), p.get("created_ch") or 0))
-    lines = []
-    for p in waiting[:top]:
-        age = seq - (p.get("created_ch") or seq)
-        w = p.get("window")
-        tail = f"，计划第{w[0]}–{w[1]}章兑现" if w else ""
-        lines.append(f"- {p['id']} [{p['type']}] 强度{p.get('strength')}：{p['content']}（已等 {age} 章{tail}）")
-    out += lines or ["- （没有开放承诺——本章至少要建立一条）"]
-
-    out += ["", "**情绪在哪**"]
-    moods = [(c["seq"], mood_of(c)) for c in before if c.get("mood")][-5:]
-    if moods:
-        out.append("- 近几章：" + " → ".join(
-            f"{s}{m['tension']}" + (f"（{'、'.join(m['colors'])}）" if m.get("colors") else "") for s, m in moods))
-        last_release = max((s for s, m in moods if m["tension"] == "放"), default=None)
-        out.append(f"- 距上次释放：{seq - last_release} 章" if last_release else "- 近几章没有释放段")
-    else:
-        out.append("- （近几章未登记情绪，chapter mood 登记）")
-
-    losses = [e for e in events if e.get("attribute") == "失去" and (e.get("chapter") or 0) < seq][-3:]
-    if losses:
-        out += ["", "**最近失去了什么**"]
-        out += [f"- 第{e.get('chapter')}章 {e.get('entity')}：{e.get('old')} → {e.get('new')}" for e in losses]
-
-    out += ["", "**可能腻了什么**"]
-    hooks = [c["hook"]["type"] for c in before if c.get("hook")][-5:]
-    tired = [f"章尾钩子「{t}」近 5 章用了 {hooks.count(t)} 次" for t in dict.fromkeys(hooks) if hooks.count(t) >= 3]
-    colors = [x for _, m in moods for x in m.get("colors", [])]
-    tired += [f"情绪「{x}」近 5 章出现 {colors.count(x)} 次" for x in dict.fromkeys(colors) if colors.count(x) >= 3]
-    desires = [p.get("desire") for p in items if p.get("type") == "爽点欠账" and p.get("status") == "已兑现"
-               and p.get("desire") and seq - 10 <= (p.get("resolved_ch") or -99) < seq]
-    tired += [f"爽感谱系第 {x} 型近 10 章兑现了 {desires.count(x)} 次" for x in dict.fromkeys(desires) if desires.count(x) >= 3]
-    out += [f"- {t}" for t in tired] or ["- （无明显重复）"]
-
-    cur = current_chapter(d)
-    alerts = [p for p in items if promise_overdue(p, cur) or promise_due_soon(p, cur)]
-    if alerts:
-        out += ["", "**到期提醒**"]
-        out += [f"- {p['id']} [{p['type']}] {p['content']}" for p in alerts]
-    print("\n".join(out))
+    print("\n".join(reader_now_lines(book_dir, d, a.seq, a.top)))
 
 
 def cmd_sha(a):
@@ -1347,8 +1532,9 @@ def main():
     p.add_argument("--ch", type=int, required=True); p.set_defaults(fn=cmd_sign)
 
     p = sub.add_parser("scene"); ss = p.add_subparsers(dest="action", required=True)
-    q = ss.add_parser("check"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
-    q = ss.add_parser("review"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
+    q = ss.add_parser("next"); q.add_argument("book_dir")
+    q = ss.add_parser("check"); q.add_argument("book_dir"); q.add_argument("seq", type=int, nargs="+")
+    q = ss.add_parser("review"); q.add_argument("book_dir"); q.add_argument("seq", type=int, nargs="+")
     q.add_argument("--result", choices=["pass", "revise"], required=True); q.add_argument("--by", required=True)
     q.add_argument("--note")
     p.set_defaults(fn=cmd_scene)
@@ -1428,6 +1614,12 @@ def main():
     q = fs.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--category")
     p.set_defaults(fn=cmd_fact)
 
+    p = sub.add_parser("pack"); p.add_argument("book_dir"); p.add_argument("seq", type=int); p.add_argument("--note")
+    p.set_defaults(fn=cmd_pack)
+    p = sub.add_parser("review"); rs = p.add_subparsers(dest="action", required=True)
+    q = rs.add_parser("plan"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
+    q = rs.add_parser("delta"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
+    p.set_defaults(fn=cmd_review)
     p = sub.add_parser("reader-now"); p.add_argument("book_dir"); p.add_argument("seq", type=int)
     p.add_argument("--top", type=int, default=5); p.set_defaults(fn=cmd_reader_now)
     p = sub.add_parser("sha"); p.add_argument("file"); p.set_defaults(fn=cmd_sha)
@@ -1438,7 +1630,7 @@ def main():
 
 
 READ_ONLY = {("status", None), ("next", None), ("report", None), ("sha", None), ("water", None),
-             ("reader-now", None), ("scene", "check"), ("promise", "list"), ("know", "list"),
+             ("reader-now", None), ("scene", "check"), ("scene", "next"), ("promise", "list"), ("know", "list"),
              ("fact", "get"), ("fact", "list"), ("feedback", "list"), ("team", "list"), ("unit", "list")}
 
 

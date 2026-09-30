@@ -21,7 +21,7 @@ when_to_use: "User asks to start a book, continue writing, review chapters, deco
 1. 写这章的帽不审这章；审稿帽只产带证据的 observation，不改稿。
 2. book.json 与 06-台账 是状态权威；markdown 投影与正文永不回写状态。
 3. 修订是显式独立动作；正文 SHA 一变，旧评审即作废，必须复评。
-4. 每章动笔前必组装并留档上下文包（含写作简报与读者此刻），无包不写；场景卡没过故事审不写正文。
+4. 每章动笔前必由 ncc_state.py pack 组装并留档写手包（写作简报＋读者此刻），无包不写；场景卡没过故事审不写正文。
 5. 创作决策点（G0–G5）作者拍板；执行阶段（写作/审稿循环）禁停顿——循环内的决策按推荐项执行、记为暂定，单元复盘时集中呈给作者。
 6. 宁可记「待定/文本未明确」，不可编造设定；场景用到的学科知识须有出处。
 7. 审稿三层：硬伤层只判通过／不通过，每条带正文引用；故事层在正文之前审场景卡；品质层只在关键章做成对比较与读者记忆测试，不打绝对分。
@@ -75,9 +75,10 @@ authority: 只产出草稿，不审稿，不改 book.json
 
 规则：
 - 包里给绝对路径，不硬编码 home；先解析符号链接。
-- 写手包必须引用已留档的上下文包路径（[references/context-pack.md](references/context-pack.md)），核心是**写作简报**（按 `skills/ncc-write/references/writing-brief.md` 由场景卡组装）与 `ncc_state.py reader-now` 的"读者此刻"；没包先生成。
+- 写手包由脚本组装：`ncc_state.py pack <书目录> <章号> [--note …]`（[references/context-pack.md](references/context-pack.md)，D18），派单包只给它的路径；没包先生成。
 - **写手包里不放**审稿清单、分数阈值、书魂原文、author-intent.md、mind-frame.md（写作简报与质检清单分离）。
-- 组装写作简报时，由你具体列出这场"最容易想到的写法"（如"主角亮出底牌，众人震惊"），写手要绕开它。
+- "最容易想到的写法"由 outliner 写进场景卡的"默认写法"一栏；你可以用 `--note` 追加特别提醒，只写意图与材料。
+- 审稿派谁由 `ncc_state.py review plan` 决定（常规章只派 continuity，D17）；复审用 `review delta` 只看改动。
 - continuity / reader 是 fresh 上下文：包里**不给**大纲、设定圣经、写手记忆，只给正文与必要台账产物。
 - 一次派单一个任务；不要把「写三章并审完」塞进一个包。
 

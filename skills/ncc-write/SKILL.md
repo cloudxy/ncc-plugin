@@ -6,18 +6,21 @@ when_to_use: "User says /ncc-write, 写下一章, 今更N章, 黄金三章, or r
 
 # 写章（S2 开篇 → S3 连载）
 
-**先审故事，后写文字。** 每章都是同一条流水线；关键章多两步（写多版、作者比选），开篇另加 G3 验收：
+**先审故事，后写文字。** 场景卡小批量做、小批量审；每章由脚本组装写手包；常规章一人审硬伤、复审只看改动（D16–D18）：
 
 ```
-chapter add → 场景卡(outliner) → 故事审(story-editor；关键章作者过目) → scene review pass
-  → 写作简报 + reader-now → 上下文包(留档) → writer 草稿(关键节拍 2–3 版) + 三本账回写
-  → check_chapter.py(字数/钩子/AI味/水章) → 不过: writer 重写(chapter retry)
-  → 硬伤审(continuity + pulse) → editor 修订 → 复审(SHA 重绑)
-  → 关键章: 成对比较(pulse) + 记忆测试(reader) → 作者选定(chapter pick)
-  → ncc_state.py complete --hard pass
+每批（混合 3 章 / 建筑师 5 / 园丁 1–2）：
+  scene next → chapter add ×N → 场景卡 ×N(outliner 一次写完) → 故事审(story-editor 一次审完；关键章作者过目)
+每章：
+  pack(脚本组装写手包) → writer 草稿(关键节拍 2–3 版) + 三本账回写 → check_chapter.py
+  → review plan(continuity 必派；pulse 仅兑现章/关键章/开篇) → 有 major/critical: editor 修订 → review delta → 原审稿人只复审改动
+  → 关键章: 成对比较(pulse) + 记忆测试(reader) → 作者 chapter pick
+  → complete --hard pass
 ```
 
-执行阶段**禁停顿**：循环里的决策点（常规章的故事审结论、审稿问题放不放行）按推荐项执行，登记为 `暂定决策`，到单元复盘时集中呈给作者（guidance §五）。当场打断作者的只有：关键章的场景卡与版本选定（在单元设计时集中批）、G3、返工满 3 轮、设定级矛盾、战略分歧。
+常规章顺利时约 2.7 次角色调用（写手 1、continuity 1、场景卡批量摊约 0.7），返工一轮约 4.7 次；兑现章多一次 pulse；关键章另走多版比选。
+
+执行阶段**禁停顿**：循环里的决策点（常规章的故事审结论、审稿问题放不放行）按推荐项执行，登记为 `暂定决策`，到单元复盘时集中呈给作者（guidance §五）。当场打断作者的只有：关键章的场景卡与版本选定、G3、返工满 3 轮、设定级矛盾、战略分歧。
 
 ## Step 0 — 定位
 
@@ -26,42 +29,40 @@ chapter add → 场景卡(outliner) → 故事审(story-editor；关键章作者
 3. `status` 提示存稿低于存稿线时，按 `../ncc/references/sustain.md` 进入保更模式（关键章后挪或降为常规工序，登记为暂定决策）。
 4. `writing_mode: batch` 时按批推进（每批 3–5 章），批间走一次审稿；默认 `serial` 单章循环。
 
-## Step 1 — 登记与场景卡
+## Step 1 — 一批场景卡
 
-1. `ncc_state.py chapter add <书目录> <章号> --file 04-正文/第NNNN章-标题.md [--key]`。
-2. 派 outliner（task: scene）按 [references/scene-card.md](references/scene-card.md) 写 `02-大纲/场景卡/ch-NNNN.md`：一章 1–3 场；常规章每场五项，关键章九项全写。园丁模式可以没有章纲，从上一章结尾与人物欲望推出本章场景。
-3. `ncc_state.py scene check <书目录> <章号>` 过格式。
+1. `ncc_state.py scene next <书目录>` 给出下一批章号；逐章 `chapter add <书目录> <章号> --file 04-正文/第NNNN章-标题.md [--key]`。
+2. 派 outliner（task: scene）按 [references/scene-card.md](references/scene-card.md) 一次写完这一批 `02-大纲/场景卡/ch-NNNN.md`：每章 1–3 场；常规章每场五项（能写出"默认写法"就加上），关键章十项全写。园丁模式可以没有章纲，从上一章结尾与人物欲望往下推。
+3. `ncc_state.py scene check <书目录> 4 5 6` 过格式。
 
-## Step 2 — 故事审
+## Step 2 — 故事审（一批一次）
 
-1. 派 story-editor（task: story-review）：按场景卡的故事审清单审——翻转、两难、目标情感、风险升级、人物欲望与需要、意料之外情理之中、一个画面。
-2. 常规章：通过 → `scene review … --result pass --by story-editor`；退回 → outliner 按推荐改法改卡再审。结论记为暂定，单元复盘时作者复看。
-3. 关键章：story-editor 的意见连同场景卡呈给作者，作者确认后 `scene review … --result pass --by author`。
-4. 场景卡在审过之后又改动，脚本会要求重审。
+1. 派 story-editor（task: story-review）审这一批：逐张过故事审清单，再横着看一遍——风险有没有逐场升级、情绪有没有连着几章一个颜色、承诺有没有在批内推进。
+2. 常规章：通过 → `scene review <书目录> 4 5 6 --result pass --by story-editor`；退回的卡由 outliner 按推荐改法改完再审那一张。结论记为暂定，单元复盘时作者复看。
+3. 关键章：story-editor 的意见连同场景卡呈给作者，作者确认后 `scene review <书目录> <章号> --result pass --by author`。
+4. 写着写着偏了、要改后面的卡：改哪张重审哪张。
 
-## Step 3 — 写作简报与上下文包
+## Step 3 — 写手包
 
-1. `ncc_state.py reader-now <书目录> <章号>`。
-2. 按 [references/writing-brief.md](references/writing-brief.md) 由场景卡组装写作简报（一场一份）：视角与盲区、要什么与挡着什么、翻转、两难、目标情感、一个画面、本场必须发生的事件、可用材料、人物声音、**最容易想到的写法（经理具体列出）**、风险升级。关键章在关键节拍上标"写 2–3 版"。
-3. 按 [../ncc/references/context-pack.md](../ncc/references/context-pack.md) 组装并落档 `_packs/ch-XXXX.json`。**不放**审稿清单、分数阈值、书魂原文、author-intent.md。
-4. `chapter mark … drafting`（场景卡没过故事审会被拒）。
+`ncc_state.py pack <书目录> <章号> [--note "本章特别提醒：只写意图与材料"]`：脚本把场景卡逐场转成写作简报（含"默认写法——不要这样写"、关键节拍写多版的提示），附读者此刻、出场人物的欲望恐惧与声音、可用材料（作者种子 #1、#3、#6，场景卡提到的知识台账数据）、前情、前一章结尾原文、文风基准，写到 `04-正文/_packs/ch-NNNN.md`。审稿文件、书魂原文、author-intent 一律不进；场景卡里混进书魂原文时脚本拒绝组装。然后 `chapter mark … drafting`。
 
 ## Step 4 — 派 writer
 
-task: draft。写手按 [references/chapter-loop.md](references/chapter-loop.md) 写：从视角人物的身体写起、把两难演出来、绕开最容易想到的写法、先写后删。关键节拍写 2–3 版存到 `04-正文/_versions/`，不自己挑。写完回写三本账（承诺、知情、世界；主角失去了什么记为状态事件）、`chapter hook`、`chapter mood`，开篇章登记签约点（`sign`）。
+task: draft，派单包只给写手包路径。写手按 [references/chapter-loop.md](references/chapter-loop.md) 写：从视角人物的身体写起、把两难演出来、绕开默认写法、先写后删。关键节拍写 2–3 版存到 `04-正文/_versions/`，不自己挑。写完回写三本账（承诺、知情、世界；主角失去了什么记为状态事件）、`chapter hook`、`chapter mood`，开篇章登记签约点（`sign`）。
 
 ## Step 5 — 机械检查
 
 `python3 <PLUGIN_ROOT>/scripts/check_chapter.py <书目录> <章号>`：汉字字数、章尾钩子登记、AI 味词表、水章（本章没有建立、推进或兑现任何读者向承诺）。退出码非 0 → writer 重写（`chapter retry`）。
 
-## Step 6 — 审稿（三层评价，D13）
+## Step 6 — 审稿（三层评价，D13；常规章减重，D17）
 
 按 [../ncc-review/references/review-domains.md](../ncc-review/references/review-domains.md)：
 
-1. **硬伤层**：派 continuity（task: audit）＋ pulse（task: pulse），fresh 上下文，只产带正文引用的 observation，结论是通过或不通过。其中包括核对"场景卡里的翻转与两难，正文是否真的写出来了"。
-2. 有 critical 或 major → 派 editor 显式修订；正文 SHA 变更后**必须复审**。
-3. 设定级矛盾（与圣经、词典、三本账冲突且不是笔误）→ 停，回作者：给"改设定／改本章"的推荐与理由。不允许写手悄悄圆。
-4. **品质层（仅关键章）**：pulse 对各版本做**成对比较**（两两比，说明哪版更好、好在哪），reader 做**记忆测试**（读完记住了什么、想截图哪句、哪里想跳过）；经理把比较结论、记忆测试和推荐呈给作者，作者选定：`chapter pick <书目录> <章号> --version B --note "…"`。选中版本接进正文后，再过一次硬伤层。常规章不评品质分。
+1. `ncc_state.py review plan <书目录> <章号>`：给出该派谁，并存正文快照。
+2. **硬伤层**：continuity（task: audit）必派，常规章顺带查契约与毒点；pulse（task: pulse）只在本章兑现了爽点欠账或名场面、关键章、开篇时参加。fresh 上下文，只产带正文引用的 observation，结论是通过或不通过；包括核对"场景卡里的翻转与两难，正文是否真的写出来了"。
+3. 有 critical 或 major → 派 editor 显式修订 → `ncc_state.py review delta <书目录> <章号>` 列出改动的段落 → **只由上次给出不通过项的审稿人**复审这些段落与那几项（不再全文重审）。
+4. 设定级矛盾（与圣经、词典、三本账冲突且不是笔误）→ 停，回作者：给"改设定／改本章"的推荐与理由。不允许写手悄悄圆。
+5. **品质层（仅关键章）**：pulse 对各版本做**成对比较**，reader 做**记忆测试**；经理把比较结论、记忆测试和推荐呈给作者，作者 `chapter pick <书目录> <章号> --version B --note "…"`。选中版本接进正文后，`review delta` 看改动，再过一次硬伤层。常规章不评品质分。
 
 ## Step 7 — 定稿
 
@@ -69,7 +70,7 @@ task: draft。写手按 [references/chapter-loop.md](references/chapter-loop.md)
 
 ## 开篇特有（S2 → G3）
 
-1. 第 1–3 章都是关键章：场景卡全写、作者过目；关键节拍写多版、作者选定。
+1. 第 1–3 章都是关键章，作为第一批场景卡：十项全写、作者过目；关键节拍写多版、作者选定。
 2. 三章全过后：第 1 章定稿回填**文风校准段**到 `03-文风/文风基准.md`（写手执行）。
 3. 派 reader（task: blind-read）盲评 1–3 章，报告写入 `05-审稿/blind-ch-0001-0003.md`，须含「记忆测试」一节。
 4. `ncc_state.py gate <书目录> opening` 检查：三章 done 且硬伤层通过、关键章有作者选定、盲评含记忆测试、五个签约点都在前三章落地。

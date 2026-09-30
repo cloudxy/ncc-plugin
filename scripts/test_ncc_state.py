@@ -21,6 +21,8 @@ SCENE_FULL = """# ch-{seq:04d} 场景卡
 - 情感：先憋后燃，留一点不安
 - 画面：工牌在雨里反光
 - 风险：比上一场多了警察这一方
+- 默认写法：主角亮出底牌，众人震惊
+- 关键节拍：揭穿的那一刻
 """
 SCENE_SHORT = """## 场景 1
 - 视角：陆言
@@ -207,6 +209,65 @@ class TestSceneLayer(Base):
         self.assertIn("不是关键章", self.bad("chapter", "pick", self.book, 9, "--version", "A"))
         self.ok("chapter", "key", self.book, 9)
         self.ok("chapter", "pick", self.book, 9, "--version", "A")
+
+
+class TestSlimming(Base):
+    def test_scene_next_and_batch_review(self):
+        out = self.ok("scene", "next", self.book)
+        self.assertIn("第 1–3 章", out)
+        self.ok("mode", self.book, "建筑师")
+        self.assertIn("第 1–5 章", self.ok("scene", "next", self.book))
+        for seq in (4, 5, 6):
+            self.add(seq)
+            self.write(f"02-大纲/场景卡/ch-{seq:04d}.md", SCENE_SHORT)
+        self.ok("chapter", "key", self.book, 6)
+        out = self.bad("scene", "review", self.book, 4, 5, 6, "--result", "pass", "--by", "story-editor")
+        self.assertIn("整批未写入", out)
+        self.assertEqual(self.book_json()["chapters"][0]["scenes"]["review"], "pending")
+        self.ok("chapter", "key", self.book, 6, "--off")
+        self.ok("scene", "review", self.book, 4, 5, 6, "--result", "pass", "--by", "story-editor")
+        self.assertTrue(all(c["scenes"]["review"] == "passed" for c in self.book_json()["chapters"]))
+        self.assertIn("第 7–11 章", self.ok("scene", "next", self.book))
+
+    def test_pack_contents_and_soul_guard(self):
+        self.ok("soul", self.book, "--question", "谁有资格定义一个人的价值", "--answer", "A", "--injustice", "I", "--ending", "E")
+        self.write("01-设定/人物卡/陆言.md", "# 陆言\n## 欲望\n拿回工牌\n## 恐惧\n父亲丢工作\n## 声音\n\"行，我记着。\"\n")
+        self.write("00-策划/作者种子.md", "| # | 问题 | 回答 |\n|---|---|---|\n| 1 | 画面 | 雨里的工牌 |\n| 2 | 在乎的问题 | 不该出现 |\n")
+        self.ok("fact", "set", self.book, "陆言", "高三", "--ch", 0)
+        self.write("01-设定/设定词典.md", "| 词条 | 首现章计划 | 读者已知 | 完整真相 | 计划揭示章 |\n|---|---|---|---|---|\n| 陆言 | 1 | 高三学生 | 死亡之书的宿主 | 卷二 |\n")
+        self.add(4)
+        self.assertIn("故事审", self.bad("pack", self.book, 4))
+        self.write("02-大纲/场景卡/ch-0004.md", SCENE_SHORT)
+        self.ok("scene", "review", self.book, 4, "--result", "pass", "--by", "story-editor")
+        self.ok("pack", self.book, 4, "--note", "注意雨声")
+        pack = (self.book / "04-正文/_packs/ch-0004.md").read_text("utf-8")
+        for key in ("写作简报", "读者此刻", "人物声音", "拿回工牌", "我记着", "雨里的工牌", "陆言 = 高三", "注意雨声"):
+            self.assertIn(key, pack)
+        self.assertIn("读者目前知道「高三学生」", pack)
+        for banned in ("不该出现", "谁有资格定义", "硬伤", "审稿清单", "死亡之书的宿主"):
+            self.assertNotIn(banned, pack)
+        self.write("02-大纲/场景卡/ch-0004.md", SCENE_SHORT + "- 主题：谁有资格定义一个人的价值\n")
+        self.ok("scene", "review", self.book, 4, "--result", "pass", "--by", "story-editor")
+        self.assertIn("书魂原文", self.bad("pack", self.book, 4))
+
+    def test_review_plan_and_delta(self):
+        self.add(4)
+        self.assertIn("不派", self.ok("review", "plan", self.book, 4))
+        self.ok("promise", "add", self.book, "--type", "爽点欠账", "--content", "退婚", "--ch", 1)
+        self.ok("promise", "resolve", self.book, "P-0001", "--ch", 4)
+        self.assertIn("本章兑现", self.ok("review", "plan", self.book, 4))
+        self.assertIn("开篇", self.plan_opening())
+        self.write("04-正文/第0004章-x.md", "第一段\n\n第二段改了\n\n第三段")
+        self.ok("review", "plan", self.book, 4)
+        self.write("04-正文/第0004章-x.md", "第一段\n\n第二段又改了\n\n第三段")
+        out = self.ok("review", "delta", self.book, 4)
+        self.assertIn("第二段又改了", out)
+        self.assertNotIn("第一段", out)
+        self.assertIn("没有改动", self.ok("review", "delta", self.book, 4))
+
+    def plan_opening(self):
+        self.add(2)
+        return self.ok("review", "plan", self.book, 2)
 
 
 class TestChaptersAndPromises(Base):

@@ -1,6 +1,6 @@
 {
   "name": "ncc-workflow",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Novel Create Center：长篇网文从立书到收束的工作流。下限引擎——书魂与类型契约、五层决策、三本账（承诺/知情/世界）、读者此刻、水章判据、硬伤审；上限引擎——作者种子、人物引擎、场景卡先审故事后写文字、写作简报与质检清单分离、关键节拍写多版由作者挑、三层评价（不打绝对分）、发展编辑、三种写作模式。循环与收束——单元、卷、书三级复盘，卷间闸与完本闸，读者数据回流校准模拟读者，作者可持续与团队认领。每个决策点给推荐与备选，推荐从作者种子长出来。经理窗口调度十个创作角色，book.json 单一状态源，写-审-改分离。",
   "description_i18n": {
     "en": "Novel Create Center: a long-form web-novel workflow from founding to finale. Floor engine — book soul and genre contract, five decision layers, three ledgers (promises / knowledge states / world), reader-now, water-chapter detection, hard-defect review. Ceiling engine — author seeds, character engine, scene cards reviewed for story before any prose, writing briefs kept separate from review checklists, key beats written in several versions for the author to pick, three-layer evaluation with no absolute quality scores, a developmental editor, and architect / gardener / hybrid writing modes. Loops and finale — unit, volume and whole-book reviews, volume and finale gates, real reader data calibrating the simulated reader, author sustainability and team roles. Every decision point offers a recommendation grown from the author's own seeds. A manager window dispatches ten creative roles over a single book.json state source, with write/review/revise separated.",

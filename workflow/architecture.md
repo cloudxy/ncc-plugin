@@ -1,4 +1,4 @@
-# NCC 架构（v0.4）
+# NCC 架构（v0.4.1）
 
 五层决策 · 三本账 · 四循环 · 读者模型 · 引导层 · 上限引擎。**下限靠系统，上限靠作者与选择。**设计全文见作者的完善计划（`~/Documents/grok-files/ncc-workflow/2026-09-30-ncc-workflow-完善计划.md`）；本文件是插件内的落地说明，机器可读部分以 `registry.json` 为准。
 
@@ -106,4 +106,17 @@ v0.1 书用 `ncc_state.py migrate` 升级：`ideation→founding`、`golden→op
 | 机械检查分级 | `check_chapter.py`：五星句式出现即改，其余高危句式与一级词合计限额，二级词只告警，句长起伏只作参考；`03-文风/放行清单.md` |
 | 作者可持续 | `skills/ncc/references/sustain.md`：存稿线（`chapter publish`）与保更模式、倦怠信号、噪音隔离、卡文协议 |
 | 团队 | `skills/ncc/references/team.md`：`team set`；`NCC_ACTOR`＋操作日志 |
+
+## 十、减重（D16–D18，v0.4.1）
+
+常规章约占八成，按"价值配得上成本"重排：
+
+| 改动 | 做法 | 常规章角色调用 |
+|---|---|---|
+| 场景卡小批量 | `scene next` 给范围（混合 3、建筑师 5、园丁 2），outliner 一次写、story-editor 一次审（顺带看跨章的升级与重复） | 2 → 约 0.7 |
+| 硬伤审合并 | 常规章只派 continuity（含毒点）；`review plan` 判断是否加 pulse（兑现章、关键章、开篇） | 2 → 1 |
+| 复审只看改动 | `review delta` 列出快照之后改动的段落，原审稿人只复审这些 | 返工 3 → 2 |
+| 写手包脚本组装 | `pack` 按固定顺序组装，审稿文件与书魂原文进不去 | 经理手工 → 0 |
+
+合计：常规章顺利时从 5 次降到约 2.7 次，返工一轮从 8 次降到约 4.7 次；一致性审查、脚本检查、关键章流程不减。
 

@@ -24,10 +24,11 @@ book.json 的 `stage`：`founding → settings → outline → opening → seria
 ## 每章循环（S2/S3 共用）：先审故事，后写文字
 
 ```
-chapter add → 场景卡(outliner) → 故事审(story-editor；关键章作者过目) → scene review pass
-  → 写作简报 + reader-now + 上下文包(留档) → writer 草稿(关键节拍 2–3 版) + 三本账回写
-  → check_chapter.py(字数/钩子/AI味/水章) → 不及格: writer 重写(chapter retry，≤3轮)
-  → 硬伤审(continuity + pulse，通过/不通过) → editor 修订 → 复审(SHA 重新绑定)
+每批（混合 3 章 / 建筑师 5 / 园丁 1–2）：
+  scene next → chapter add ×N → 场景卡(outliner 一次写完) → 故事审(story-editor 一次审完；关键章作者过目)
+每章：
+  pack(脚本组装写手包) → writer 草稿(关键节拍 2–3 版) + 三本账回写 → check_chapter.py(字数/钩子/AI味/水章)
+  → review plan(continuity 必派；pulse 仅兑现章/关键章/开篇) → editor 修订 → review delta → 原审稿人只复审改动
   → 关键章: 成对比较(pulse) + 记忆测试(reader) → 作者 chapter pick
   → ncc_state.py complete --hard pass
 ```
@@ -44,8 +45,8 @@ chapter add → 场景卡(outliner) → 故事审(story-editor；关键章作者
 | story-editor | 发展编辑：场景卡故事审；单元与卷层面提结构问题、给方向 | 打分、写正文 |
 | writer | 按写作简报写章；关键节拍写多版；回写三本账 | 审自己的稿、读审稿清单 |
 | editor | 执行修订、去AI味、对齐文风锚点 | 产审稿结论 |
-| continuity | 硬伤层主审：设定冲突/时间线/承诺义务/场景卡是否落地/知情越权/知识台账，只产 observation | 改稿、评好坏 |
-| pulse | 硬伤层的契约与文风部分；关键章的版本成对比较 | 改稿、打绝对分 |
+| continuity | 硬伤层主审（常规章唯一审稿人，含毒点）：设定冲突/时间线/承诺义务/场景卡是否落地/知情越权/知识台账，只产 observation；复审只看改动 | 改稿、评好坏 |
+| pulse | 只在兑现章、关键章、开篇：契约与欠·挣·超·证；关键章的版本成对比较 | 改稿、打绝对分 |
 | reader | 盲评（不给大纲设定）：追读意愿、弃读点、记忆测试 | 看任何生产材料 |
 | deconstructor | 按总纲5.0拆对标书，喂设定库 | 写本书正文 |
 

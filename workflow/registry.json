@@ -137,7 +137,7 @@
     "outliner": {
       "skill": "ncc-new",
       "task": "outline",
-      "description": "Use this agent for the outline scaled to the writing mode (master → volume → chapter), signature scenes and core motifs, the emotion curve, registering promises, and drafting just-in-time scene cards (task: scene) for the next chapter. Owns G2 freeze evidence. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent for the outline scaled to the writing mode (master → volume → chapter), signature scenes and core motifs, the emotion curve, registering promises, and drafting scene cards in small batches (task: scene; 3 chapters in hybrid mode), including the default move the writer should avoid. Owns G2 freeze evidence. Do NOT use while /ncc runs in the parent window.",
       "color": "blue",
       "fresh": false,
       "function": "创作"
@@ -145,7 +145,7 @@
     "story-editor": {
       "skill": "ncc-write",
       "task": "story-review",
-      "description": "Use this agent as the developmental (structural) editor: story review of scene cards before any prose is written (task: story-review), and structural questions at unit and volume review (task: unit-questions) — turns, real dilemmas, target emotion, escalation, character desire and need, human agency within structural constraints, what the protagonist lost. Asks questions and recommends directions; never scores and never writes prose. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent as the developmental (structural) editor: story review of a batch of scene cards before any prose is written (task: story-review), also reading across the batch for escalation and repetition, and structural questions at unit and volume review (task: unit-questions) — turns, real dilemmas, target emotion, escalation, character desire and need, human agency within structural constraints, what the protagonist lost. Asks questions and recommends directions; never scores and never writes prose. Do NOT use while /ncc runs in the parent window.",
       "color": "teal",
       "fresh": false,
       "function": "质量"
@@ -169,7 +169,7 @@
     "continuity": {
       "skill": "ncc-review",
       "task": "audit",
-      "description": "Use this agent for the hard-defect layer of review: setting conflicts, timeline, promise-ledger obligations, whether the scene card's turn and dilemma actually happen on the page, knowledge-state leaks (POV discipline), state-event replay, fact-ledger consistency. Pass/fail with evidence-cited observations only — never edits manuscripts, never scores quality. Fresh context, no producer memory. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent for the hard-defect layer of review: setting conflicts, timeline, promise-ledger obligations, whether the scene card's turn and dilemma actually happen on the page, knowledge-state leaks (POV discipline), state-event replay, fact-ledger consistency. On regular chapters it is the only hard-defect reviewer and also checks the poison list; re-reviews only the changed paragraphs from review delta. Pass/fail with evidence-cited observations only — never edits manuscripts, never scores quality. Fresh context, no producer memory. Do NOT use while /ncc runs in the parent window.",
       "color": "red",
       "fresh": true,
       "function": "质量"
@@ -177,7 +177,7 @@
     "pulse": {
       "skill": "ncc-review",
       "task": "pulse",
-      "description": "Use this agent for the genre-contract part of the hard-defect layer (poison list, signing points, missing debt/earn/exceed/witness in payoffs, AI-flavor) and, on key chapters, pairwise comparison of versions (which is better and why, order-swapped to check bias). Never gives absolute quality scores. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent only on chapters that pay off a satisfaction debt or signature scene, key chapters, and the opening (review plan decides): genre-contract checks (poison list, signing points, missing debt/earn/exceed/witness in payoffs) and, on key chapters, pairwise comparison of versions (which is better and why, order-swapped to check bias). Never gives absolute quality scores. Do NOT use while /ncc runs in the parent window.",
       "color": "orange",
       "fresh": true,
       "function": "质量"
@@ -432,7 +432,7 @@
     "写这章的帽不审这章；审稿帽只产带证据的 observation，不改稿。",
     "book.json 与 06-台账 是状态权威；markdown 投影与正文永不回写状态。",
     "修订是显式独立动作；正文 SHA 一变，旧评审即作废，必须复评。",
-    "每章动笔前必组装并留档上下文包（含写作简报与读者此刻），无包不写；场景卡没过故事审不写正文。",
+    "每章动笔前必由 ncc_state.py pack 组装并留档写手包（写作简报＋读者此刻），无包不写；场景卡没过故事审不写正文。",
     "创作决策点（G0–G5）作者拍板；执行阶段（写作/审稿循环）禁停顿——循环内的决策按推荐项执行、记为暂定，单元复盘时集中呈给作者。",
     "宁可记「待定/文本未明确」，不可编造设定；场景用到的学科知识须有出处。",
     "审稿三层：硬伤层只判通过／不通过，每条带正文引用；故事层在正文之前审场景卡；品质层只在关键章做成对比较与读者记忆测试，不打绝对分。",
@@ -442,8 +442,13 @@
   "scene_cards": {
     "dir": "02-大纲/场景卡/",
     "per_chapter": "1–3",
-    "tool": "ncc_state.py scene check|review",
-    "rule": "场景卡过故事审之后才能标 drafting 与 complete；审后改动须重审；关键章须作者过目"
+    "tool": "ncc_state.py scene next|check|review（可一次审一批）",
+    "rule": "场景卡过故事审之后才能标 drafting 与 complete；审后改动须重审；关键章须作者过目",
+    "per_batch": {
+      "混合": 3,
+      "建筑师": 5,
+      "园丁": "1–2"
+    }
   },
   "writing_modes": {
     "建筑师": "大纲冻结后动笔",
@@ -456,5 +461,11 @@
     "单元": "unit open/close＋report unit（loops.md §一）",
     "卷": "volume end＋report volume＋G4（loops.md §二）",
     "书": "全书复盘＋技艺库（loops.md §三，finale.md）"
+  },
+  "review_plan": {
+    "常规章": "continuity 一人（含契约与毒点）",
+    "加 pulse": "本章兑现爽点欠账或名场面、关键章、开篇",
+    "复审": "review delta 只看改动段落，由原审稿人复审",
+    "tool": "ncc_state.py review plan|delta"
   }
 }
