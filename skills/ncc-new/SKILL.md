@@ -1,61 +1,70 @@
 ---
 name: ncc-new
-description: "Use this skill to start a new book: optional scout briefing, three-layer intake Q&A with preference memory, settings freeze (G1) and three-level outline freeze (G2). Stops at author confirmation points."
-when_to_use: "User wants to start a new novel, or /ncc-new. Do NOT use for continuing, reviewing or deconstructing."
+description: "Use this skill to start a new book: S0 founding (optional scout directions, three-layer intake Q&A, the four soul questions with candidates, genre contract and poison list; G0 soul gate) and S1 skeleton (settings freeze G1, three-level outline freeze G2). Every decision point offers a recommendation and alternatives. Stops at author confirmation points."
+when_to_use: "User wants to start a new novel, has only a vague idea for one, or says /ncc-new. Do NOT use for continuing, reviewing or deconstructing."
 ---
 
-# 开书（S0 选题 → S1 设定 → S2 大纲）
+# 开书（S0 立书 → S1 立骨）
 
-目标：把一个想法变成**可连载的冻结起点**——设定冻结（G1）、大纲冻结（G2）、然后交给 ncc-write 写黄金三章。
+目标：把一个想法——哪怕只是一句模糊的话——变成**可连载的冻结起点**：书魂闸（G0）、设定冻结（G1）、大纲冻结（G2），然后交给 ncc-write 写开篇。
 
-设计来源：三层递进问答与偏好记忆来自 chinese-novelist-skill；选题对标沿主流网文工业流（先看市场再动笔）；设定与规则表结构衔接《小说拆分总纲 5.0》（字段同源，拆书产物可直接喂进来）。
+每个需要作者决定的地方都按 [../ncc/references/guidance.md](../ncc/references/guidance.md) 执行：一次一问、推荐置顶、给备选、可以先用推荐以后再改。判据见 [../ncc/references/mind-frame.md](../ncc/references/mind-frame.md)。
 
-## Step 0 — 入口与快捷通道
+设计来源：三层递进问答与偏好记忆来自 chinese-novelist-skill；一句灵感出多套整本方向来自 AI-Novel-Writing-Assistant；选题对标沿主流网文工业流；设定与规则表衔接《小说拆分总纲 5.0》。
 
-1. 读 `{book_root}/_preferences.json`（无则初始化空偏好）。偏好驱动后续所有选项的排序与 ⭐ 标记。
-2. **快捷通道**（chinese-novelist-skill 的教训：问答是成本）：作者首条消息已含 题材＋主角设定＋核心冲突 时，跳过问答直接进 Step 2，把已给信息填表后呈示确认。信息不足才问。
-3. 建书目录：`{book_root}/{书名}/`（按 [ncc skill 的目录契约](../ncc/references/book-state.md)），从模板初始化 `book.json`，`stage: ideation`。
+## Step 0 — 入口
 
-## Step 1 — 选题（S0，可跳过）
+1. 读 `{book_root}/_preferences.json`（无则初始化空偏好）。偏好驱动选项排序、⭐ 标记与推荐理由。
+2. **第一问：引导档位**（guidance §三）。按作者自述推荐：第一次写长篇或只有模糊想法 → 新手；写过一两本 → 熟手；有成熟方法论 → 老手。
+3. 建书：`python3 <PLUGIN_ROOT>/scripts/ncc_state.py init {book_root}/{书名或暂名} --title … --level …`。脚本会建目录、三本账和 `author-intent.md` 模板，`stage: founding`。书名未定就用暂名，L3 再定。
+4. **快捷通道**：作者首条消息已含题材＋主角设定＋核心冲突时，跳过对应问答，把已给信息填表后请作者确认。信息不足才问，问题数按档位控制（新手每个决策点只问影响最大的 1–2 个）。
 
-- 作者已有明确选题 → 记 `briefing.md` 一页纸（题材/对标3本/差异点/目标读者/爽点承诺），跳过 scout，在 book.json 记 `S0 skipped: 作者已有选题`。
-- 作者只有模糊想法 → 派 scout 子代理（task: ideation）：扫榜＋对标分析＋briefing。呈示后作者点头才进 S1。
+## Step 1 — 选题与整本方向（S0）
 
-## Step 2 — 三层递进问答（S1 入口）
+- 作者已有明确选题 → 记 `00-策划/briefing.md` 一页纸（题材、对标 3 本、差异点、目标读者、爽点承诺）。
+- 作者只有模糊想法 → 派 scout（task: ideation）：扫榜＋对标，并出 **2–3 套整本方向**（每套：题材组合、主角、金手指、核心冲突、一句话卖点、书名组），标推荐与理由。作者可以选一套、只重做某一套，或只换某一部分。选定后写 briefing。
 
-问答只在**开书时**发生；执行阶段禁停顿（自动化边界）。逐层进行，每层答完静默同步偏好。详见 [references/qa-layers.md](references/qa-layers.md)。
+## Step 2 — 三层递进问答（S0）
 
-- **L1 必答三问**：题材（若 S0 已定则带出）、主角（职业/性格/金手指）、核心冲突（驱动力）。
-- **L2 可选五问**：世界观、视角与基调、主题、读者与风格参考、章节数与特殊要求——每题可 🎲 随机 / 跳过；奇幻/仙侠类强制补世界观。
-- **L3 书名**：按题材映射＋多种技法生成 3–5 个候选（各用不同技法），可重生成，>5 轮提示作者自拟。
+按 [references/qa-layers.md](references/qa-layers.md)。L1 必答三问（题材、主角、核心冲突）；L2 可选四问（世界观、视角与基调、读者与风格参考、篇幅）；L3 书名。主题不再放在 L2，而是进入 Step 3 的书魂流程。
 
-## Step 3 — 设定（S1）→ G1
+## Step 3 — 书魂与类型契约（S0）→ G0
 
-派 worldbuilder 子代理（task: settings），产出：
+按 [references/book-soul.md](references/book-soul.md)：
 
-- `01-设定/世界观圣经.md` —— 世界层/力量源/地理/势力/规则，按 [references/worldbuilding.md](references/worldbuilding.md) 的结构。
-- `01-设定/力量体系.md` —— 境界阶梯＋**量纲定义**（每个数值：定义域/阈值效应/恢复机制）＋越级例外。
-- `01-设定/设定词典.md` —— 专有名词表：`词条 | 首现章计划 | 读者已知 | 完整真相 | 计划揭示章`（chinese-novelist-skill 的四栏词典，跨章一致性的地基）。
-- `01-设定/规则表.md` —— per-book 克制链/兑换率（总纲 5.0 铁律：规则随书，不跨书）。
-- `01-设定/人物卡/` —— 主角团每人一卡（A1–A8 字段参照总纲 5.0 的底卡分级，只填有的）。
+1. **类型契约**：按已选方向给 2–3 种主契约组合，各附对标作品与典型毒点；作者选定后 `ncc_state.py contract <书目录> --main … --poison a,b`，完整表述写进 `author-intent.md`。
+2. **书魂四问**：不直接问"你的主题是什么"。从已选方向、主角、核心冲突推出 2–3 个主题候选，每个附一句预览和一部名著参照；作者选、改或全部否决。答不出就用推荐项标**暂定**（D7），最晚第一卷卷复盘时定下：`ncc_state.py soul <书目录> --question … --answer … --injustice … --ending … --status 暂定 --deadline 第一卷卷复盘`，并登记 `promise add --type 暂定决策 --content 书魂定稿 --ch 0 --deadline 第一卷卷复盘`。
+3. **G0 书魂闸**：跑 `ncc_state.py gate <书目录> soul`，呈示书魂（标暂定／确定）＋主契约＋毒点清单；作者确认后 `--action pass --quote "作者原话"`，`stage → settings`。
 
-若有拆书产物（设定库/词典片段），worldbuilder 直接吸收并在卡上记来源。
+## Step 4 — 设定（S1 立骨）→ G1
 
-**G1 冻结**：跑 `ncc_state.py gate <书目录> settings`，呈示脚本结果＋空白项清单；作者确认后 `gate <书目录> settings --action pass --quote "作者原话"`，`stage → outline`。冻结后的改动走经理的 `revise-settings`（状态事件留痕＋受影响章节标记复评）。
+派 worldbuilder（task: settings），产出：
 
-## Step 4 — 大纲（S2）→ G2
+- `01-设定/世界观圣经.md`——按 [references/worldbuilding.md](references/worldbuilding.md) 的结构；"世界的不公"要落在具体的社会结构上（对应书魂）。
+- `01-设定/力量体系.md`——境界阶梯＋**量纲定义**＋越级例外。金手指、力量体系这两个决策点按 guidance 给 2–3 套方案。
+- `01-设定/设定词典.md`——`词条 | 首现章计划 | 读者已知 | 完整真相 | 计划揭示章`。
+- `01-设定/规则表.md`——per-book 克制链／兑换率。
+- `01-设定/人物卡/`——主角团每人一卡。
+- 知识台账初值：已定的距离、物价、历法、称谓等用 `ncc_state.py fact set` 写入。
 
-派 outliner 子代理（task: outline），按 [references/outline.md](references/outline.md)：
+若有拆书产物（设定库／词典片段），worldbuilder 直接吸收并在卡上记来源。
 
-1. **总纲**：主线一句话、三幕/起承转合、主角弧光、大结局方向、卷目录。
-2. **卷纲**：先只做卷一完整版（钩子链、阶段目标、新设定引入计划、情绪曲线）。
-3. **章纲**：黄金三章逐章细纲（每章 must-keep / avoid、钩子类型与强度）＋后续 **50 章滚动窗**（只含近期，写完一卷再扩——Openwrite 的滚动规划）。
-4. **伏笔种子表**：埋到大纲层的伏笔登记进台账（id、预计埋设章、预计回收窗口）。
+**G1 冻结**：`ncc_state.py gate <书目录> settings`，呈示脚本结果＋空白项清单；作者确认后 `--action pass`，`stage → outline`。冻结后的改动走变更提议（`workflow/architecture.md` §一）。
 
-**G2 冻结**：`ncc_state.py gate <书目录> outline`，呈示总纲主线＋卷一钩子链＋情绪曲线；作者确认后 `--action pass`，`stage → golden`，交接 ncc-write。
+## Step 5 — 大纲（S1 立骨）→ G2
+
+派 outliner（task: outline），按 [references/outline.md](references/outline.md)：
+
+1. **总纲**：主线一句话、分卷目录（每卷写明从哪个角度考验主题之问）、情绪曲线、结局方向。卷走向按 guidance：只要求定第一卷和全书大方向，后续各卷给 2–3 种走向。
+2. **卷纲**：先只做卷一完整版。
+3. **章纲**：黄金三章逐章细纲（含签约点分配）＋后续 **50 章滚动窗**。
+4. **承诺登记**：大纲层的伏笔、悬念、爽点欠账、卷目标全部 `ncc_state.py promise add` 登记进承诺台账（带强度与兑现窗口）。
+
+**G2 冻结**：`ncc_state.py gate <书目录> outline`，呈示总纲主线＋卷一钩子链＋承诺台账摘要；作者确认后 `--action pass`，`stage → opening`，交接 ncc-write。
 
 ## 边界
 
-- 本流程停在 G2；黄金三章属于 ncc-write。
-- 问答阶段作者不答的题不编造：记「未定」，worldbuilder 用保守默认并显式标注。
-- 偏好文件只增不删；`creationHistory` 超过 50 条滚动裁剪最旧的（修正源项目的无限增长问题）。
+- 本流程停在 G2；开篇（黄金三章）属于 ncc-write。
+- 作者不答的题不编造：用推荐项记"暂定"并登记最晚决定点，worldbuilder 保守处理并显式标注。
+- 推测出来的候选只是选项；作者没选之前，不写进任何文件当结论。
+- 偏好文件只增不删；`creationHistory` 超过 50 条滚动裁剪最旧的。作者否决过的推荐记进偏好并降权。

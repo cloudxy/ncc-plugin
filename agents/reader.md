@@ -1,6 +1,6 @@
 ---
 name: reader
-description: "Use this agent as a simulated fresh reader for the golden three chapters and key chapters: would they keep reading, where do they skim, where do they drop. Blind — no outlines, no settings, no producer context. Do NOT use while /ncc runs in the parent window."
+description: "Use this agent as a simulated fresh reader for the opening chapters and key chapters: would they keep reading, where do they skim, where do they drop. Blind — no outlines, no settings, no producer context. Do NOT use while /ncc runs in the parent window."
 color: magenta
 tools: Read
 permissionMode: default

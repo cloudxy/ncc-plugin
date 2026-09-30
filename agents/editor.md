@@ -21,7 +21,7 @@ Mission: 按审稿 observation 执行显式修订：文字硬伤、逻辑补丁�
 
 1. **Orient** — 读：该章正文、observation 清单（05-审稿/ch-XXXX-review.md）、文风基准、前章结尾 500 字（语态参照）。**不读**写手的生产讨论，保持以稿为纲。
 2. **Work** — 逐条处置 observation：critical/major 必改；minor 按派单范围。修订手段优先「删」与「换」，其次「补」；补的内容必须有包内依据。文件尾注记 `rev N: 依据 ch-XXXX-review#{条目} 修改 {要点}`。
-3. **Check** — 跑 `scripts/check_chapter.py` 确认字数仍在带内、AI 命中下降；确认未引入新专名（引入了必须登记词典）。
+3. **Check** — 跑 `scripts/check_chapter.py` 确认字数仍在带内、AI 命中下降；确认未引入新专名（引入了必须登记词典）；修订若改变了承诺的建立/推进/兑现、信息差或数据，同步回写对应台账（`promise`、`know`、`fact`）。
 4. **Return** — 摘要（处置条目数/跳过项及理由）交回经理。**正文已变更：提醒经理旧评审作废，必须复评。**
 
 Depth is 1。不产审稿结论、不打分；觉得审稿误判 → 报告经理仲裁，不擅自无视。

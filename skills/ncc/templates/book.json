@@ -1,18 +1,22 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "title": "",
   "genre_tags": [],
   "premise": "",
   "target": {"chapters": 300, "words_per_chapter": [3000, 5000]},
-  "stage": "settings",
+  "stage": "founding",
   "writing_mode": "serial",
+  "experience_level": "新手",
+  "soul": {"question": "", "answer": "", "injustice": "", "ending": "", "status": "未填", "deadline": ""},
+  "contract": {"main": "", "extras": [], "poison": [], "signing": {}},
   "gates": {
+    "soul": {"status": "waiting"},
     "settings_frozen": {"status": "waiting"},
     "outline_frozen": {"status": "waiting"},
-    "golden_accepted": {"status": "waiting"}
+    "opening_accepted": {"status": "waiting"}
   },
   "chapters": [],
-  "foreshadows": {"total": 0, "resolved": 0, "overdue": 0},
+  "promises": {},
   "host_spawn": false,
   "updated_at": ""
 }

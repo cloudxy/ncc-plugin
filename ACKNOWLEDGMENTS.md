@@ -23,11 +23,11 @@
 | 审稿累加分制：只有带正文证据的准则计分、问题不扣分、覆盖率独立、critical 只 block | review-domains.md |
 | 评审 SHA 绑定正文：正文一变评审即 stale，修订后强制复评 | book-state.md、ncc-review |
 | 写前上下文包预检（可审计、可留档） | context-pack.md ＋ _packs/ |
-| 伏笔义务清单（due/overdue/to_plant）进工作简报 | 上下文包、情节承诺域 |
+| 伏笔义务清单（due/overdue/to_plant）进工作简报 | v0.2 扩为承诺台账（ncc_state.py promise）、情节承诺域 |
 | 50 章滚动规划窗 | outline.md |
 | 写→审→修→复评→收尾的交付 DAG | 每章流水线 |
 
-按其经验做了减法：47 节点物化 DAG 与六域并行（约 7 次模型调用）收敛为五域两次派单（continuity＋pulse），适配 CLI 插件成本。
+按其经验做了减法：47 节点物化 DAG 与六域并行（约 7 次模型调用）收敛为两次派单（continuity＋pulse），适配 CLI 插件成本。v0.2 按 D11 扩为八域，派单次数不变。
 
 ## [InkOS](https://github.com/Narcooo/inkos)（AGPL-3.0，⭐10k）
 
@@ -50,4 +50,17 @@
 |---|---|
 | 《小说拆分总纲 5.0》（~/Documents/word_wx/ai-skills/） | ncc-deconstruct 的字段口径；事件溯源台账；量纲定义；设定词典与底卡分级 |
 | sdlc-workflow 插件 | 目录骨架、经理窗口＋角色帽、registry 唯一事实源、闸门与铁律文体、G-fresh 思想（→ reader/continuity 的 fresh 上下文） |
-| 主流网文工业流（黄金三章/存稿/日更/爽点节奏的大众共识） | 阶段主线 S0–S5、golden-three.md、连载节奏 |
+| 主流网文工业流（黄金三章/存稿/日更/爽点节奏的大众共识） | 阶段主线、golden-three.md、连载节奏 |
+| novel_guide（~/Documents/Obsidian_files/novel_guide/） | 爽点通用结构（压迫→误判→吃亏→破口→反打→善后→新责任）是欠·挣·超·证的来源；卡文五问进卡文协议 |
+
+## v0.2 引导层参照（GitHub 高星项目，星数为 2026-09-30 数据）
+
+只借做法，未复制任何代码。
+
+| 项目 | 许可 | 借鉴 | 落点 |
+|---|---|---|---|
+| [obra/superpowers](https://github.com/obra/superpowers)（约 29.3 万星） | MIT | brainstorming：一次一问、尽量给选择题、2–3 种方案且推荐在前 | guidance.md 第 3 步 |
+| [github/spec-kit](https://github.com/github/spec-kit)（约 13.9 万星） | MIT | clarify：按影响排序、最多 5 问、"为什么要紧"、推荐项置顶、回答立即写回 | guidance.md 第 1–3、5 步 |
+| [bmad-code-org/BMAD-METHOD](https://github.com/bmad-code-org/BMAD-METHOD)（约 5.4 万星） | 见其仓库（GitHub 未识别为标准许可） | 高级启发：选一种推理方法（事前复盘等）二次审视已有方案 | guidance.md 第 7 步 |
+| [zenstory-ai/oh-story-claudecode](https://github.com/zenstory-ai/oh-story-claudecode)（约 7200 星） | MIT | 候选真相带最晚可改章；作者真相与读者已知分开记录；一句话路由 | 暂定决策的 deadline、知情台账、一句话入口 |
+| [ExplosiveCoderflome/AI-Novel-Writing-Assistant](https://github.com/ExplosiveCoderflome/AI-Novel-Writing-Assistant)（约 3000 星） | AGPL-3.0（据其 README；只借思想） | 面向新手：一句灵感生成多套整本方向与书名组、附推荐理由、可只重做某一套；简易/专业两种模式 | scout 的整本方向候选、定向重做、引导档位 |

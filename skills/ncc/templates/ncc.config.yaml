@@ -13,7 +13,7 @@ framework_candidates:
 
 # 审稿阈值（G-chapter / G3 用）
 review:
-  pass_score: 70        # 五域累加分制总分阈值
+  pass_score: 70        # 八域累加分制总分阈值（不适用项从分母剔除后折算）
   min_coverage: 0.8     # 覆盖率下限
   max_retry: 3          # 同章重写上限
 

@@ -7,6 +7,7 @@
   1. 汉字字数在 [words_min, words_max]（默认 3000–5000；读 ncc.config.yaml）
   2. book.json 该章已登记章尾钩子（type + intensity）
   3. AI 味词表命中数（>阈值告警，计入退出码）
+  4. 水章：本章未建立、推进或兑现任何承诺（读 06-台账/承诺台账.json；无台账则告警跳过）
 
 只数汉字、剔除 Markdown 标记（做法源自 chinese-novelist-skill 的字数脚本思路）。
 """
@@ -14,6 +15,9 @@ import json
 import re
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from ncc_state import PROMISES, chapter_touches  # noqa: E402
 
 AI_FLAVOR = [
     "仿佛", "宛如", "不禁", "一丝", "一抹", "淡淡的", "微微", "轻轻",
@@ -103,10 +107,24 @@ def main():
     elif total_hits > FLAVOR_LIMIT // 2:
         warns.append(f"AI 味词命中 {total_hits}（接近阈值）")
 
+    ledger = book_dir / PROMISES
+    touches = []
+    if ledger.exists():
+        try:
+            items = json.loads(ledger.read_text("utf-8")).get("items", [])
+            touches = chapter_touches(items, seq)
+            if not touches:
+                problems.append("水章：本章未建立、推进或兑现任何承诺（先回写承诺台账，或补写推进）")
+        except (json.JSONDecodeError, AttributeError):
+            warns.append("承诺台账解析失败，跳过水章检测")
+    else:
+        warns.append("无承诺台账，跳过水章检测（v0.1 书先运行 ncc_state.py migrate）")
+
     result = {
         "seq": seq, "file": str(f), "han_words": words,
         "band": [words_min, words_max], "hook": hook,
-        "ai_flavor_hits": total_hits, "warnings": warns,
+        "ai_flavor_hits": total_hits, "promise_touches": [f"{i} {k}" for i, k in touches],
+        "warnings": warns,
         "problems": problems, "pass": not problems,
     }
     print(json.dumps(result, ensure_ascii=False, indent=2))

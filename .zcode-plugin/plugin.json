@@ -1,10 +1,10 @@
 {
   "name": "ncc-workflow",
-  "version": "0.1.0",
-  "description": "Novel Create Center：网文创作流水线——选题、三层问答开书、设定冻结、三级大纲、黄金三章、日更连载、五域审稿与修订闭环、拆书喂设定库。经理窗口调度九个创作角色，book.json 单一状态源，写-审-改分离。",
+  "version": "0.2.0",
+  "description": "Novel Create Center：长篇网文从立书到收束的工作流——书魂与类型契约、五层决策、三本账（承诺/知情/世界）、读者此刻、水章判据、八域审稿与修订闭环、开篇盲评与签约点、拆书喂设定库；每个决策点给推荐与备选，新手一句话也能开书。经理窗口调度九个创作角色，book.json 单一状态源，写-审-改分离。",
   "description_i18n": {
-    "en": "Novel Create Center: a gated web-novel pipeline — ideation, layered intake Q&A, frozen settings, three-level outline, golden three chapters, serialized daily chapters, five-domain review with revision loop, and book deconstruction feeding the setting vault. A manager window dispatches nine creative roles over a single book.json state source, with write/review/revise separated.",
-    "zh-CN": "Novel Create Center：网文创作流水线——选题、三层问答开书、设定冻结、三级大纲、黄金三章、日更连载、五域审稿与修订闭环、拆书喂设定库。经理窗口调度九个创作角色，book.json 单一状态源，写-审-改分离。"
+    "en": "Novel Create Center: a long-form web-novel workflow from founding to finale — book soul and genre contract, five decision layers, three ledgers (promises / knowledge states / world), a reader-now block per chapter, water-chapter detection, eight-domain review with revision loop, blind-read opening with signing points, and book deconstruction feeding the setting vault. Every decision point offers a recommendation and alternatives. A manager window dispatches nine creative roles over a single book.json state source, with write/review/revise separated.",
+    "zh-CN": "Novel Create Center：长篇网文从立书到收束的工作流——书魂与类型契约、五层决策、三本账（承诺/知情/世界）、读者此刻、水章判据、八域审稿与修订闭环、开篇盲评与签约点、拆书喂设定库；每个决策点给推荐与备选，新手一句话也能开书。经理窗口调度九个创作角色，book.json 单一状态源，写-审-改分离。"
   },
   "author": {
     "name": "xuyun"

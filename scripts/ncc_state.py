@@ -1,35 +1,91 @@
 #!/usr/bin/env python3
-"""ncc_state.py — book.json 单一状态源的确定性读写工具。
+"""ncc_state.py — book.json 与 06-台账 的确定性读写工具（schema v2）。
 
-子命令:
-  init <book_dir> --title T [--genre a,b] [--chapters N]   初始化书目录与 book.json
-  status <book_dir>                                          打印状态摘要（退出码恒 0）
-  next <book_dir>                                            第一个非 done 章（无则退出 1）
-  gate <book_dir> settings|outline|golden [--action check|pass|reject] [--quote Q]
-                                        机械检查（默认）/记录作者通过/记录作者打回
-  complete <book_dir> <seq> --words N [--score S] [--coverage C] [--report P]  章落盘回写
-  sha <file>                                                 打印文件 sha256（前 16 位）
+状态只从这里（和经理派单回收）写入；markdown 投影与正文永不回写状态。
+只依赖标准库。
 
-只依赖标准库。状态只从这里（和经理派单回收）写入。
+书与闸门
+  init <book> --title T [--genre a,b] [--chapters N] [--level 新手|熟手|老手]
+  status <book>                          状态摘要（退出码恒 0）
+  next <book>                            第一个非 done 章（无则退出 1）
+  migrate <book>                         v0.1（schema 1）→ schema 2
+  gate <book> soul|settings|outline|opening|volume|finale [--action check|pass|reject] [--quote Q] [--force]
+  level <book> 新手|熟手|老手             引导档位
+  soul <book> [--question Q] [--answer A] [--injustice I] [--ending E] [--status 暂定|确定] [--deadline D]
+  contract <book> [--main M] [--extra X]... [--poison a,b]
+  sign <book> <签约点> --ch N             签约点：主角与欲望|世界的不公|主角的机会|第一次小兑现|长线钩子
+
+章节
+  chapter add <book> <seq> --file F
+  chapter hook <book> <seq> --type T --intensity 1-5 [--line L]
+  chapter mark <book> <seq> <status>     pending|drafting|drafted|checking|reviewing|revising|failed
+  chapter mood <book> <seq> 压抑|释放|平
+  chapter retry <book> <seq>             重写计数 +1，达上限转 failed
+  complete <book> <seq> --words N [--score S] [--coverage C] [--report P]
+  water <book> <seq>                     水章检测：本章未建立、推进或兑现任何承诺 → 退出 1
+
+三本账
+  promise add <book> --type T --content C --ch N [--strength 1-5] [--window A-B] [--deadline D] [--desire K]
+  promise touch|resolve <book> <id> --ch N [--note X]
+  promise drop <book> <id> --ch N --compensation X
+  promise list <book> [--open] [--type T]
+  know add <book> --fact F --ch N [--known-by a,b] [--unknown-to x,y]
+  know learn <book> <id> --who X --ch N
+  know list <book> [--who X]
+  fact set <book> <key> <value> --ch N [--source S] [--category C] [--override]
+  fact get <book> <key>
+  fact list <book> [--category C]
+  reader-now <book> <seq> [--top N]      生成上下文包的"读者此刻"块
+
+其他
+  sha <file>
 """
 import argparse
 import datetime
 import hashlib
 import json
+import os
+import re
 import sys
+import tempfile
 from pathlib import Path
+
+SCHEMA = 2
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 
 DIRS = [
     "00-策划", "01-设定/人物卡", "02-大纲/卷纲", "02-大纲/章纲",
     "03-文风", "04-正文/_packs", "05-审稿", "06-台账", "07-导出", "memory",
 ]
-GATE_FILES = {
-    "settings": ["01-设定/世界观圣经.md", "01-设定/力量体系.md", "01-设定/设定词典.md"],
-    "outline": ["02-大纲/总纲.md", "02-大纲/卷纲/卷1.md"],
-    "golden": ["04-正文/第0001章-雨夜.md"],  # 实际以 book.json 章节记录为准
-}
-GATE_NEXT_STAGE = {"settings": "outline", "outline": "golden", "golden": "serial"}
+LEDGER = "06-台账"
+PROMISES = f"{LEDGER}/承诺台账.json"
+KNOWLEDGE = f"{LEDGER}/知情台账.json"
+FACTS = f"{LEDGER}/知识台账.json"
+EVENTS = f"{LEDGER}/状态事件.json"
+OLD_FORESHADOW = f"{LEDGER}/伏笔台账.json"
 
+LEVELS = ("新手", "熟手", "老手")
+PROMISE_TYPES = ("伏笔", "悬念", "爽点欠账", "人物弧", "感情线", "卷目标", "期权", "暂定决策")
+NON_READER_TYPES = ("期权", "暂定决策")          # 不计入水章判定、不进"读者在等"
+OPEN_STATES = ("开放", "推进中")
+CHAPTER_STATES = ("pending", "drafting", "drafted", "checking",
+                  "reviewing", "revising", "failed")
+MOODS = ("压抑", "释放", "平")
+SIGNING_POINTS = ("主角与欲望", "世界的不公", "主角的机会", "第一次小兑现", "长线钩子")
+
+# 阶段（D10）：founding → settings → outline → opening → serial ⇄ volume → finale → finished
+GATES = {
+    "soul": ("soul", "settings"),
+    "settings": ("settings_frozen", "outline"),
+    "outline": ("outline_frozen", "opening"),
+    "opening": ("opening_accepted", "serial"),
+    "volume": ("volume", None),
+    "finale": ("finale", "finished"),
+}
+PLANNED_GATES = {"volume": "M2-1", "finale": "M2-2"}
+
+
+# ---------- 基础 ----------
 
 def now():
     return datetime.datetime.now().isoformat(timespec="seconds")
@@ -40,94 +96,296 @@ def die(msg, code=1):
     sys.exit(code)
 
 
+def write_json(path: Path, data):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".tmp-", suffix=".json")
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+    os.replace(tmp, path)
+
+
+def read_json(path: Path, default):
+    if not path.exists():
+        return default
+    try:
+        return json.loads(path.read_text("utf-8"))
+    except json.JSONDecodeError as e:
+        die(f"{path} 损坏: {e}")
+
+
 def load(book_dir: Path) -> dict:
     p = book_dir / "book.json"
     if not p.exists():
         die(f"book.json 不存在: {p}（先 init，或按 references/book-state.md 重建）")
-    try:
-        return json.loads(p.read_text("utf-8"))
-    except json.JSONDecodeError as e:
-        die(f"book.json 损坏: {e}（按文件存在性+check_chapter.py 重建后 diff 给作者）")
+    d = read_json(p, {})
+    if d.get("schema_version", 1) < SCHEMA:
+        die(f"book.json 是 schema {d.get('schema_version', 1)}，先运行: ncc_state.py migrate {book_dir}")
+    return d
 
 
 def save(book_dir: Path, data: dict):
     data["updated_at"] = now()
-    (book_dir / "book.json").write_text(
-        json.dumps(data, ensure_ascii=False, indent=2) + "\n", "utf-8")
+    write_json(book_dir / "book.json", data)
 
 
-def foreshadow_summary(book_dir: Path) -> dict:
-    p = book_dir / "06-台账" / "伏笔台账.json"
-    if not p.exists():
-        return {"total": 0, "resolved": 0, "overdue": 0, "note": "无台账文件"}
+def load_cfg(book_dir: Path) -> dict:
+    cfg = {"words_min": 3000, "words_max": 5000, "pass_score": 70, "max_retry": 3}
+    for p in (book_dir.parent / "ncc.config.yaml", book_dir / "ncc.config.yaml"):
+        if p.exists():
+            text = p.read_text("utf-8")
+            for k in cfg:
+                m = re.search(rf"{k}:\s*(\d+)", text)
+                if m:
+                    cfg[k] = int(m.group(1))
+            break
+    return cfg
+
+
+def ledger(book_dir: Path, rel: str, key: str = "items"):
+    return read_json(book_dir / rel, {key: [] if key != "facts" else {}})
+
+
+def current_chapter(d: dict) -> int:
+    done = [c["seq"] for c in d.get("chapters", []) if c.get("status") == "done"]
+    return max(done) if done else 0
+
+
+def find_ch(d: dict, seq: int) -> dict:
+    for c in d.get("chapters", []):
+        if c["seq"] == seq:
+            return c
+    die(f"book.json 中没有第 {seq} 章（先 chapter add）")
+
+
+def parse_window(s):
+    if not s:
+        return None
+    m = re.fullmatch(r"\s*(\d+)\s*[-~～至]\s*(\d+)\s*", str(s))
+    if not m:
+        die(f"--window 格式应为 A-B（章号），收到: {s}")
+    a, b = int(m.group(1)), int(m.group(2))
+    return [min(a, b), max(a, b)]
+
+
+def as_int(v):
     try:
-        items = json.loads(p.read_text("utf-8"))
-        rows = items if isinstance(items, list) else items.get("items", [])
-        resolved = sum(1 for r in rows if r.get("status") == "已回收")
-        overdue = sum(1 for r in rows if r.get("status") == "超期未收")
-        return {"total": len(rows), "resolved": resolved, "overdue": overdue}
-    except (json.JSONDecodeError, AttributeError):
-        return {"total": 0, "resolved": 0, "overdue": 0, "note": "台账解析失败"}
+        return int(v)
+    except (TypeError, ValueError):
+        return None
 
 
-def cmd_init(args):
-    book_dir = Path(args.book_dir)
-    if (book_dir / "book.json").exists():
-        die(f"已存在: {book_dir/'book.json'}（不覆盖）")
-    for d in DIRS:
-        (book_dir / d).mkdir(parents=True, exist_ok=True)
-    data = {
-        "schema_version": 1,
-        "title": args.title,
-        "genre_tags": [g.strip() for g in (args.genre or "").split(",") if g.strip()],
+# ---------- 承诺账 ----------
+
+def next_id(items, prefix):
+    n = 0
+    for it in items:
+        m = re.fullmatch(rf"{prefix}-(\d+)", str(it.get("id", "")))
+        if m:
+            n = max(n, int(m.group(1)))
+    return f"{prefix}-{n + 1:04d}"
+
+
+def promise_overdue(p, cur: int) -> bool:
+    if p.get("status") not in OPEN_STATES or p.get("type") == "期权":
+        return False
+    if p.get("type") == "暂定决策":
+        dl = as_int(p.get("deadline"))
+        return dl is not None and dl < cur
+    w = p.get("window")
+    return bool(w) and w[1] < cur
+
+
+def promise_due_soon(p, cur: int, ahead: int = 3) -> bool:
+    if p.get("type") != "暂定决策" or p.get("status") not in OPEN_STATES:
+        return False
+    dl = as_int(p.get("deadline"))
+    return dl is not None and cur <= dl <= cur + ahead
+
+
+def promise_summary(book_dir: Path, d: dict) -> dict:
+    items = ledger(book_dir, PROMISES)["items"]
+    cur = current_chapter(d)
+    reader = [p for p in items if p.get("type") not in NON_READER_TYPES]
+    return {
+        "open": sum(1 for p in reader if p.get("status") in OPEN_STATES),
+        "resolved": sum(1 for p in reader if p.get("status") == "已兑现"),
+        "dropped": sum(1 for p in reader if p.get("status") == "作废"),
+        "overdue": sum(1 for p in items if promise_overdue(p, cur)),
+        "options": sum(1 for p in items if p.get("type") == "期权" and p.get("status") in OPEN_STATES),
+        "pending_decisions": sum(1 for p in items if p.get("type") == "暂定决策" and p.get("status") in OPEN_STATES),
+    }
+
+
+def refresh_summary(book_dir: Path):
+    d = load(book_dir)
+    d["promises"] = promise_summary(book_dir, d)
+    save(book_dir, d)
+
+
+def chapter_touches(items, seq: int):
+    """本章建立、推进、兑现（或作废补偿）的读者向承诺。"""
+    hits = []
+    for p in items:
+        if p.get("type") in NON_READER_TYPES:
+            continue
+        if p.get("created_ch") == seq:
+            hits.append((p["id"], "建立"))
+        if any(e.get("ch") == seq for e in p.get("progress", [])):
+            hits.append((p["id"], "推进"))
+        if p.get("resolved_ch") == seq:
+            hits.append((p["id"], "兑现" if p.get("status") == "已兑现" else "作废补偿"))
+    return hits
+
+
+# ---------- 书与闸门 ----------
+
+def new_book(title, genre, chapters, level):
+    return {
+        "schema_version": SCHEMA,
+        "title": title,
+        "genre_tags": genre,
         "premise": "",
-        "target": {"chapters": args.chapters, "words_per_chapter": [3000, 5000]},
-        "stage": "ideation",
+        "target": {"chapters": chapters, "words_per_chapter": [3000, 5000]},
+        "stage": "founding",
         "writing_mode": "serial",
+        "experience_level": level,
+        "soul": {"question": "", "answer": "", "injustice": "", "ending": "",
+                 "status": "未填", "deadline": ""},
+        "contract": {"main": "", "extras": [], "poison": [], "signing": {}},
         "gates": {k: {"status": "waiting"} for k in
-                 ("settings_frozen", "outline_frozen", "golden_accepted")},
+                  ("soul", "settings_frozen", "outline_frozen", "opening_accepted")},
         "chapters": [],
-        "foreshadows": foreshadow_summary(book_dir),
+        "promises": {},
         "host_spawn": False,
         "updated_at": now(),
     }
-    save(book_dir, data)
-    print(f"OK init {book_dir} stage=ideation")
 
 
-def cmd_status(args):
-    book_dir = Path(args.book_dir)
+def init_ledgers(book_dir: Path):
+    for rel, empty in ((PROMISES, {"items": []}), (KNOWLEDGE, {"items": []}),
+                       (FACTS, {"facts": {}}), (EVENTS, {"events": []})):
+        p = book_dir / rel
+        if not p.exists():
+            write_json(p, empty)
+    tpl = PLUGIN_ROOT / "skills/ncc/templates/author-intent.md"
+    ai = book_dir / "author-intent.md"
+    if not ai.exists() and tpl.exists():
+        ai.write_text(tpl.read_text("utf-8"), "utf-8")
+    cf = book_dir / "current-focus.md"
+    if not cf.exists():
+        cf.write_text("# 当前焦点（近 1–3 章）\n\n", "utf-8")
+
+
+def cmd_init(a):
+    book_dir = Path(a.book_dir)
+    if (book_dir / "book.json").exists():
+        die(f"已存在: {book_dir / 'book.json'}（不覆盖）")
+    if a.level not in LEVELS:
+        die(f"--level 只能是 {'/'.join(LEVELS)}")
+    for sub in DIRS:
+        (book_dir / sub).mkdir(parents=True, exist_ok=True)
+    genre = [g.strip() for g in (a.genre or "").split(",") if g.strip()]
+    save(book_dir, new_book(a.title, genre, a.chapters, a.level))
+    init_ledgers(book_dir)
+    refresh_summary(book_dir)
+    print(f"OK init {book_dir} stage=founding level={a.level}")
+
+
+def cmd_migrate(a):
+    book_dir = Path(a.book_dir)
+    p = book_dir / "book.json"
+    if not p.exists():
+        die(f"book.json 不存在: {p}")
+    d = read_json(p, {})
+    if d.get("schema_version", 1) >= SCHEMA:
+        print(f"已是 schema {SCHEMA}，无需迁移")
+        return
+    stage_map = {"ideation": "founding", "golden": "opening"}
+    d["stage"] = stage_map.get(d.get("stage"), d.get("stage"))
+    gates = d.get("gates", {})
+    if "golden_accepted" in gates:
+        gates["opening_accepted"] = gates.pop("golden_accepted")
+    gates.setdefault("opening_accepted", {"status": "waiting"})
+    gates.setdefault("soul", {"status": "waiting", "note": "v0.1 迁移：开书时无书魂闸，需补填书魂与类型契约"})
+    d["gates"] = gates
+    d.pop("foreshadows", None)
+    d.setdefault("experience_level", "熟手")
+    d.setdefault("soul", new_book("", [], 0, "熟手")["soul"])
+    d.setdefault("contract", new_book("", [], 0, "熟手")["contract"])
+    d["schema_version"] = SCHEMA
+    save(book_dir, d)
+
+    migrated = 0
+    old = book_dir / OLD_FORESHADOW
+    if old.exists() and not (book_dir / PROMISES).exists():
+        raw = read_json(old, [])
+        rows = raw if isinstance(raw, list) else raw.get("items", [])
+        status_map = {"planned": "开放", "已回收": "已兑现", "超期未收": "开放"}
+        items = []
+        for r in rows:
+            items.append({
+                "id": r.get("id") or next_id(items, "FS"),
+                "type": "伏笔",
+                "content": r.get("content", ""),
+                "strength": 3,
+                "created_ch": as_int(r.get("预计埋设章")),
+                "window": parse_window(r.get("预计回收窗口")) if re.search(r"\d+\s*[-~～至]\s*\d+", str(r.get("预计回收窗口", ""))) else None,
+                "deadline": None,
+                "status": status_map.get(r.get("status"), "开放"),
+                "progress": [],
+                "resolved_ch": None,
+                "note": "v0.1 伏笔台账迁移",
+            })
+        write_json(book_dir / PROMISES, {"items": items})
+        migrated = len(items)
+    init_ledgers(book_dir)
+    refresh_summary(book_dir)
+    print(f"OK migrate → schema {SCHEMA}；stage={d['stage']}；伏笔迁入承诺台账 {migrated} 条"
+          + ("（原伏笔台账.json 保留未删）" if migrated else ""))
+
+
+def cmd_status(a):
+    book_dir = Path(a.book_dir)
     d = load(book_dir)
     chs = d.get("chapters", [])
     done = [c for c in chs if c["status"] == "done"]
-    print(f"书: {d.get('title')}  标签: {','.join(d.get('genre_tags', []))}")
+    soul, ct = d.get("soul", {}), d.get("contract", {})
+    print(f"书: {d.get('title')}  标签: {','.join(d.get('genre_tags', []))}  引导档位: {d.get('experience_level')}")
     print(f"阶段: {d.get('stage')}  模式: {d.get('writing_mode')}")
+    print(f"书魂: {soul.get('status')}" + (f"（最晚 {soul.get('deadline')} 定下）" if soul.get("status") == "暂定" else "")
+          + f"  主契约: {ct.get('main') or '未填'}  签约点: {len(ct.get('signing', {}))}/{len(SIGNING_POINTS)}")
     for g, v in d.get("gates", {}).items():
-        print(f"闸门 {g}: {v.get('status')}"
-              + (f" @ {v.get('at')} 「{v.get('quote')}」" if v.get("status") != "waiting" else ""))
+        extra = f" @ {v.get('at')} 「{v.get('quote')}」" if v.get("status") not in ("waiting", None) else ""
+        print(f"闸门 {g}: {v.get('status')}{extra}" + (f"  ({v['note']})" if v.get("note") else ""))
     print(f"章节: {len(done)}/{len(chs)} done")
     for c in chs:
         if c["status"] != "done":
-            print(f"  断点: ch{c.get('seq')} status={c['status']} retry={c.get('retry', 0)}")
+            print(f"  断点: ch{c['seq']} status={c['status']} retry={c.get('retry', 0)}")
             break
-    fs = foreshadow_summary(book_dir)
-    live = dict(d.get("foreshadows", {}))
-    live.update(fs)
-    print(f"伏笔: 总{live.get('total', 0)} 已收{live.get('resolved', 0)} "
-          f"超期{live.get('overdue', 0)} {live.get('note', '')}")
-    # SHA 新鲜度
-    stale = []
-    for c in done:
-        rev = c.get("review") or {}
-        if rev.get("sha") and c.get("sha") and rev["sha"] != c["sha"]:
-            stale.append(c["seq"])
+    s = promise_summary(book_dir, d)
+    print(f"承诺: 开放{s['open']} 已兑现{s['resolved']} 作废{s['dropped']} 逾期{s['overdue']} "
+          f"期权{s['options']} 暂定决策{s['pending_decisions']}")
+    items = ledger(book_dir, PROMISES)["items"]
+    cur = current_chapter(d)
+    for p in items:
+        if promise_overdue(p, cur):
+            print(f"  逾期: {p['id']} [{p['type']}] {p['content']}")
+        elif promise_due_soon(p, cur):
+            print(f"  将到期: {p['id']} 暂定决策「{p['content']}」最晚第 {p['deadline']} 章")
+        elif p.get("type") == "暂定决策" and p.get("status") in OPEN_STATES and as_int(p.get("deadline")) is None:
+            print(f"  暂定: {p['id']}「{p['content']}」最晚 {p['deadline']}")
+    stale = [c["seq"] for c in done
+             if (c.get("review") or {}).get("sha") and c.get("sha") and c["review"]["sha"] != c["sha"]]
     if stale:
         print(f"警告: 以下章正文已变更但未复评（评审作废）: {stale}")
+    water = [c["seq"] for c in done if not chapter_touches(items, c["seq"])]
+    if water:
+        print(f"警告: 以下已完成章未建立、推进或兑现任何承诺（水章）: {water}")
     print(f"更新于: {d.get('updated_at')}")
 
 
-def cmd_next(args):
-    d = load(Path(args.book_dir))
+def cmd_next(a):
+    d = load(Path(a.book_dir))
     for c in d.get("chapters", []):
         if c["status"] != "done":
             print(c["seq"])
@@ -143,19 +401,41 @@ def lexicon_count(book_dir: Path) -> int:
     rows = 0
     for line in p.read_text("utf-8").splitlines():
         s = line.strip()
-        if s.startswith("|") and not set(s) <= {"|", "-", " ", ":"}:
-            if "首现章计划" not in s:  # 只排除表头行
-                rows += 1
+        if s.startswith("|") and not set(s) <= {"|", "-", " ", ":"} and "首现章计划" not in s:
+            rows += 1
     return rows
 
 
-def gate_check(book_dir: Path, name: str) -> list:
+def nonempty(book_dir: Path, rel: str) -> bool:
+    p = book_dir / rel
+    return p.exists() and bool(p.read_text("utf-8").strip())
+
+
+def gate_check(book_dir: Path, name: str, d: dict) -> list:
     problems = []
-    if name == "settings":
-        for f in GATE_FILES["settings"]:
-            p = book_dir / f
-            if not p.exists() or not p.read_text("utf-8").strip():
-                problems.append(f"缺设定文件或为空: {f}")
+    if name == "soul":
+        soul, ct = d.get("soul", {}), d.get("contract", {})
+        labels = {"question": "主题之问", "answer": "主角的答案", "injustice": "世界的不公", "ending": "终局的回答"}
+        for k, label in labels.items():
+            if not soul.get(k, "").strip():
+                problems.append(f"书魂缺「{label}」（可写候选并标暂定，见 guidance.md）")
+        if soul.get("status") not in ("暂定", "确定"):
+            problems.append("书魂状态未标暂定或确定")
+        elif soul.get("status") == "暂定" and not soul.get("deadline"):
+            problems.append("书魂为暂定，但没写最晚决定点（D7：最晚第一卷卷复盘）")
+        if not ct.get("main"):
+            problems.append("类型契约缺主契约")
+        if not ct.get("poison"):
+            problems.append("类型契约缺毒点清单")
+        if d.get("experience_level") not in LEVELS:
+            problems.append("未设引导档位（新手/熟手/老手）")
+        ai = book_dir / "author-intent.md"
+        if not ai.exists() or "书魂" not in ai.read_text("utf-8"):
+            problems.append("author-intent.md 缺书魂一节")
+    elif name == "settings":
+        for rel in ("01-设定/世界观圣经.md", "01-设定/力量体系.md", "01-设定/设定词典.md"):
+            if not nonempty(book_dir, rel):
+                problems.append(f"缺设定文件或为空: {rel}")
         n = lexicon_count(book_dir)
         if n < 30:
             problems.append(f"设定词典条目 {n} < 30")
@@ -163,15 +443,17 @@ def gate_check(book_dir: Path, name: str) -> list:
         if hb.exists() and "量纲" not in hb.read_text("utf-8"):
             problems.append("力量体系未含量纲定义")
     elif name == "outline":
-        for f in GATE_FILES["outline"]:
-            p = book_dir / f
-            if not p.exists() or not p.read_text("utf-8").strip():
-                problems.append(f"缺大纲文件或为空: {f}")
+        for rel in ("02-大纲/总纲.md", "02-大纲/卷纲/卷1.md"):
+            if not nonempty(book_dir, rel):
+                problems.append(f"缺大纲文件或为空: {rel}")
         zs = sorted((book_dir / "02-大纲" / "章纲").glob("ch-*.md"))
         if len(zs) < 3:
             problems.append(f"章纲 {len(zs)} 份 < 3（黄金三章细纲不齐）")
-    elif name == "golden":
-        d = load(book_dir)
+        items = ledger(book_dir, PROMISES)["items"]
+        if not [p for p in items if p.get("type") not in NON_READER_TYPES]:
+            problems.append("承诺台账为空（大纲层的伏笔、悬念、卷目标应先登记）")
+    elif name == "opening":
+        cfg = load_cfg(book_dir)
         chs = {c["seq"]: c for c in d.get("chapters", [])}
         for seq in (1, 2, 3):
             c = chs.get(seq)
@@ -179,110 +461,444 @@ def gate_check(book_dir: Path, name: str) -> list:
                 problems.append(f"第 {seq} 章未 done")
                 continue
             rev = c.get("review") or {}
-            if (rev.get("score") or 0) < 70:
-                problems.append(f"第 {seq} 章审稿分 {rev.get('score')} < 70")
+            if (rev.get("score") or 0) < cfg["pass_score"]:
+                problems.append(f"第 {seq} 章审稿分 {rev.get('score')} < {cfg['pass_score']}")
             if rev.get("sha") and c.get("sha") and rev["sha"] != c["sha"]:
                 problems.append(f"第 {seq} 章正文变更后未复评")
-        if not (book_dir / "05-审稿").glob("blind-*"):
+        if not any((book_dir / "05-审稿").glob("blind-*")):
             problems.append("缺读者盲评报告（05-审稿/blind-*.md）")
-    else:
-        problems.append(f"未知闸门: {name}")
+        signing = d.get("contract", {}).get("signing", {})
+        for pt in SIGNING_POINTS:
+            ch = signing.get(pt)
+            if ch is None:
+                problems.append(f"签约点未落地: {pt}")
+            elif ch > 3:
+                problems.append(f"签约点「{pt}」落在第 {ch} 章，晚于黄金三章")
     return problems
 
 
-def cmd_gate(args):
-    book_dir = Path(args.book_dir)
-    key = {"settings": "settings_frozen", "outline": "outline_frozen",
-           "golden": "golden_accepted"}[args.name]
+def cmd_gate(a):
+    book_dir = Path(a.book_dir)
+    if a.name in PLANNED_GATES:
+        print(f"GATE {a.name}: 尚未实现（计划于 {PLANNED_GATES[a.name]}）")
+        sys.exit(3)
+    key, next_stage = GATES[a.name]
     d = load(book_dir)
-    if args.action == "check":
-        problems = gate_check(book_dir, args.name)
+    if a.action == "check":
+        problems = gate_check(book_dir, a.name, d)
         if problems:
-            print(f"GATE {args.name}: FAIL")
+            print(f"GATE {a.name}: FAIL")
             for p in problems:
                 print(f"  - {p}")
             sys.exit(1)
-        print(f"GATE {args.name}: 机械条件满足，等待作者确认")
-    else:
-        d.setdefault("gates", {})[key] = {
-            "status": "passed" if args.action == "pass" else "rejected",
-            "at": now(), "quote": args.quote or ""}
-        if args.action == "pass":
-            d["stage"] = GATE_NEXT_STAGE[args.name]
-        save(book_dir, d)
-        print(f"GATE {args.name}: {args.action} 记录已写入，stage={d['stage']}")
+        print(f"GATE {a.name}: 机械条件满足，等待作者确认")
+        return
+    forced = []
+    if a.action == "pass":
+        problems = gate_check(book_dir, a.name, d)
+        if problems and not a.force:
+            print(f"GATE {a.name}: 机械条件未满足，不能记录通过（作者坚持放行请加 --force 并附 --quote 原话）")
+            for p in problems:
+                print(f"  - {p}")
+            sys.exit(1)
+        if problems and not a.quote:
+            die("--force 放行必须附 --quote（作者原话）")
+        forced = problems
+    d.setdefault("gates", {})[key] = {
+        "status": "passed" if a.action == "pass" else "rejected", "at": now(), "quote": a.quote or ""}
+    if forced:
+        d["gates"][key]["forced_over"] = forced
+    if a.action == "pass" and next_stage:
+        d["stage"] = next_stage
+    save(book_dir, d)
+    print(f"GATE {a.name}: {a.action} 记录已写入，stage={d['stage']}")
 
 
-def cmd_complete(args):
-    book_dir = Path(args.book_dir)
+def cmd_level(a):
+    if a.level not in LEVELS:
+        die(f"档位只能是 {'/'.join(LEVELS)}")
+    book_dir = Path(a.book_dir)
     d = load(book_dir)
-    for c in d.get("chapters", []):
-        if c["seq"] == args.seq:
-            c["status"] = "done"
-            c["word_count"] = args.words
-            p = book_dir / c.get("file", "")
-            c["sha"] = (hashlib.sha256(p.read_bytes()).hexdigest()[:16]
-                        if p.exists() else "")
-            if args.score is not None:
-                c.setdefault("review", {})
-                c["review"].update({
-                    "score": args.score,
-                    "coverage": args.coverage,
-                    "report": args.report or c["review"].get("report", ""),
-                    "sha": c["sha"],
-                })
-            save(book_dir, d)
-            print(f"OK complete ch{args.seq} words={args.words} sha={c['sha']}")
-            return
-    die(f"book.json 中没有 seq={args.seq} 的章")
+    d["experience_level"] = a.level
+    save(book_dir, d)
+    print(f"OK 引导档位={a.level}")
 
 
-def cmd_sha(args):
-    p = Path(args.file)
-    print(hashlib.sha256(p.read_bytes()).hexdigest()[:16])
+def cmd_soul(a):
+    book_dir = Path(a.book_dir)
+    d = load(book_dir)
+    soul = d.setdefault("soul", {})
+    for k in ("question", "answer", "injustice", "ending", "deadline"):
+        v = getattr(a, k)
+        if v is not None:
+            soul[k] = v
+    if a.status:
+        if a.status not in ("暂定", "确定"):
+            die("--status 只能是 暂定 或 确定")
+        soul["status"] = a.status
+        if a.status == "确定":
+            soul["deadline"] = ""
+    save(book_dir, d)
+    print(f"OK 书魂 status={soul.get('status')}" + (f" deadline={soul.get('deadline')}" if soul.get("deadline") else ""))
 
+
+def cmd_contract(a):
+    book_dir = Path(a.book_dir)
+    d = load(book_dir)
+    ct = d.setdefault("contract", {"main": "", "extras": [], "poison": [], "signing": {}})
+    if a.main is not None:
+        ct["main"] = a.main
+    if a.extra:
+        ct["extras"] = list(dict.fromkeys(ct.get("extras", []) + a.extra))
+    if a.poison is not None:
+        ct["poison"] = [x.strip() for x in a.poison.split(",") if x.strip()]
+    save(book_dir, d)
+    print(f"OK 主契约={ct['main'] or '未填'} 附加={len(ct['extras'])} 毒点={len(ct['poison'])}")
+
+
+def cmd_sign(a):
+    if a.point not in SIGNING_POINTS:
+        die(f"签约点只能是: {'、'.join(SIGNING_POINTS)}")
+    book_dir = Path(a.book_dir)
+    d = load(book_dir)
+    d.setdefault("contract", {}).setdefault("signing", {})[a.point] = a.ch
+    save(book_dir, d)
+    print(f"OK 签约点「{a.point}」落在第 {a.ch} 章")
+
+
+# ---------- 章节 ----------
+
+def cmd_chapter(a):
+    book_dir = Path(a.book_dir)
+    d = load(book_dir)
+    if a.action == "add":
+        if any(c["seq"] == a.seq for c in d.get("chapters", [])):
+            die(f"第 {a.seq} 章已登记")
+        d.setdefault("chapters", []).append({
+            "seq": a.seq, "file": a.file, "status": "pending", "word_count": 0,
+            "hook": None, "mood": None, "retry": 0, "sha": "", "review": None,
+            "pack": f"04-正文/_packs/ch-{a.seq:04d}.json"})
+        d["chapters"].sort(key=lambda c: c["seq"])
+        msg = f"OK chapter add ch{a.seq} → {a.file}"
+    else:
+        c = find_ch(d, a.seq)
+        if a.action == "hook":
+            if not 1 <= a.intensity <= 5:
+                die("--intensity 取 1–5（1 顺带 … 5 全书名场面）")
+            c["hook"] = {"type": a.type, "intensity": a.intensity, "line": a.line or ""}
+            msg = f"OK ch{a.seq} hook={a.type}/{a.intensity}"
+        elif a.action == "mark":
+            if a.status not in CHAPTER_STATES:
+                die(f"status 只能是 {'/'.join(CHAPTER_STATES)}（done 只能经 complete）")
+            c["status"] = a.status
+            msg = f"OK ch{a.seq} status={a.status}"
+        elif a.action == "mood":
+            if a.mood not in MOODS:
+                die(f"mood 只能是 {'/'.join(MOODS)}")
+            c["mood"] = a.mood
+            msg = f"OK ch{a.seq} mood={a.mood}"
+        elif a.action == "retry":
+            c["retry"] = c.get("retry", 0) + 1
+            if c["retry"] >= load_cfg(book_dir)["max_retry"]:
+                c["status"] = "failed"
+            msg = f"OK ch{a.seq} retry={c['retry']} status={c['status']}"
+    save(book_dir, d)
+    print(msg)
+
+
+def cmd_complete(a):
+    book_dir = Path(a.book_dir)
+    d = load(book_dir)
+    c = find_ch(d, a.seq)
+    c["status"] = "done"
+    c["word_count"] = a.words
+    p = book_dir / c.get("file", "")
+    c["sha"] = hashlib.sha256(p.read_bytes()).hexdigest()[:16] if p.is_file() else ""
+    if a.score is not None:
+        c["review"] = dict(c.get("review") or {})
+        c["review"].update({"score": a.score, "coverage": a.coverage,
+                            "report": a.report or c["review"].get("report", ""), "sha": c["sha"]})
+    d["promises"] = promise_summary(book_dir, d)
+    save(book_dir, d)
+    print(f"OK complete ch{a.seq} words={a.words} sha={c['sha']}")
+
+
+def cmd_water(a):
+    book_dir = Path(a.book_dir)
+    items = ledger(book_dir, PROMISES)["items"]
+    hits = chapter_touches(items, a.seq)
+    if hits:
+        print(f"ch{a.seq}: " + "，".join(f"{i} {k}" for i, k in hits))
+        return
+    print(f"ch{a.seq}: 水章——未建立、推进或兑现任何承诺")
+    sys.exit(1)
+
+
+# ---------- 承诺账 ----------
+
+def cmd_promise(a):
+    book_dir = Path(a.book_dir)
+    load(book_dir)
+    data = ledger(book_dir, PROMISES)
+    items = data["items"]
+    if a.action == "list":
+        d = load(book_dir)
+        cur = current_chapter(d)
+        for p in items:
+            if a.open and p.get("status") not in OPEN_STATES:
+                continue
+            if a.type and p.get("type") != a.type:
+                continue
+            flag = " 逾期" if promise_overdue(p, cur) else (" 将到期" if promise_due_soon(p, cur) else "")
+            w = p.get("window")
+            when = f" 窗口{w[0]}-{w[1]}" if w else (f" 最晚{p['deadline']}" if p.get("deadline") else "")
+            print(f"{p['id']} [{p['type']}] 强度{p.get('strength')} {p['status']} 第{p.get('created_ch')}章起{when}{flag}  {p['content']}")
+        return
+    if a.action == "add":
+        if a.type not in PROMISE_TYPES:
+            die(f"--type 只能是 {'/'.join(PROMISE_TYPES)}")
+        if a.type == "暂定决策" and not a.deadline:
+            die("暂定决策必须给 --deadline（章号或节点，如 22 或 第一卷卷复盘）")
+        if not 1 <= a.strength <= 5:
+            die("--strength 取 1–5")
+        prefix = "FS" if a.type == "伏笔" else ("TD" if a.type == "暂定决策" else "P")
+        pid = next_id(items, prefix)
+        items.append({
+            "id": pid, "type": a.type, "content": a.content, "strength": a.strength,
+            "created_ch": a.ch, "window": parse_window(a.window), "deadline": a.deadline,
+            "desire": a.desire, "status": "开放", "progress": [], "resolved_ch": None})
+        msg = f"OK {pid} [{a.type}] 第{a.ch}章建立"
+    else:
+        p = next((x for x in items if x["id"] == a.id), None)
+        if not p:
+            die(f"承诺台账中没有 {a.id}")
+        if p.get("status") not in OPEN_STATES:
+            die(f"{a.id} 状态为 {p.get('status')}，不能再 {a.action}")
+        if a.action == "touch":
+            p.setdefault("progress", []).append({"ch": a.ch, "note": a.note or ""})
+            p["status"] = "推进中"
+            msg = f"OK {a.id} 第{a.ch}章推进"
+        elif a.action == "resolve":
+            p["status"] = "已兑现"
+            p["resolved_ch"] = a.ch
+            if a.note:
+                p["resolve_note"] = a.note
+            msg = f"OK {a.id} 第{a.ch}章兑现"
+        elif a.action == "drop":
+            if not (a.compensation or "").strip():
+                die("承诺作废必须写 --compensation（给读者的交代或替代兑现）")
+            p["status"] = "作废"
+            p["resolved_ch"] = a.ch
+            p["compensation"] = a.compensation
+            msg = f"OK {a.id} 第{a.ch}章作废，补偿：{a.compensation}"
+    write_json(book_dir / PROMISES, data)
+    refresh_summary(book_dir)
+    print(msg)
+
+
+# ---------- 知情账 ----------
+
+def split_names(s):
+    return [x.strip() for x in (s or "").split(",") if x.strip()]
+
+
+def cmd_know(a):
+    book_dir = Path(a.book_dir)
+    load(book_dir)
+    data = ledger(book_dir, KNOWLEDGE)
+    items = data["items"]
+    if a.action == "list":
+        for k in items:
+            if a.who and a.who not in k.get("known_by", []) and a.who not in k.get("unknown_to", []):
+                continue
+            print(f"{k['id']} 第{k.get('since_ch')}章 知道:{','.join(k.get('known_by', [])) or '无'} "
+                  f"不知道:{','.join(k.get('unknown_to', [])) or '无'}  {k['fact']}")
+        return
+    if a.action == "add":
+        kid = next_id(items, "K")
+        items.append({"id": kid, "fact": a.fact, "since_ch": a.ch,
+                      "known_by": split_names(a.known_by), "unknown_to": split_names(a.unknown_to),
+                      "log": []})
+        msg = f"OK {kid} 第{a.ch}章登记"
+    else:  # learn
+        k = next((x for x in items if x["id"] == a.id), None)
+        if not k:
+            die(f"知情台账中没有 {a.id}")
+        if a.who in k.get("unknown_to", []):
+            k["unknown_to"].remove(a.who)
+        if a.who not in k.setdefault("known_by", []):
+            k["known_by"].append(a.who)
+        k.setdefault("log", []).append({"ch": a.ch, "who": a.who})
+        msg = f"OK {a.id} 第{a.ch}章 {a.who} 得知"
+    write_json(book_dir / KNOWLEDGE, data)
+    print(msg)
+
+
+# ---------- 世界账：知识台账 ----------
+
+def cmd_fact(a):
+    book_dir = Path(a.book_dir)
+    load(book_dir)
+    data = read_json(book_dir / FACTS, {"facts": {}})
+    facts = data.setdefault("facts", {})
+    if a.action == "get":
+        f = facts.get(a.key)
+        if not f:
+            die(f"知识台账中没有「{a.key}」", 1)
+        print(f"{a.key} = {f['value']}（第{f.get('ch')}章，来源：{f.get('source') or '未注'}，类别：{f.get('category') or '未分'}）")
+        return
+    if a.action == "list":
+        for k, f in facts.items():
+            if a.category and f.get("category") != a.category:
+                continue
+            print(f"{k} = {f['value']}  [{f.get('category') or '未分'}] 第{f.get('ch')}章 来源：{f.get('source') or '未注'}")
+        return
+    old = facts.get(a.key)
+    if old and old["value"] != a.value and not a.override:
+        print(f"CONFLICT 「{a.key}」已记为 {old['value']}（第{old.get('ch')}章），本次为 {a.value}。"
+              "若是剧情内的合理变化请加 --override 并在正文交代原因。", file=sys.stderr)
+        sys.exit(1)
+    entry = {"value": a.value, "ch": a.ch, "source": a.source or "", "category": a.category or ""}
+    if old and old["value"] != a.value:
+        entry["history"] = old.get("history", []) + [{k: old[k] for k in ("value", "ch", "source") if k in old}]
+    facts[a.key] = entry
+    write_json(book_dir / FACTS, data)
+    print(f"OK {a.key} = {a.value}")
+
+
+# ---------- 读者此刻 ----------
+
+def cmd_reader_now(a):
+    book_dir = Path(a.book_dir)
+    d = load(book_dir)
+    seq, top = a.seq, a.top
+    items = ledger(book_dir, PROMISES)["items"]
+    know = ledger(book_dir, KNOWLEDGE)["items"]
+    before = [c for c in d.get("chapters", []) if c["seq"] < seq]
+    out = [f"## 读者此刻（写第 {seq} 章前）", ""]
+
+    out.append("**知道什么（读者知道、角色还不知道）**")
+    gaps = [k for k in know if "读者" in k.get("known_by", []) and k.get("unknown_to")
+            and (k.get("since_ch") or 0) < seq]
+    out += [f"- {k['id']} {k['fact']}——{ '、'.join(k['unknown_to']) } 还不知道" for k in gaps[:top]] or ["- （无登记的信息差）"]
+
+    out += ["", "**在等什么（强度最高的开放承诺）**"]
+    waiting = [p for p in items if p.get("type") not in NON_READER_TYPES
+               and p.get("status") in OPEN_STATES and (p.get("created_ch") or 0) < seq]
+    waiting.sort(key=lambda p: (-(p.get("strength") or 0), p.get("created_ch") or 0))
+    lines = []
+    for p in waiting[:top]:
+        age = seq - (p.get("created_ch") or seq)
+        w = p.get("window")
+        tail = f"，计划第{w[0]}–{w[1]}章兑现" if w else ""
+        lines.append(f"- {p['id']} [{p['type']}] 强度{p.get('strength')}：{p['content']}（已等 {age} 章{tail}）")
+    out += lines or ["- （没有开放承诺——本章至少要建立一条）"]
+
+    out += ["", "**情绪在哪**"]
+    moods = [(c["seq"], c.get("mood")) for c in before if c.get("mood")][-5:]
+    if moods:
+        out.append("- 近几章：" + " → ".join(f"{s}{m}" for s, m in moods))
+        last_release = max((s for s, m in moods if m == "释放"), default=None)
+        out.append(f"- 距上次释放：{seq - last_release} 章" if last_release else "- 近几章没有释放段")
+    else:
+        out.append("- （近几章未登记情绪段，chapter mood 登记）")
+
+    out += ["", "**可能腻了什么**"]
+    hooks = [c["hook"]["type"] for c in before if c.get("hook")][-5:]
+    tired = [f"章尾钩子「{t}」近 5 章用了 {hooks.count(t)} 次" for t in dict.fromkeys(hooks) if hooks.count(t) >= 3]
+    desires = [p.get("desire") for p in items if p.get("type") == "爽点欠账" and p.get("status") == "已兑现"
+               and p.get("desire") and seq - 10 <= (p.get("resolved_ch") or -99) < seq]
+    tired += [f"爽感谱系第 {x} 型近 10 章兑现了 {desires.count(x)} 次" for x in dict.fromkeys(desires) if desires.count(x) >= 3]
+    out += [f"- {t}" for t in tired] or ["- （无明显重复）"]
+
+    cur = current_chapter(d)
+    alerts = [p for p in items if promise_overdue(p, cur) or promise_due_soon(p, cur)]
+    if alerts:
+        out += ["", "**到期提醒**"]
+        out += [f"- {p['id']} [{p['type']}] {p['content']}" for p in alerts]
+    print("\n".join(out))
+
+
+def cmd_sha(a):
+    print(hashlib.sha256(Path(a.file).read_bytes()).hexdigest()[:16])
+
+
+# ---------- CLI ----------
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__)
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    p = sub.add_parser("init")
-    p.add_argument("book_dir")
-    p.add_argument("--title", required=True)
-    p.add_argument("--genre", default="")
-    p.add_argument("--chapters", type=int, default=300)
-    p.set_defaults(fn=cmd_init)
+    p = sub.add_parser("init"); p.add_argument("book_dir"); p.add_argument("--title", required=True)
+    p.add_argument("--genre", default=""); p.add_argument("--chapters", type=int, default=300)
+    p.add_argument("--level", default="新手"); p.set_defaults(fn=cmd_init)
+    for name, fn in (("status", cmd_status), ("next", cmd_next), ("migrate", cmd_migrate)):
+        p = sub.add_parser(name); p.add_argument("book_dir"); p.set_defaults(fn=fn)
 
-    p = sub.add_parser("status")
-    p.add_argument("book_dir")
-    p.set_defaults(fn=cmd_status)
-
-    p = sub.add_parser("next")
-    p.add_argument("book_dir")
-    p.set_defaults(fn=cmd_next)
-
-    p = sub.add_parser("gate")
-    p.add_argument("book_dir")
-    p.add_argument("name", choices=["settings", "outline", "golden"])
+    p = sub.add_parser("gate"); p.add_argument("book_dir"); p.add_argument("name", choices=list(GATES))
     p.add_argument("--action", choices=["check", "pass", "reject"], default="check")
-    p.add_argument("--quote", default="")
+    p.add_argument("--quote", default=""); p.add_argument("--force", action="store_true")
     p.set_defaults(fn=cmd_gate)
 
-    p = sub.add_parser("complete")
-    p.add_argument("book_dir")
-    p.add_argument("seq", type=int)
-    p.add_argument("--words", type=int, required=True)
-    p.add_argument("--score", type=float)
-    p.add_argument("--coverage", type=float)
-    p.add_argument("--report", default="")
-    p.set_defaults(fn=cmd_complete)
+    p = sub.add_parser("level"); p.add_argument("book_dir"); p.add_argument("level"); p.set_defaults(fn=cmd_level)
+    p = sub.add_parser("soul"); p.add_argument("book_dir")
+    for k in ("question", "answer", "injustice", "ending", "status", "deadline"):
+        p.add_argument(f"--{k}")
+    p.set_defaults(fn=cmd_soul)
+    p = sub.add_parser("contract"); p.add_argument("book_dir"); p.add_argument("--main")
+    p.add_argument("--extra", action="append"); p.add_argument("--poison"); p.set_defaults(fn=cmd_contract)
+    p = sub.add_parser("sign"); p.add_argument("book_dir"); p.add_argument("point")
+    p.add_argument("--ch", type=int, required=True); p.set_defaults(fn=cmd_sign)
 
-    p = sub.add_parser("sha")
-    p.add_argument("file")
-    p.set_defaults(fn=cmd_sha)
+    p = sub.add_parser("chapter"); cs = p.add_subparsers(dest="action", required=True)
+    q = cs.add_parser("add"); q.add_argument("book_dir"); q.add_argument("seq", type=int); q.add_argument("--file", required=True)
+    q = cs.add_parser("hook"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
+    q.add_argument("--type", required=True); q.add_argument("--intensity", type=int, required=True); q.add_argument("--line")
+    q = cs.add_parser("mark"); q.add_argument("book_dir"); q.add_argument("seq", type=int); q.add_argument("status")
+    q = cs.add_parser("mood"); q.add_argument("book_dir"); q.add_argument("seq", type=int); q.add_argument("mood")
+    q = cs.add_parser("retry"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
+    p.set_defaults(fn=cmd_chapter)
 
-    args = ap.parse_args()
-    args.fn(args)
+    p = sub.add_parser("complete"); p.add_argument("book_dir"); p.add_argument("seq", type=int)
+    p.add_argument("--words", type=int, required=True); p.add_argument("--score", type=float)
+    p.add_argument("--coverage", type=float); p.add_argument("--report", default=""); p.set_defaults(fn=cmd_complete)
+    p = sub.add_parser("water"); p.add_argument("book_dir"); p.add_argument("seq", type=int); p.set_defaults(fn=cmd_water)
+
+    p = sub.add_parser("promise"); ps = p.add_subparsers(dest="action", required=True)
+    q = ps.add_parser("add"); q.add_argument("book_dir"); q.add_argument("--type", required=True)
+    q.add_argument("--content", required=True); q.add_argument("--ch", type=int, required=True)
+    q.add_argument("--strength", type=int, default=3); q.add_argument("--window"); q.add_argument("--deadline")
+    q.add_argument("--desire")
+    for act in ("touch", "resolve"):
+        q = ps.add_parser(act); q.add_argument("book_dir"); q.add_argument("id")
+        q.add_argument("--ch", type=int, required=True); q.add_argument("--note")
+    q = ps.add_parser("drop"); q.add_argument("book_dir"); q.add_argument("id")
+    q.add_argument("--ch", type=int, required=True); q.add_argument("--compensation", required=True)
+    q = ps.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--open", action="store_true"); q.add_argument("--type")
+    p.set_defaults(fn=cmd_promise)
+
+    p = sub.add_parser("know"); ks = p.add_subparsers(dest="action", required=True)
+    q = ks.add_parser("add"); q.add_argument("book_dir"); q.add_argument("--fact", required=True)
+    q.add_argument("--ch", type=int, required=True); q.add_argument("--known-by"); q.add_argument("--unknown-to")
+    q = ks.add_parser("learn"); q.add_argument("book_dir"); q.add_argument("id")
+    q.add_argument("--who", required=True); q.add_argument("--ch", type=int, required=True)
+    q = ks.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--who")
+    p.set_defaults(fn=cmd_know)
+
+    p = sub.add_parser("fact"); fs = p.add_subparsers(dest="action", required=True)
+    q = fs.add_parser("set"); q.add_argument("book_dir"); q.add_argument("key"); q.add_argument("value")
+    q.add_argument("--ch", type=int, required=True); q.add_argument("--source"); q.add_argument("--category")
+    q.add_argument("--override", action="store_true")
+    q = fs.add_parser("get"); q.add_argument("book_dir"); q.add_argument("key")
+    q = fs.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--category")
+    p.set_defaults(fn=cmd_fact)
+
+    p = sub.add_parser("reader-now"); p.add_argument("book_dir"); p.add_argument("seq", type=int)
+    p.add_argument("--top", type=int, default=5); p.set_defaults(fn=cmd_reader_now)
+    p = sub.add_parser("sha"); p.add_argument("file"); p.set_defaults(fn=cmd_sha)
+
+    a = ap.parse_args()
+    a.fn(a)
 
 
 if __name__ == "__main__":
