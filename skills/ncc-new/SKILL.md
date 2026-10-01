@@ -49,6 +49,9 @@ when_to_use: "User wants to start a new novel, has only a vague idea for one, or
 - `01-设定/规则表.md`——per-book 克制链／兑换率。
 - `01-设定/人物卡/`——**人物引擎**（上限引擎 U2），按 [references/character.md](references/character.md)：主角与主要配角用完整版（欲望、需要、恐惧、伤口、信错的那句话、内在矛盾、秘密、声音、关系），并做**角色采访**，产出声音样例；主角弧光类型（正向／负向／平弧）按 guidance 给推荐，作者选定后 `ncc_state.py soul <书目录> --arc …`。
 - 知识台账初值：已定的距离、物价、历法、称谓等用 `ncc_state.py fact set` 写入。
+- 时代背景：`ncc_state.py era <书目录> …`（按 guidance 给推荐）。
+- **设定规律核对**（M4，按需）：虚构设定借用了真实规律的，派 scholar（task: rules）核一遍运转规律，问题按推荐呈作者。
+- 一书一深学（可选，也可以第一卷卷复盘时再选）：按题材常涉及学科给推荐，`ncc_state.py study <书目录> --add …`（`../ncc/references/domains/reading-list.md`）。
 
 若有拆书产物（设定库／词典片段），worldbuilder 直接吸收并在卡上记来源。
 

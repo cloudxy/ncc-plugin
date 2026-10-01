@@ -11,6 +11,7 @@ when_to_use: "User says /ncc-write, 写下一章, 今更N章, 黄金三章, or r
 ```
 每批（混合 3 章 / 建筑师 5 / 园丁 1–2）：
   scene next → chapter add ×N → 场景卡 ×N(outliner 一次写完) → 故事审(story-editor 一次审完；关键章作者过目)
+  → knowledge plan：有章标了"知识"才派 scholar（一次），写知识点清单 → knowledge check
 每章：
   pack(脚本组装写手包) → writer 草稿(关键节拍 2–3 版) + 三本账回写 → check_chapter.py
   → review plan(continuity 必派；pulse 仅兑现章/关键章/开篇) → 有 major/critical: editor 修订 → review delta → 原审稿人只复审改动
@@ -42,9 +43,15 @@ when_to_use: "User says /ncc-write, 写下一章, 今更N章, 黄金三章, or r
 3. 关键章：story-editor 的意见连同场景卡呈给作者，作者确认后 `scene review <书目录> <章号> --result pass --by author`。
 4. 写着写着偏了、要改后面的卡：改哪张重审哪张。
 
+## Step 2.5 — 知识点（按需，M4）
+
+1. `ncc_state.py knowledge plan <书目录> 7 8 9`：列出场景卡"知识"一栏。一章都没有 → 这一批不派 scholar。
+2. 有的话派 scholar（task: knowledge）一次，按 `../ncc/references/domains/README.md` 第三节为这些章写 `02-大纲/知识点/ch-NNNN.md`（知识点｜学科｜写成什么｜来源｜状态），核实过的数据写进知识台账。
+3. `ncc_state.py knowledge check <书目录> <章号>…` 逐章通过。待核项不阻塞写作——写手包会提示按宁缺律写；待核项在单元复盘时交作者。
+
 ## Step 3 — 写手包
 
-`ncc_state.py pack <书目录> <章号> [--note "本章特别提醒：只写意图与材料"]`：脚本把场景卡逐场转成写作简报（含"默认写法——不要这样写"、关键节拍写多版的提示），附读者此刻、出场人物的欲望恐惧与声音、可用材料（作者种子 #1、#3、#6，场景卡提到的知识台账数据）、前情、前一章结尾原文、文风基准，写到 `04-正文/_packs/ch-NNNN.md`。审稿文件、书魂原文、author-intent 一律不进；场景卡里混进书魂原文时脚本拒绝组装。然后 `chapter mark … drafting`。
+`ncc_state.py pack <书目录> <章号> [--note "本章特别提醒：只写意图与材料"]`：脚本把场景卡逐场转成写作简报（含"默认写法——不要这样写"、关键节拍写多版的提示），附本章知识点（scholar 写的"写成什么"，不带来源与卡）、读者此刻、出场人物的欲望恐惧与声音、可用材料（作者种子 #1、#3、#6，场景卡提到的知识台账数据）、前情、前一章结尾原文、文风基准，写到 `04-正文/_packs/ch-NNNN.md`。审稿文件、书魂原文、author-intent 一律不进；场景卡里混进书魂原文时脚本拒绝组装。然后 `chapter mark … drafting`。
 
 ## Step 4 — 派 writer
 
@@ -66,7 +73,7 @@ task: draft，派单包只给写手包路径。写手按 [references/chapter-loo
 
 ## Step 7 — 定稿
 
-`ncc_state.py complete <书目录> <章号> --words N --hard pass --decidable 0.9 --report 05-审稿/ch-XXXX-review.md`。脚本会拒绝：场景卡没过故事审（或审后改动过）、硬伤层未通过、关键章没有作者选定。写手同步更新 `current-focus.md` 与设定词典的「首现章」实值。
+`ncc_state.py complete <书目录> <章号> --words N --hard pass --decidable 0.9 --report 05-审稿/ch-XXXX-review.md`。脚本会拒绝：场景卡没过故事审（或审后改动过）、场景卡标了知识但知识点清单缺失或不合格、硬伤层未通过、关键章没有作者选定。写手同步更新 `current-focus.md` 与设定词典的「首现章」实值。
 
 ## 开篇特有（S2 → G3）
 

@@ -26,6 +26,7 @@ book.json 的 `stage`：`founding → settings → outline → opening → seria
 ```
 每批（混合 3 章 / 建筑师 5 / 园丁 1–2）：
   scene next → chapter add ×N → 场景卡(outliner 一次写完) → 故事审(story-editor 一次审完；关键章作者过目)
+  → knowledge plan：标了"知识"的章才派 scholar（一次）→ knowledge check
 每章：
   pack(脚本组装写手包) → writer 草稿(关键节拍 2–3 版) + 三本账回写 → check_chapter.py(字数/钩子/AI味/水章)
   → review plan(continuity 必派；pulse 仅兑现章/关键章/开篇) → editor 修订 → review delta → 原审稿人只复审改动
@@ -43,6 +44,7 @@ book.json 的 `stage`：`founding → settings → outline → opening → seria
 | worldbuilder | 世界观圣经、力量体系、设定词典、人物引擎与角色采访、知识台账初值 | 编情节 |
 | outliner | 大纲（深浅随模式）、名场面与母题、承诺登记；连载期即写即做场景卡 | 写正文 |
 | story-editor | 发展编辑：场景卡故事审；单元与卷层面提结构问题、给方向 | 打分、写正文 |
+| scholar | 按需：本章知识点清单（有来源或标待核）、设定运转规律核对 | 编造事实、写正文 |
 | writer | 按写作简报写章；关键节拍写多版；回写三本账 | 审自己的稿、读审稿清单 |
 | editor | 执行修订、去AI味、对齐文风锚点 | 产审稿结论 |
 | continuity | 硬伤层主审（常规章唯一审稿人，含毒点）：设定冲突/时间线/承诺义务/场景卡是否落地/知情越权/知识台账，只产 observation；复审只看改动 | 改稿、评好坏 |

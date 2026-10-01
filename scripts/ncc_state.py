@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ncc_state.py — book.json 与 06-台账 的确定性读写工具（schema v2，v0.4.1 减重）。
+"""ncc_state.py — book.json 与 06-台账 的确定性读写工具（schema v2，v0.5 底蕴层）。
 
 状态只从这里（和经理派单回收）写入；markdown 投影与正文永不回写状态。
 只依赖标准库。
@@ -33,6 +33,12 @@
   scene check <book> <seq>               校验 02-大纲/场景卡/ch-NNNN.md 的格式
   scene review <book> <seq>... --result pass|revise --by story-editor|author [--note N]
                                          可一次审一批；关键章须 --by author；有一张不合格则整批不写入
+
+底蕴（M4，D3：场景触发、有据可依）
+  knowledge plan <book> <seq>...         列出场景卡"知识"一栏，判断这一批要不要派 scholar
+  knowledge check <book> <seq>...        校验 02-大纲/知识点/ch-NNNN.md（学科、来源、状态）
+  era <book> 古代|架空古代|近代|现代|架空现代|未来     时代背景（机械检查的时代错置词据此启用）
+  study <book> [--add 学科]               一书一深学
 
 写手包与审稿（D17、D18）
   pack <book> <seq> [--note 本章特别提醒]   脚本组装写手包 04-正文/_packs/ch-NNNN.md（审稿文件与书魂原文一律不进）
@@ -87,7 +93,7 @@ PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 
 DIRS = [
     "00-策划", "00-策划/复盘", "01-设定/人物卡", "02-大纲/卷纲", "02-大纲/章纲", "02-大纲/场景卡",
-    "03-文风", "04-正文/_packs", "05-审稿", "06-台账", "07-导出", "memory",
+    "02-大纲/知识点", "03-文风", "04-正文/_packs", "05-审稿", "06-台账", "07-导出", "memory",
 ]
 LEDGER = "06-台账"
 PROMISES = f"{LEDGER}/承诺台账.json"
@@ -120,6 +126,13 @@ SCENE_KEY_REQUIRED = ("盲区", "阻碍", "画面", "风险", "默认写法")
 SCENE_BATCH = {"建筑师": 5, "混合": 3, "园丁": 2}
 PACK_BUDGET = 12000
 SNAPSHOT_DIR = "05-审稿/_snapshots"
+KNOW_DIR = "02-大纲/知识点"
+DOMAINS = ("爽文", "人情冷暖", "社会", "心理", "历史与朝代更替", "政治", "经济", "军事", "天文", "地理", "生物", "自然",
+           "物理", "化学", "数学", "工程", "建造", "工艺", "语言", "文学", "艺术", "视频", "想象力", "宗教神话民俗")
+DOMAIN_ALIAS = {"人情": "人情冷暖", "历史": "历史与朝代更替", "朝代": "历史与朝代更替", "宗教": "宗教神话民俗",
+                "神话": "宗教神话民俗", "民俗": "宗教神话民俗", "影视": "视频", "建筑": "建造", "医学": "生物", "医药": "生物",
+                "气象": "自然", "历法": "天文", "称谓": "语言", "礼仪": "语言", "诗词": "文学", "音乐": "艺术", "书画": "艺术"}
+ERAS = ("古代", "架空古代", "近代", "现代", "架空现代", "未来")
 WRITER_SEEDS = ("1", "3", "6")   # 画面、亲历、生活经验；#2"最在乎的问题"离主题太近，不进写手包
 CHARACTER_REQUIRED = ("欲望", "需要", "恐惧", "声音")
 UNIT_REVIEW_REQUIRED = ("暂定决策", "故事审", "下一单元")
@@ -127,7 +140,7 @@ VOLUME_REVIEW_REQUIRED = ("承诺盘点", "书魂检验", "数据归因", "变�
 FINALE_REQUIRED = ("承诺清算", "暗线收拢", "书魂回答")
 TEAM_POSITIONS = ("主编", "主笔", "设定", "考据", "发展编辑", "审稿", "试读", "拆书")
 FEEDBACK_SOURCES = ("真实", "模拟")
-FEEDBACK_KINDS = ("追读", "弃读", "划线", "评论")
+FEEDBACK_KINDS = ("追读", "弃读", "划线", "评论", "出戏")
 
 # 阶段（D10）：founding → settings → outline → opening → serial ⇄ volume → finale → finished
 GATES = {
@@ -462,6 +475,124 @@ BRIEF_TAIL = ("两难里的两个选项都不完全对。把人物的选择演�
               "从视角人物能感知到的写起；他不知道的事，叙述也不知道。写完删掉解释情绪、复述前情、结尾点题的句子。")
 
 
+def knowledge_points(card: str):
+    pts = []
+    for m in re.finditer(r"知识[：:]\s*([^\n]+)", card):
+        pts += [x.strip() for x in re.split(r"[；;、,，]", m.group(1)) if x.strip() and x.strip() not in ("无", "——", "-")]
+    return pts
+
+
+def knowledge_path(book_dir: Path, seq: int) -> Path:
+    return book_dir / KNOW_DIR / f"ch-{seq:04d}.md"
+
+
+def normalize_domain(x: str):
+    x = x.strip()
+    return x if x in DOMAINS else DOMAIN_ALIAS.get(x)
+
+
+def knowledge_rows(book_dir: Path, seq: int):
+    p = knowledge_path(book_dir, seq)
+    if not p.exists():
+        return None
+    rows = []
+    for line in p.read_text("utf-8").splitlines():
+        t = line.strip()
+        if not t.startswith("|") or set(t) <= {"|", "-", " ", ":"}:
+            continue
+        cells = [c.strip() for c in t.strip("|").split("|")]
+        if cells and cells[0] == "知识点":
+            continue
+        rows.append(cells)
+    return rows
+
+
+def knowledge_problems(book_dir: Path, seq: int):
+    rows = knowledge_rows(book_dir, seq)
+    if rows is None:
+        return [f"缺知识点清单: {KNOW_DIR}/ch-{seq:04d}.md（格式见 skills/ncc/references/domains/README.md 第三节）"]
+    if not rows:
+        return ["知识点清单是空表"]
+    problems = []
+    for i, r in enumerate(rows, 1):
+        if len(r) < 5:
+            problems.append(f"第 {i} 行不足五栏（知识点｜学科｜写成什么｜来源｜状态）")
+            continue
+        point, dom, how, src, state = r[:5]
+        if not normalize_domain(dom):
+            problems.append(f"第 {i} 行「{point}」的学科「{dom}」不是 24 张卡之一")
+        if state not in ("已核", "待核"):
+            problems.append(f"第 {i} 行「{point}」的状态应为 已核 或 待核")
+        elif state == "已核" and src in ("", "——", "-", "—"):
+            problems.append(f"第 {i} 行「{point}」标了已核却没有来源")
+        if not how:
+            problems.append(f"第 {i} 行「{point}」缺\"写成什么\"")
+        elif state == "待核" and re.search(r"\d|[一二两三四五六七八九十百千万半]+\s*(?:里|斤|两|年|月|天|日|夜|丈|尺|寸|度|公里|米|钱|文|贯|石|刻|时辰|人|兵|骑)", how):
+            problems.append(f"第 {i} 行「{point}」是待核，写法里却有具体数字（宁缺律：改成可感的现象，如\"走到脚底起泡\"）")
+    return problems
+
+
+def knowledge_ready(book_dir: Path, seq: int):
+    """场景卡标了知识点时，返回清单的问题；没标则返回空。"""
+    card = scene_path(book_dir, seq)
+    if not card.exists() or not knowledge_points(card.read_text("utf-8")):
+        return []
+    return knowledge_problems(book_dir, seq)
+
+
+def cmd_knowledge(a):
+    book_dir = Path(a.book_dir)
+    d = load(book_dir)
+    if a.action == "plan":
+        need = []
+        for seq in a.seq:
+            find_ch(d, seq)
+            card = scene_path(book_dir, seq)
+            pts = knowledge_points(card.read_text("utf-8")) if card.exists() else []
+            if pts:
+                need.append(seq)
+                print(f"第 {seq} 章：{'；'.join(pts)}")
+            else:
+                print(f"第 {seq} 章：场景卡没有标知识点")
+        print(f"→ 派 scholar（一次）做第 {'、'.join(map(str, need))} 章的知识点清单" if need else "→ 这一批不派 scholar")
+        return
+    bad = False
+    for seq in a.seq:
+        problems = knowledge_problems(book_dir, seq)
+        if problems:
+            bad = True
+            print(f"KNOWLEDGE ch{seq}: FAIL")
+            for p in problems:
+                print(f"  - {p}")
+        else:
+            rows = knowledge_rows(book_dir, seq)
+            print(f"KNOWLEDGE ch{seq}: {len(rows)} 条，待核 {sum(1 for r in rows if r[4] == '待核')} 条")
+    sys.exit(1 if bad else 0)
+
+
+def cmd_era(a):
+    if a.era not in ERAS:
+        die(f"时代背景只能是 {'/'.join(ERAS)}")
+    book_dir = Path(a.book_dir)
+    d = ensure_m3_fields(load(book_dir))
+    d["era"] = a.era
+    save(book_dir, d)
+    print(f"OK 时代背景={a.era}")
+
+
+def cmd_study(a):
+    book_dir = Path(a.book_dir)
+    d = ensure_m3_fields(load(book_dir))
+    if a.add:
+        dom = normalize_domain(a.add)
+        if not dom:
+            die(f"「{a.add}」不是 24 张卡之一（见 skills/ncc/references/domains/README.md）")
+        if dom not in d["study"]:
+            d["study"].append(dom)
+        save(book_dir, d)
+    print("一书一深学：" + ("、".join(d["study"]) or "（未选）"))
+
+
 def cmd_pack(a):
     book_dir = Path(a.book_dir)
     d = load(book_dir)
@@ -486,6 +617,15 @@ def cmd_pack(a):
         out += ["### 经理的特别提醒（只写意图与材料）", a.note, ""]
 
     out += reader_now_lines(book_dir, d, a.seq) + [""]
+
+    rows = knowledge_rows(book_dir, a.seq)
+    if rows:
+        out += ["## 本章知识点（scholar 已查；写成什么就照这个方向写）", ""]
+        for r in rows:
+            if len(r) >= 5:
+                tail = "（待核：不写具体数字和术语，写可感的现象）" if r[4] == "待核" else ""
+                out.append(f"- {r[0]}：{r[2]}{tail}")
+        out.append("")
 
     out += ["## 人物声音", ""]
     names = []
@@ -604,6 +744,8 @@ def ensure_m3_fields(d: dict):
     d.setdefault("volumes", [{"n": 1, "start": 1, "end": None, "status": "open"}])
     d.setdefault("published_upto", 0)
     d.setdefault("team", {})
+    d.setdefault("era", "")
+    d.setdefault("study", [])
     return d
 
 
@@ -800,6 +942,10 @@ def cmd_report(a):
             out += ["", "**模拟读者校准**（同一章的模拟追读 vs 真实追读）", ""]
             out += [f"- 第{ch}章：模拟 {sim[ch]}｜真实 {real[ch]}" for ch in both]
             out += ["- 偏差规律（待填）：模拟读者在哪类章节高估或低估？写进 reader 的校准备注"]
+    if a.kind in ("unit", "volume"):
+        pend_rows = [(c["seq"], r) for c in chs for r in (knowledge_rows(book_dir, c["seq"]) or []) if len(r) >= 5 and r[4] == "待核"]
+        out += ["", "## 待核知识点（请作者核实，或维持宁缺写法）", ""]
+        out += [f"- 第{seq}章 {r[0]}（{r[1]}）：{r[2]}" for seq, r in pend_rows] or ["- （无）"]
     if a.kind == "unit":
         out += ["", "## 下一单元", "", "- 候选走向 2–3 个（outliner 从承诺账、读者此刻、书魂推出；标推荐与理由，至少一个非主流）（待填）",
                 "- 下一单元的关键章（系统先按规则推荐，作者确认）（待填）"]
@@ -810,6 +956,23 @@ def cmd_report(a):
                 "- 本卷从哪个角度考验了主题之问？主角的答案变了吗？（待填）"]
         out += ["", "## 数据归因", "", "- 追读与弃读的变化落在哪几章、对应哪类写法（scout 与 pulse 填）（待填）"]
         out += ["", "## 变更提议", "", "- 需要调整的骨架（L1）条目，按 architecture.md 的变更提议格式（待填）", "- 下一卷走向候选 2–3 个，标推荐（待填）"]
+        by_dom, pend = {}, {}
+        for c in chs:
+            for r in knowledge_rows(book_dir, c["seq"]) or []:
+                if len(r) >= 5:
+                    dom = normalize_domain(r[1]) or r[1]
+                    by_dom[dom] = by_dom.get(dom, 0) + 1
+                    if r[4] == "待核":
+                        pend[dom] = pend.get(dom, 0) + 1
+        slips = {}
+        for f in fb:
+            if f.get("kind") == "出戏" and lo <= f.get("ch", -1) <= hi:
+                slips.setdefault(normalize_domain(str(f["value"])) or str(f["value"]), []).append(f"第{f['ch']}章 {f.get('note', '')}".strip())
+        out += ["", "## 底蕴", "", f"- 一书一深学：{'、'.join(d.get('study', [])) or '（未选）'}"]
+        out += [f"- {k}：知识点 {v} 条，待核 {pend.get(k, 0)} 条" + (f"；出戏 {len(slips[k])} 处" if k in slips else "")
+                for k, v in sorted(by_dom.items(), key=lambda x: -x[1])] or ["- （本卷没有知识点清单）"]
+        out += [f"- {k}（无知识点清单）：出戏 {len(v)} 处——{'；'.join(v)}" for k, v in slips.items() if k not in by_dom]
+        out += ["- 补学清单（待填）：按 domains/reading-list.md 第二节，挑知识点最多或出戏最多的学科"]
     if a.kind == "finale":
         gaps = [k for k in know if k.get("unknown_to")]
         scenes_left = [p for p in items if p.get("type") == "名场面" and p.get("status") in OPEN_STATES]
@@ -836,6 +999,8 @@ def new_book(title, genre, chapters, level, mode):
         "target": {"chapters": chapters, "words_per_chapter": [3000, 5000]},
         "stage": "founding",
         "mode": mode,
+        "era": "",
+        "study": [],
         "writing_mode": "serial",
         "experience_level": level,
         "soul": {"question": "", "answer": "", "injustice": "", "ending": "",
@@ -994,6 +1159,11 @@ def cmd_status(a):
         print(line)
     if d.get("team"):
         print("团队: " + "，".join(f"{k}={v}" for k, v in d["team"].items()))
+    pending_k = 0
+    for c in chs:
+        rows = knowledge_rows(book_dir, c["seq"]) or []
+        pending_k += sum(1 for r in rows if len(r) >= 5 and r[4] == "待核")
+    print(f"底蕴: 时代背景 {d.get('era') or '未设'}  一书一深学 {'、'.join(d.get('study', [])) or '未选'}  待核知识点 {pending_k}")
     print(f"更新于: {d.get('updated_at')}")
 
 
@@ -1321,6 +1491,9 @@ def cmd_complete(a):
     why = scene_ready(book_dir, c)
     if why:
         die(f"章定稿闸：{why}")
+    kp = knowledge_ready(book_dir, a.seq)
+    if kp:
+        die("章定稿闸：场景卡标了知识点，但知识点清单不合格——" + "；".join(kp))
     if a.hard != "pass":
         die("章定稿闸：硬伤层未通过（先派 editor 修订并复审）")
     if c.get("key") and not c.get("selection"):
@@ -1614,6 +1787,12 @@ def main():
     q = fs.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--category")
     p.set_defaults(fn=cmd_fact)
 
+    p = sub.add_parser("knowledge"); kns = p.add_subparsers(dest="action", required=True)
+    q = kns.add_parser("plan"); q.add_argument("book_dir"); q.add_argument("seq", type=int, nargs="+")
+    q = kns.add_parser("check"); q.add_argument("book_dir"); q.add_argument("seq", type=int, nargs="+")
+    p.set_defaults(fn=cmd_knowledge)
+    p = sub.add_parser("era"); p.add_argument("book_dir"); p.add_argument("era"); p.set_defaults(fn=cmd_era)
+    p = sub.add_parser("study"); p.add_argument("book_dir"); p.add_argument("--add"); p.set_defaults(fn=cmd_study)
     p = sub.add_parser("pack"); p.add_argument("book_dir"); p.add_argument("seq", type=int); p.add_argument("--note")
     p.set_defaults(fn=cmd_pack)
     p = sub.add_parser("review"); rs = p.add_subparsers(dest="action", required=True)
@@ -1630,7 +1809,7 @@ def main():
 
 
 READ_ONLY = {("status", None), ("next", None), ("report", None), ("sha", None), ("water", None),
-             ("reader-now", None), ("scene", "check"), ("scene", "next"), ("promise", "list"), ("know", "list"),
+             ("reader-now", None), ("scene", "check"), ("scene", "next"), ("knowledge", "plan"), ("knowledge", "check"), ("promise", "list"), ("know", "list"),
              ("fact", "get"), ("fact", "list"), ("feedback", "list"), ("team", "list"), ("unit", "list")}
 
 

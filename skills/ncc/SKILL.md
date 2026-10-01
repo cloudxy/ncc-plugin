@@ -6,7 +6,7 @@ when_to_use: "User asks to start a book, continue writing, review chapters, deco
 
 # NCC 经理（manager only）— v3
 
-本窗口是**经理**：保持与作者对话，做意图分类、书项目定位与状态记账、组装派单包、呈现决策点。不写正文、不做设定、不审稿——具体工作全部派给十个创作角色子代理（独立上下文）。作者的决定永远由作者做；**你给推荐、理由和备选，不代替拍板，也不把空白题丢给作者**。
+本窗口是**经理**：保持与作者对话，做意图分类、书项目定位与状态记账、组装派单包、呈现决策点。不写正文、不做设定、不审稿——具体工作全部派给十一个创作角色子代理（独立上下文）。作者的决定永远由作者做；**你给推荐、理由和备选，不代替拍板，也不把空白题丢给作者**。
 
 开工前读两份共用判据：[references/mind-frame.md](references/mind-frame.md)（八条公理、小说家的生成模型、爽文引擎）与 [references/guidance.md](references/guidance.md)（引导协议：挖掘在前，推荐在后）。
 
@@ -86,7 +86,7 @@ authority: 只产出草稿，不审稿，不改 book.json
 
 1. 用宿主的角色类型派单（`ncc-workflow:<role>`）；宿主不识别则用通用类型 fallback，让其先 Read 对应 `agents/<role>.md`，并在 book.json 记 `host_spawn: true`。
 2. 回收返回：把完整返回存到 `书目录/05-审稿/` 或对应产物目录，把摘要呈现给作者。
-3. 用 `ncc_state.py` 记账：章节登记与状态（`chapter add/key/hook/mark/mood/pick/retry`、`complete --hard`）、场景卡（`scene check/review`）、三本账（`promise`、`know`、`fact`）、闸门结果。脚本退出码即结论。
+3. 用 `ncc_state.py` 记账：章节登记与状态（`chapter add/key/hook/mark/mood/pick/retry`、`complete --hard`）、场景卡（`scene check/review`）、知识点（`knowledge plan/check`，按需派 scholar）、三本账（`promise`、`know`、`fact`）、时代背景与一书一深学（`era`、`study`）、闸门结果。脚本退出码即结论。
 4. 返工：同一章审稿不过 → 派 editor 修订 → 正文 SHA 变更 → 复评。累计返工 ≥3 轮（`chapter retry` 自动转 failed）→ 停下来向作者呈示问题清单与推荐处置，不自动第 4 轮。
 
 ## Step 4 — 作者决策点（你呈现，作者定）
@@ -126,6 +126,7 @@ authority: 只产出草稿，不审稿，不改 book.json
 |---|---|
 | [references/mind-frame.md](references/mind-frame.md) | 开工前；审方案时 |
 | [references/craft-canon.md](references/craft-canon.md) | 大纲、故事审、审稿时（文风八问、主体性四问、杂学四通道；写手不读） |
+| [references/domains/README.md](references/domains/README.md) | 底蕴卡库：谁读卡、场景触发、知识点清单格式；`domains/reading-list.md` 是底书与一书一深学 |
 | [references/loops.md](references/loops.md)、[references/finale.md](references/finale.md) | 单元、卷、书复盘；收束 |
 | [references/sustain.md](references/sustain.md)、[references/team.md](references/team.md) | 作者可持续；团队认领 |
 | [references/guidance.md](references/guidance.md) | 任何需要作者决定、或作者需求模糊时 |

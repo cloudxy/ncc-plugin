@@ -16,7 +16,7 @@
     "ncc-write": {
       "skill": "ncc-write",
       "mode": "write",
-      "description": "写章循环：S2 开篇（黄金三章，G3 开篇闸）或 S3 连载。先审故事，后写文字：场景卡→故事审→写作简报→写作（关键节拍写 2–3 版）→机械检查（含水章）→硬伤审→修订→复审→关键章作者比选→落盘回写三本账。",
+      "description": "写章循环：S2 开篇（黄金三章，G3 开篇闸）或 S3 连载。先审故事，后写文字：场景卡→故事审→知识点（按需派 scholar）→写作简报→写作（关键节拍写 2–3 版）→机械检查（含水章）→硬伤审→修订→复审→关键章作者比选→落盘回写三本账。",
       "argument_hint": "[第N章 | 接着写 | 黄金三章 | 今更3章]"
     },
     "ncc-review": {
@@ -137,7 +137,7 @@
     "outliner": {
       "skill": "ncc-new",
       "task": "outline",
-      "description": "Use this agent for the outline scaled to the writing mode (master → volume → chapter), signature scenes and core motifs, the emotion curve, registering promises, and drafting scene cards in small batches (task: scene; 3 chapters in hybrid mode), including the default move the writer should avoid. Owns G2 freeze evidence. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent for the outline scaled to the writing mode (master → volume → chapter), signature scenes and core motifs, the emotion curve, registering promises, and drafting scene cards in small batches (task: scene; 3 chapters in hybrid mode), including the default move the writer should avoid and a knowledge line when a scene needs specialist knowledge. Owns G2 freeze evidence. Do NOT use while /ncc runs in the parent window.",
       "color": "blue",
       "fresh": false,
       "function": "创作"
@@ -149,6 +149,14 @@
       "color": "teal",
       "fresh": false,
       "function": "质量"
+    },
+    "scholar": {
+      "skill": "ncc-write",
+      "task": "knowledge",
+      "description": "Use this agent as the knowledge adviser (D1): when a batch of scene cards lists knowledge points, write each chapter's knowledge list — concrete facts and how to put them on the page, each with a source or marked unverified — from the domain cards, the fact ledger and reliable references; also check how fictional settings operate against real-world rules. Never invents facts; never writes prose. Called on demand, not in every loop. Do NOT use while /ncc runs in the parent window.",
+      "color": "brown",
+      "fresh": false,
+      "function": "创作"
     },
     "writer": {
       "skill": "ncc-write",
@@ -169,7 +177,7 @@
     "continuity": {
       "skill": "ncc-review",
       "task": "audit",
-      "description": "Use this agent for the hard-defect layer of review: setting conflicts, timeline, promise-ledger obligations, whether the scene card's turn and dilemma actually happen on the page, knowledge-state leaks (POV discipline), state-event replay, fact-ledger consistency. On regular chapters it is the only hard-defect reviewer and also checks the poison list; re-reviews only the changed paragraphs from review delta. Pass/fail with evidence-cited observations only — never edits manuscripts, never scores quality. Fresh context, no producer memory. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent for the hard-defect layer of review: setting conflicts, timeline, promise-ledger obligations, whether the scene card's turn and dilemma actually happen on the page, knowledge-state leaks (POV discipline), state-event replay, fact-ledger consistency, and the knowledge layer (did the prose follow the chapter's knowledge list, unsourced specifics, anachronisms, honorific misuse). On regular chapters it is the only hard-defect reviewer and also checks the poison list; re-reviews only the changed paragraphs from review delta. Pass/fail with evidence-cited observations only — never edits manuscripts, never scores quality. Fresh context, no producer memory. Do NOT use while /ncc runs in the parent window.",
       "color": "red",
       "fresh": true,
       "function": "质量"
@@ -226,7 +234,8 @@
       "layer": "L1-skeleton",
       "roles": [
         "worldbuilder",
-        "outliner"
+        "outliner",
+        "scholar"
       ],
       "steps": [
         "写作模式（D15）",
@@ -258,6 +267,7 @@
       "roles": [
         "outliner",
         "story-editor",
+        "scholar",
         "writer",
         "editor",
         "continuity",
@@ -278,6 +288,7 @@
       "roles": [
         "outliner",
         "story-editor",
+        "scholar",
         "writer",
         "editor",
         "continuity",
@@ -288,6 +299,7 @@
       "gate": "G-chapter",
       "outputs": [
         "02-大纲/场景卡/",
+        "02-大纲/知识点/",
         "04-正文/",
         "05-审稿/",
         "06-台账/"
@@ -389,6 +401,7 @@
       "decider": "script+editor",
       "checks": [
         "场景卡已过故事审且之后未改动",
+        "场景卡标了知识的章：知识点清单合格（学科、来源、状态）",
         "check_chapter.py 通过（字数/钩子/AI味/水章）",
         "硬伤层通过",
         "关键章：作者已从 2–3 版中选定",
@@ -467,5 +480,12 @@
     "加 pulse": "本章兑现爽点欠账或名场面、关键章、开篇",
     "复审": "review delta 只看改动段落，由原审稿人复审",
     "tool": "ncc_state.py review plan|delta"
+  },
+  "knowledge": {
+    "cards": "skills/ncc/references/domains/（24 张）",
+    "lists": "02-大纲/知识点/ch-NNNN.md",
+    "trigger": "场景卡的\"知识\"一栏；knowledge plan 判断一批要不要派 scholar（一批最多一次）",
+    "tool": "ncc_state.py knowledge plan|check、era、study",
+    "writer_gets": "知识点清单的\"写成什么\"一栏，不带卡、不带来源"
   }
 }

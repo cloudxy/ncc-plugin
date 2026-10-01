@@ -1,13 +1,13 @@
 # ncc-workflow — Novel Create Center
 
-ZCode 插件 · v0.4.1 · 个人本地插件
+ZCode 插件 · v0.5.0 · 个人本地插件
 
 **小说创作中心**：长篇网文从立书到收束的完整工作流。它把长篇网文当作"边写边发、不可撤回、读者每章投票"的活来设计，由两台引擎组成：
 
 - **下限引擎**（不出错、不烂尾）：书魂与类型契约、五层决策、三本账、读者此刻、水章判据、硬伤审、闸门与 SHA。
 - **上限引擎**（让作品出彩）：先挖作者自己的种子再给推荐；人物写成有欲望、恐惧、伤口和声音的人；每章先写场景卡、过了故事审才写正文；写手只拿写作简报、看不到审稿清单和书魂原文；关键节拍写 2–3 版由作者挑；评价不打绝对分，关键章用成对比较与读者记忆测试。
 
-**下限靠系统，上限靠作者与选择。** 经理窗口调度十个创作角色，`book.json`＋三本账是唯一状态源，写-审-改三分离；每个需要作者决定的地方都给推荐、理由和备选。
+**下限靠系统，上限靠作者与选择。** 经理窗口调度十一个创作角色，`book.json`＋三本账是唯一状态源，写-审-改三分离；每个需要作者决定的地方都给推荐、理由和备选。
 
 架构说明见 [workflow/architecture.md](workflow/architecture.md)；设计全文（完善计划第七稿与架构审视）在作者的 `~/Documents/grok-files/ncc-workflow/`。
 
@@ -35,7 +35,8 @@ flowchart TD
   subgraph WRITE["S2 开篇 / S3 连载（ncc-write）"]
     G2 --> SC["一批场景卡（混合 3 章）<br/>outliner 一次写完"]
     SC --> SR{{"故事审 story-editor 一次审完<br/>关键章作者过目"}}
-    SR --> P["pack：脚本组装写手包<br/>写作简报＋读者此刻＋人物声音"]
+    SR --> KN["知识点（按需）<br/>标了知识的章才派 scholar"]
+    KN --> P["pack：脚本组装写手包<br/>写作简报＋知识点＋读者此刻＋人物声音"]
     P --> W["writer 草稿（关键节拍 2–3 版）＋三本账回写"]
     W --> C["check_chapter.py<br/>字数/钩子/AI味/水章"]
     C -->|不过| W
@@ -92,11 +93,11 @@ ncc-workflow/
   workflow/registry.json        # 层/阶段/角色/闸门/三本账/公理/铁律的唯一事实源
   workflow/architecture.md      # 五层决策·三本账·四循环·读者模型·引导层
   commands/                     # /ncc /ncc-new /ncc-write /ncc-review /ncc-deconstruct
-  agents/                       # 10 角色：scout worldbuilder outliner story-editor writer
+  agents/                       # 11 角色：scout worldbuilder outliner story-editor scholar writer
                                 #          editor continuity pulse reader deconstructor
   skills/
     ncc/                        # 经理：mind-frame / guidance / craft-canon / loops / finale / sustain / team /
-                                #       stage-map / book-state / context-pack；模板含作者种子
+                                #       stage-map / book-state / context-pack；domains/（24 张底蕴卡）；模板含作者种子
     ncc-new/                    # 立书与立骨：qa-layers / book-soul / character / worldbuilding / outline
     ncc-write/                  # 写章：scene-card / writing-brief / chapter-loop / golden-three
     ncc-review/                 # 审稿：review-domains（三层评价细则+报告模板）
@@ -135,6 +136,7 @@ ncc-workflow/
 | 四循环与收束 | 单元、卷复盘由台账生成底稿，作者集中确认暂定决策；收束按清单清算承诺、收拢暗线；完本后写跨书技艺库 | 本插件 |
 | 读者数据回流 | 真实数据与模拟读者判断并排登记，复盘时校准模拟读者 | 本插件（对治"模型与读者不一致"） |
 | 作者可持续 | 存稿线与保更模式、倦怠信号、噪音隔离、卡文协议 | 本插件 |
+| 底蕴层 | 24 张底蕴卡；场景卡标"知识"才按需派 scholar 出本章知识点清单（有来源或标待核）；写手只拿"写成什么"；时代错置、称谓、月相提醒；一书一深学与补学清单 | D3 ＋ 本插件 |
 | AI 味分级 | 五星句式出现即改、高危句式与一级词合计限额、二级词密度告警、作者放行清单 | oh-story story-deslop 清单（MIT）＋本插件 |
 | SHA 新鲜度＋强制复评 | 正文一变旧评审作废；修订是显式动作，写者不审己稿 | Openwrite ＋ InkOS ＋ sdlc 铁律 |
 | 事件溯源台账 | 人物/关系/设定变化记状态事件，当前态=重放 | 拆书总纲 5.0 ＋ InkOS |
@@ -146,8 +148,9 @@ ncc-workflow/
 - v0.2（M1 架构核心）：书魂与契约、三本账、读者此刻、水章、五层与变更提议、引导层（S0–S1）、阶段重编（D10）。
 - v0.3（M2 上限引擎）：作者种子、人物引擎、场景卡与故事审、写作简报与质检清单分离、发散—收敛与关键章比选、情绪调色板与"失去"线、名场面与母题、三层评价（D13）、发展编辑、写作模式（D15）、思维框架重写。
 - v0.4（M3 循环与收束）：单元、卷、书三级复盘与复盘底稿、S4 卷复盘（G4）、S5 收束（G5）与技艺库、读者数据回流与模拟读者校准、创作宪法、文风放行机制、AI 味分级、主体性四问、作者可持续、团队认领与操作日志、S3–S5 引导决策点。
-- **v0.4.1（本版，减重）**：场景卡小批量、常规章一人审硬伤、复审只看改动、写手包由脚本组装（D16–D18）；常规章角色调用从 5 次降到约 2.7 次。
-- M4：底蕴卡库与 scholar。M5：素材流。M6：文风、读者画像与技艺库回灌。
+- v0.4.1（减重）：场景卡小批量、常规章一人审硬伤、复审只看改动、写手包由脚本组装（D16–D18）；常规章角色调用从 5 次降到约 2.7 次。
+- **v0.5（本版，M4 底蕴层）**：24 张底蕴卡入库、scholar、场景触发的知识点清单、定稿拦截、底蕴硬伤检查与提醒、时代背景、一书一深学与补学清单。
+- M5：素材流。M6：文风、读者画像与技艺库回灌。
 
 ## 边界
 

@@ -456,6 +456,79 @@ class TestLoops(Base):
         self.assertFalse(any(json.loads(x)["argv"][0] == "status" for x in log))
 
 
+KNOW_OK = """| 知识点 | 学科 | 写成什么 | 来源 | 状态 |
+|---|---|---|---|---|
+| 当天月相 | 天文 | 农历初三，傍晚西天一弯月牙 | 月相与日期对照 | 已核 |
+| 行军里程 | 历史 | 一日三十里 | 《左传》 | 已核 |
+| 丹炉火候 | 化学 | 火色由红转白 | —— | 待核 |
+"""
+
+
+class TestKnowledge(Base):
+    def card(self, seq, extra=""):
+        self.add(seq)
+        self.write(f"02-大纲/场景卡/ch-{seq:04d}.md", SCENE_SHORT + extra)
+        self.ok("scene", "review", self.book, seq, "--result", "pass", "--by", "story-editor")
+
+    def test_plan_and_check(self):
+        self.card(4)
+        self.card(5, "- 知识：月相；行军里程\n")
+        out = self.ok("knowledge", "plan", self.book, 4, 5)
+        self.assertIn("第 5 章：月相；行军里程", out)
+        self.assertIn("派 scholar（一次）做第 5 章", out)
+        self.assertIn("不派", self.ok("knowledge", "plan", self.book, 4))
+        self.assertIn("缺知识点清单", self.bad("knowledge", "check", self.book, 5))
+        self.write("02-大纲/知识点/ch-0005.md", KNOW_OK.replace("| 天文 |", "| 星象学 |").replace("| 月相与日期对照 |", "| —— |"))
+        out = self.bad("knowledge", "check", self.book, 5)
+        self.assertIn("不是 24 张卡之一", out)
+        self.assertIn("没有来源", out)
+        self.write("02-大纲/知识点/ch-0005.md", KNOW_OK.replace("火色由红转白", "炉温升到八百度"))
+        self.assertIn("宁缺律", self.bad("knowledge", "check", self.book, 5))
+        self.write("02-大纲/知识点/ch-0005.md", KNOW_OK)
+        self.assertIn("3 条，待核 1 条", self.ok("knowledge", "check", self.book, 5))
+
+    def test_complete_and_pack(self):
+        self.card(5, "- 知识：月相\n")
+        self.assertIn("知识点清单不合格", self.bad("complete", self.book, 5, "--words", 3000, "--hard", "pass"))
+        self.write("02-大纲/知识点/ch-0005.md", KNOW_OK)
+        self.ok("pack", self.book, 5)
+        pack = (self.book / "04-正文/_packs/ch-0005.md").read_text("utf-8")
+        self.assertIn("本章知识点", pack)
+        self.assertIn("火色由红转白（待核：不写具体数字和术语", pack)
+        self.assertNotIn("《左传》", pack)
+        self.ok("complete", self.book, 5, "--words", 3000, "--hard", "pass")
+        self.assertIn("待核知识点 1", self.ok("status", self.book))
+
+    def test_era_study_and_warnings(self):
+        self.bad("era", self.book, "唐朝")
+        self.ok("era", self.book, "古代")
+        self.bad("study", self.book, "--add", "占星")
+        self.assertIn("天文、宗教神话民俗", (self.ok("study", self.book, "--add", "天文"), self.ok("study", self.book, "--add", "民俗"))[1])
+        f = "04-正文/第0004章-x.md"
+        self.write(f, "字" * 3200 + "他掏出手机。我令尊说了。初三夜里，一轮明月挂在天上。")
+        self.ok("chapter", "add", self.book, 4, "--file", f)
+        self.ok("chapter", "hook", self.book, 4, "--type", "悬念", "--intensity", 3)
+        self.ok("promise", "add", self.book, "--type", "悬念", "--content", "x", "--ch", 4)
+        self.ok("fact", "set", self.book, "初三", "月牙", "--ch", 1)
+        code, out = run(self.book, 4, script=CHECK)
+        self.assertEqual(code, 0, out)
+        for key in ("时代错置词", "手机", "敬称用在自己身上", "月相与日期可能不符", "初三=月牙"):
+            self.assertIn(key, out)
+
+    def test_volume_report_knowledge(self):
+        d = self.book_json()
+        d["stage"] = "serial"
+        (self.book / "book.json").write_text(json.dumps(d, ensure_ascii=False), "utf-8")
+        self.card(4, "- 知识：月相\n")
+        self.write("02-大纲/知识点/ch-0004.md", KNOW_OK)
+        self.ok("feedback", "add", self.book, "--ch", 4, "--source", "真实", "--kind", "出戏", "--value", "天文", "--note", "满月日期不对")
+        self.ok("volume", "end", self.book, "--end", 4)
+        out = self.ok("report", self.book, "volume")
+        self.assertIn("## 底蕴", out)
+        self.assertIn("天文：知识点 1 条，待核 0 条；出戏 1 处", out)
+        self.assertIn("化学：知识点 1 条，待核 1 条", out)
+
+
 class TestMigrate(unittest.TestCase):
     def test_v01_book(self):
         with tempfile.TemporaryDirectory() as t:

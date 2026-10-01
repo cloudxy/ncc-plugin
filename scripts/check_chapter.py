@@ -12,6 +12,8 @@
      作者放行：03-文风/放行清单.md 里用「」括起的原句不计入（有意为之，须写理由）
   4. 水章：本章未建立、推进或兑现任何读者向承诺（读 06-台账/承诺台账.json；无台账则告警跳过）
   5. 句长起伏（诊断参考，不计入退出码）：句长变异系数、落在 15–35 字"舒适区"的句子占比
+  6. 底蕴提醒（M4，只告警，交 continuity 核对）：时代错置词（book.json era 为古代或架空古代时启用，
+     可在 01-设定/时代错置词.md 追加本书的词）、敬称谦称用反、月相与日期不符；并列出本章用到的知识台账条目
 
 只数汉字、剔除 Markdown 标记。
 AI 味词表与句式整理自 oh-story-claudecode 的 story-deslop（MIT License，Copyright (c) 2025-2026 oh-story-claudecode），
@@ -55,6 +57,59 @@ SUMMARY_PATTERNS = {
     "他/她这才意识到": r"[他她]这才意识到",
     "他/她不知道的是（章末空泛预告）": r"[他她]不知道的是",
 }
+
+
+# 古代背景下的时代错置词（只告警；穿越者等有意为之的写进放行清单）
+ANACHRONISM_WORDS = [
+    "手机", "电话", "电脑", "电视", "网络", "上网", "汽车", "火车", "飞机", "地铁", "公交", "OK", "拜拜", "哈喽",
+    "沙发", "咖啡", "巧克力", "冰箱", "空调", "手表", "分钟", "秒钟", "公里", "厘米", "星期", "周末", "上班", "下班",
+    "加班", "打卡", "效率", "经理", "员工", "拍照", "照片", "信号", "细胞", "基因", "病毒", "维生素", "卡路里",
+    "概率", "智商", "情商", "颜值", "吐槽", "内卷", "躺平", "靠谱",
+]
+HONORIFIC_MISUSE = {
+    "敬称用在自己身上": r"我(?:的|家)?(?:令尊|令堂|令郎|令爱|令兄|令妹|贵府|尊夫人)",
+    "谦称用在对方身上": r"(?:你|您)(?:的)?(?:家父|家母|家兄|舍弟|舍妹|寒舍|拙荆|犬子)",
+}
+EARLY_DAY = r"初[一二三四五六七八]|月初|二十[五六七八九]|月底|朔日|晦日"
+FULL_MOON = r"满月|圆月|月圆|月如银盘|一轮明月"
+MID_DAY = r"十五|十六|望日"
+CRESCENT = r"月牙|弯月|新月|残月|一钩"
+
+
+def knowledge_warnings(book_dir: Path, text: str):
+    warns, era = [], ""
+    bj = book_dir / "book.json"
+    if bj.exists():
+        try:
+            era = json.loads(bj.read_text("utf-8")).get("era", "")
+        except json.JSONDecodeError:
+            pass
+    if era in ("古代", "架空古代"):
+        words = list(ANACHRONISM_WORDS)
+        extra = book_dir / "01-设定" / "时代错置词.md"
+        if extra.exists():
+            words += [w.strip() for w in re.findall(r"^[-*]\s*(\S+)", extra.read_text("utf-8"), flags=re.M)]
+        hits = {w: text.count(w) for w in words if text.count(w)}
+        if hits:
+            warns.append("底蕴：时代错置词（" + era + "）：" + "，".join(f"{k}×{v}" for k, v in hits.items()))
+    for k, pat in HONORIFIC_MISUSE.items():
+        found = re.findall(pat, text)
+        if found:
+            warns.append(f"底蕴：{k}：{'、'.join(found[:5])}")
+    for sent in re.split(r"[。！？!?\n]", text):
+        if re.search(EARLY_DAY, sent) and re.search(FULL_MOON, sent):
+            warns.append(f"底蕴：月相与日期可能不符（月初或月底写了满月）：「{sent.strip()[:40]}」")
+        elif re.search(MID_DAY, sent) and re.search(CRESCENT, sent):
+            warns.append(f"底蕴：月相与日期可能不符（十五前后写了月牙）：「{sent.strip()[:40]}」")
+    facts = {}
+    fp = book_dir / "06-台账" / "知识台账.json"
+    if fp.exists():
+        try:
+            facts = json.loads(fp.read_text("utf-8")).get("facts", {})
+        except json.JSONDecodeError:
+            pass
+    used = [f"{k}={v.get('value')}" for k, v in facts.items() if k in text]
+    return warns, used
 
 
 def load_config(book_dir: Path):
@@ -173,6 +228,9 @@ def main():
     if summ:
         warns.append("B 级总结升华或空泛预告：" + "，".join(f"{k}×{v}" for k, v in summ.items()))
 
+    k_warns, facts_used = knowledge_warnings(book_dir, text)
+    warns += k_warns
+
     # 水章
     ledger = book_dir / PROMISES
     touches = []
@@ -193,6 +251,7 @@ def main():
         "ai": {"block": block, "high_risk": high, "level1": l1, "level2_per_1000": round(per_k, 1), "summary": summ,
                "waived_snippets": len(waived)},
         "rhythm_reference": burstiness(raw),
+        "facts_mentioned": facts_used,
         "promise_touches": [f"{i} {k}" for i, k in touches],
         "warnings": warns, "problems": problems, "pass": not problems,
     }

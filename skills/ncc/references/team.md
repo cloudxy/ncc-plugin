@@ -10,7 +10,7 @@
 | 主笔 | L3、L4 | 作者 | 1–2 人 | writer |
 | 设定 | L1 起草、人物引擎 | 作者＋AI | 设定师 | worldbuilder |
 | 发展编辑 | 场景卡故事审；单元与卷的结构问题 | AI＋作者 | 结构编辑 | story-editor |
-| 考据 | 场景知识 | AI＋作者核实 | 考据顾问（可按学科分工） | scholar（M4） |
+| 考据 | 场景知识点清单、设定运转规律 | AI＋作者核实 | 考据顾问（可按学科分工） | scholar |
 | 审稿 | 硬伤层 | AI＋作者复核 | 责编 | continuity、pulse |
 | 试读 | 读者信号、记忆测试 | AI＋真人试读 | 试读组 | reader |
 | 拆书 | 参照样本 | AI | 拆书员 | deconstructor |

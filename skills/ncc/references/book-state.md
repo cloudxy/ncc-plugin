@@ -22,6 +22,8 @@
   "target": {"chapters": 300, "words_per_chapter": [3000, 5000]},
   "stage": "opening",
   "mode": "建筑师 | 园丁 | 混合",
+  "era": "古代 | 架空古代 | 近代 | 现代 | 架空现代 | 未来",
+  "study": ["天文"],
   "writing_mode": "serial | batch",
   "experience_level": "新手 | 熟手 | 老手",
   "soul": {"question": "", "answer": "", "injustice": "", "ending": "", "status": "未填|暂定|确定", "deadline": "第一卷卷复盘", "arc": "正向|负向|平弧"},
@@ -110,7 +112,8 @@
    **主角失去的东西**记为状态事件 `attribute: 失去`，"读者此刻"会列出最近的失去。
 5. **v0.1 书**：`ncc_state.py migrate` 升级到 schema 2（原伏笔台账保留）。v0.2/v0.3 建的书缺 M3 字段（units、volumes、published_upto、team）时，脚本在用到时自动补齐。
 6. **单元与卷**：`unit open/close`（关单元前须有复盘文件）、`volume end` 后过 `gate volume`；卷通过后下一卷自动从下一章开始。
-7. **读者数据**：`06-台账/读者数据.json`，`feedback add --source 真实|模拟 --kind 追读|弃读|划线|评论`。
+7. **读者数据**：`06-台账/读者数据.json`，`feedback add --source 真实|模拟 --kind 追读|弃读|划线|评论|出戏`（出戏的 value 填学科）。
+   **知识点清单**：`02-大纲/知识点/ch-NNNN.md`，场景卡标了"知识"的章由 scholar 写；`knowledge check` 校验，`complete` 拦截不合格的。
 8. **操作日志**：`06-台账/操作日志.jsonl`，每次写操作自动追加（时间、操作者 `NCC_ACTOR`、命令），团队交接用。
 9. **book.json 损坏**：按文件存在性＋check_chapter.py 重建，重建后 diff 给作者看一眼。
 
@@ -122,8 +125,8 @@
   author-intent.md        # L0：书魂、类型契约、签约点、目标读者、终局（写给所有帽）
   current-focus.md        # 近1-3章焦点，writer 每章更新
   00-策划/  作者种子.md  briefing.md  对标分析.md  变更提议.md  收束清单.md  复盘/单元-U1.md 卷1.md 全书.md
-  01-设定/  世界观圣经.md  力量体系.md  设定词典.md  规则表.md  人物卡/（含 <名字>-采访.md）
-  02-大纲/  总纲.md  卷纲/卷1.md  章纲/ch-0001.md  场景卡/ch-0001.md
+  01-设定/  世界观圣经.md  力量体系.md  设定词典.md  规则表.md  时代错置词.md（可选）  人物卡/（含 <名字>-采访.md）
+  02-大纲/  总纲.md  卷纲/卷1.md  章纲/ch-0001.md  场景卡/ch-0001.md  知识点/ch-0001.md
   03-文风/  文风基准.md  放行清单.md
   04-正文/  第0001章-标题.md  _packs/ch-0001.md（pack 生成）  _versions/ch-0001-<节拍>-A.md
   05-审稿/  story-ch-0001.md  ch-0001-review.md  blind-ch-0001-0003.md  _snapshots/ch-0001.md（review plan/delta 用）
