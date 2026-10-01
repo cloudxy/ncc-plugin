@@ -69,7 +69,12 @@
                                          （标 drafting 前，场景卡必须已过故事审且之后未改动）
   chapter mood <book> <seq> 压|放|平 [--colors 爽,燃,虐,甜,怕,笑,悲,敬,叹]
   chapter pick <book> <seq> --version V [--note N]   关键章：作者从 2–3 版里选定
-  chapter retry <book> <seq>             重写计数 +1，达上限转 failed
+  chapter length <book> <seq> --accept [--force] [--tentative] [--note 作者原话]
+                                         收下当前长度（字数不在区间时）。--tentative：写章循环里按推荐先收、单元复盘时作者确认；
+                                         不到下限一半不能先收，要当场问作者（作者坚持收下用 --force）
+  chapter length <book> <seq> --compressed   超长时 editor 已做过一次只删不加的压缩
+  words <book> <seq> [--file F]          量字数：写完前半段量一次，告诉写手后半段还剩多少
+  chapter retry <book> <seq>             重写计数 +1，达上限转 failed（只用于质量问题；字数不够不重写，交作者定）
   chapter publish <book> --upto N        记录已发布到第 N 章（用于存稿线）
   complete <book> <seq> --words N --hard pass|fail [--decidable R] [--report P]
                                          章定稿闸：硬伤层通过 ∧ 场景卡已过故事审 ∧（关键章）作者已选定
@@ -525,7 +530,27 @@ def reader_now_lines(book_dir: Path, d: dict, seq: int, top: int = 5):
 
 
 BRIEF_TAIL = ("两难里的两个选项都不完全对。把人物的选择演出来，不要替他解释，也不要让任何人（包括叙述者）说出这场的意义。"
-              "从视角人物能感知到的写起；他不知道的事，叙述也不知道。写完删掉解释情绪、复述前情、结尾点题的句子。")
+              "从视角人物能感知到的写起；他不知道的事，叙述也不知道。"
+              "情绪落在选择、台词、物件和后果上；身体反应只写有后果的（手一抖摔了杯子、信封被攥皱），"
+              "不用指尖、指节、喉结、呼吸、心跳这类小动作去标注情绪。写完删掉解释情绪、复述前情、结尾点题的句子。")
+REV_LINE = re.compile(r"^\s*rev\s*\d+\s*[:：].*$", re.M)   # editor 的修订注记，不算正文
+
+
+def han_words(text: str) -> int:
+    """正文字数口径（check_chapter、words、chapter length 共用）：只数汉字，剔除 Markdown 标记与修订注记。"""
+    return len(HAN.findall(plain(REV_LINE.sub("", text))))
+
+
+def length_band(book_dir: Path, seq: int):
+    """本章字数区间：场景卡里写了「字数范围：A-B」就用它，否则用 ncc.config.yaml 的 words_min/words_max。"""
+    card = scene_path(book_dir, seq)
+    if card.exists():
+        m = re.search(r"字数范围[：:]\s*(\d+)\s*[-~～至]\s*(\d+)", card.read_text("utf-8"))
+        if m:
+            lo, hi = sorted((int(m.group(1)), int(m.group(2))))
+            return lo, hi, "场景卡"
+    cfg = load_cfg(book_dir)
+    return cfg["words_min"], cfg["words_max"], "配置"
 
 
 def knowledge_points(card: str):
@@ -774,6 +799,11 @@ def cmd_pack(a):
         if c.get("key") and "关键节拍" in body:
             out.append("- 关键节拍写 2–3 个版本，彼此走法不同，存到 04-正文/_versions/，不要自己挑。")
         out += [f"- {BRIEF_TAIL}", ""]
+    lo, hi, _ = length_band(book_dir, a.seq)
+    out += ["### 篇幅", f"- 本章 {lo}–{hi} 字。分两段写：先把前半段（写到一个自然转场处）写进正文文件，"
+            f"跑一次 `python3 {Path(__file__).resolve()} words {book_dir.resolve()} {a.seq}`，它会告诉你后半段大约还要多少字；"
+            "再接着写后半段。只量这一次，不回头改前半段去追字数。",
+            "- 简报里的事写完就停：不为凑字数加情节、加人物、加设定。写短了照实交回，由作者决定收不收。", ""]
     if a.note:
         out += ["### 经理的特别提醒（只写意图与材料）", a.note, ""]
 
@@ -856,6 +886,32 @@ def cmd_pack(a):
     c["pack"] = str(dest.relative_to(book_dir))
     save(book_dir, d)
     print(f"OK 写手包 {c['pack']}（{size} 字" + (f"，超过预算 {PACK_BUDGET}，请删减材料" if size > PACK_BUDGET else "") + "）")
+
+
+def chapter_file(book_dir: Path, c: dict) -> Path:
+    p = book_dir / c.get("file", "")
+    if not p.is_file():
+        die(f"找不到第 {c['seq']} 章正文：{c.get('file')}")
+    return p
+
+
+def cmd_words(a):
+    """量字数。写前半段后量一次，给出后半段还剩多少（只量这一次，不据此回改前半段）。"""
+    book_dir = Path(a.book_dir)
+    d = load(book_dir)
+    c = find_ch(d, a.seq)
+    p = Path(a.file) if a.file else chapter_file(book_dir, c)
+    if not p.is_file():
+        die(f"找不到文件：{p}")
+    n = han_words(p.read_text("utf-8"))
+    lo, hi, src = length_band(book_dir, a.seq)
+    print(f"第 {a.seq} 章现在 {n} 字；本章区间 {lo}–{hi} 字（来自{src}）")
+    if n < lo:
+        print(f"后半段大约还要 {lo - n}–{hi - n} 字。照简报写完就停，不为凑字数加内容。")
+    elif n <= hi:
+        print(f"已在区间内；后半段最多还能写 {hi - n} 字，简报里的事写完就停。")
+    else:
+        print(f"已超出上限 {n - hi} 字：后半段只收尾，不再展开。")
 
 
 def paragraphs(text: str):
@@ -1119,6 +1175,11 @@ def cmd_report(a):
         pend_rows = [(c["seq"], r) for c in chs for r in (knowledge_rows(book_dir, c["seq"]) or []) if len(r) >= 5 and r[4] == "待核"]
         out += ["", "## 待核知识点（请作者核实，或维持宁缺写法）", ""]
         out += [f"- 第{seq}章 {r[0]}（{r[1]}）：{r[2]}" for seq, r in pend_rows] or ["- （无）"]
+        odd = [c for c in chs if (c.get("length") or {}).get("accepted") is not None]
+        out += ["", "## 篇幅（字数不在区间、已收下的章；按推荐先收的请作者确认）", ""]
+        out += [f"- 第{c['seq']}章 {c['length']['accepted']} 字（区间 {c['length']['band'][0]}–{c['length']['band'][1]}）"
+                + ("，按推荐先收，待你确认" if c["length"].get("by") == "recommendation" else "，你已收下")
+                + (f"：{c['length']['note']}" if c["length"].get("note") else "") for c in odd] or ["- （无）"]
         mats, used = material_cards(book_dir), material_usage(book_dir)
         seg = {r: [s for s in seqs if lo <= s <= hi] for r, seqs in used.items()}
         seg = {r: s for r, s in seg.items() if s}
@@ -1602,7 +1663,7 @@ def chapter_text(book_dir: Path, c: dict):
     title = ""
     while lines and not lines[0].strip():
         lines.pop(0)
-    if lines and lines[0].lstrip().startswith("#"):
+    if lines and (lines[0].lstrip().startswith("#") or re.match(r"\s*第[一二三四五六七八九十百千零〇0-9]+章", lines[0])):
         title = lines.pop(0).lstrip("# ").strip()
     if not title:
         m = re.match(r"第0*(\d+)章[-_ ]?(.*)", Path(c["file"]).stem)
@@ -2195,6 +2256,27 @@ def cmd_chapter(a):
                 die(f"第 {a.seq} 章不是关键章；常规章不走比选")
             c["selection"] = {"version": a.version, "note": a.note or "", "by": "author", "at": now()}
             msg = f"OK ch{a.seq} 作者选定版本 {a.version}"
+        elif a.action == "length":
+            p = chapter_file(book_dir, c)
+            n = han_words(p.read_text("utf-8"))
+            lo, hi, _ = length_band(book_dir, a.seq)
+            rec = c.setdefault("length", {})
+            if a.compressed:
+                rec.update({"compressed": True, "compressed_at": now()})
+                msg = f"OK ch{a.seq} 已做过一次只删不加的压缩（现在 {n} 字）"
+            elif a.accept:
+                if n < lo / 2 and (a.tentative or not a.force):
+                    if a.tentative:
+                        die(f"第 {a.seq} 章只有 {n} 字，不到下限 {lo} 的一半：不能按推荐先收，要当场问作者")
+                    die(f"第 {a.seq} 章只有 {n} 字，不到下限 {lo} 的一半：作者明确要收下时加 --force，并把原话写进 --note")
+                if n > hi and not rec.get("compressed") and not a.force:
+                    die(f"第 {a.seq} 章 {n} 字，超出上限 {hi}：先让 editor 做一次只删不加的压缩（chapter length --compressed），仍超再收下")
+                rec.update({"accepted": n, "band": [lo, hi], "sha": sha16(p), "at": now(), "note": a.note or "",
+                            "by": "recommendation" if a.tentative else "author"})
+                msg = (f"OK ch{a.seq} 按推荐先收下 {n} 字（区间 {lo}–{hi}），单元复盘时请作者确认" if a.tentative
+                       else f"OK ch{a.seq} 作者收下当前长度 {n} 字（区间 {lo}–{hi}）")
+            else:
+                die("chapter length 要给 --accept（作者收下当前长度）或 --compressed（已做过一次只删不加的压缩）")
         elif a.action == "retry":
             c["retry"] = c.get("retry", 0) + 1
             if c["retry"] >= load_cfg(book_dir)["max_retry"]:
@@ -2443,6 +2525,9 @@ def main():
     q.add_argument("--colors")
     q = cs.add_parser("pick"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
     q.add_argument("--version", required=True); q.add_argument("--note")
+    q = cs.add_parser("length"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
+    q.add_argument("--accept", action="store_true"); q.add_argument("--compressed", action="store_true")
+    q.add_argument("--force", action="store_true"); q.add_argument("--note"); q.add_argument("--tentative", action="store_true")
     q = cs.add_parser("retry"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
     q = cs.add_parser("publish"); q.add_argument("book_dir"); q.add_argument("--upto", type=int, required=True)
     p.set_defaults(fn=cmd_chapter)
@@ -2545,6 +2630,8 @@ def main():
     q = rs.add_parser("plan"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
     q = rs.add_parser("delta"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
     p.set_defaults(fn=cmd_review)
+    p = sub.add_parser("words"); p.add_argument("book_dir"); p.add_argument("seq", type=int); p.add_argument("--file")
+    p.set_defaults(fn=cmd_words)
     p = sub.add_parser("reader-now"); p.add_argument("book_dir"); p.add_argument("seq", type=int)
     p.add_argument("--top", type=int, default=5); p.set_defaults(fn=cmd_reader_now)
     p = sub.add_parser("sha"); p.add_argument("file"); p.set_defaults(fn=cmd_sha)
@@ -2558,7 +2645,7 @@ READ_ONLY = {("status", None), ("next", None), ("report", None), ("sha", None), 
              ("reader-now", None), ("scene", "check"), ("scene", "next"), ("knowledge", "plan"), ("knowledge", "check"), ("promise", "list"), ("know", "list"),
              ("fact", "get"), ("fact", "list"), ("feedback", "list"), ("team", "list"), ("unit", "list"),
              ("material", "list"), ("material", "check"), ("heat", None), ("pref", "show"), ("dashboard", None),
-             ("export", None)}
+             ("export", None), ("words", None)}
 
 
 def log_op(a):

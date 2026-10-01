@@ -167,7 +167,7 @@
     "writer": {
       "skill": "ncc-write",
       "task": "draft",
-      "description": "Use this agent to draft chapters from the writing brief and context pack (reader-now, character voices, materials, previous chapter's ending): opening and serialized chapters. Never sees review checklists or the book-soul text; dramatizes the scene's dilemma instead of explaining it, avoids the listed default moves, writes 2–3 versions of key beats when asked, then writes back the three ledgers. Never reviews its own text. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent to draft chapters from the writing brief and context pack (reader-now, character voices, materials, previous chapter's ending): opening and serialized chapters. Never sees review checklists or the book-soul text; dramatizes the scene's dilemma instead of explaining it, avoids the listed default moves, writes 2–3 versions of key beats when asked, writes in two halves with one word-count check and never pads to reach length, lands emotion on choices and consequences rather than stock body tics, then writes back the three ledgers. Never reviews its own text. Do NOT use while /ncc runs in the parent window.",
       "color": "green",
       "fresh": false,
       "function": "创作"
@@ -175,7 +175,7 @@
     "editor": {
       "skill": "ncc-review",
       "task": "revise",
-      "description": "Use this agent to execute explicit revisions from review observations: line-level fixes, de-AI-flavor passes, style anchor alignment. Revision is a separate act from review; must trigger re-review when body text changes. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent to execute explicit revisions from review observations: line-level fixes, de-AI-flavor passes, style anchor alignment, and the one delete-only compression of an over-length chapter. Revision is a separate act from review; must trigger re-review when body text changes. Do NOT use while /ncc runs in the parent window.",
       "color": "yellow",
       "fresh": false,
       "function": "质量"
@@ -418,7 +418,8 @@
       "checks": [
         "场景卡已过故事审且之后未改动",
         "场景卡标了知识的章：知识点清单合格（学科、来源、状态）",
-        "check_chapter.py 通过（字数/钩子/AI味/水章）",
+        "check_chapter.py 无必须修的项（钩子、AI 味、水章、复读、截断、占位与拒绝语、工程词漏进叙述）",
+        "字数在区间内，或作者已收下当前长度（chapter length --accept；写章循环里按推荐先收、单元复盘确认）；不让写手补写",
         "硬伤层通过",
         "关键章：作者已从 2–3 版中选定",
         "正文变更后已复审（SHA 一致）"
@@ -570,5 +571,12 @@
     "method": "skills/ncc-eval/SKILL.md"
   },
   "dashboard": "ncc_state.py dashboard <书库根目录> [--bucket 10] [--html 文件]：各书阶段、进度、存稿、承诺健康度与承诺热力图",
-  "export": "ncc_state.py export <书目录> --format md|txt|epub：只收已定稿的章，去掉修订注记，epub 为 EPUB 3（附 NCX）"
+  "export": "ncc_state.py export <书目录> --format md|txt|epub：只收已定稿的章，去掉修订注记，epub 为 EPUB 3（附 NCX）",
+  "length": {
+    "band": "场景卡「字数范围：A-B」，否则 ncc.config.yaml 的 words_min/words_max",
+    "writer": "分两段写，前半段后用 ncc_state.py words 量一次；写完简报里的事就停，不为凑字数加内容",
+    "under": "needs_decision：不少于下限一半按推荐先收（--tentative），不到一半当场问作者",
+    "over": "editor 一次只删不加的压缩（--compressed），仍超按推荐先收",
+    "source": "借鉴 oh-story v0.8.4：欠字不补、超字只删一次、分组写作与中途字数检查"
+  }
 }

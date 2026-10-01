@@ -41,6 +41,7 @@
       "mood": {"tension": "压 | 放 | 平", "colors": ["燃", "悲"]},
       "scenes": {"count": 2, "review": "passed | revise | pending", "by": "story-editor | author", "at": "…", "sha": "…场景卡sha…"},
       "selection": {"version": "B", "note": "B 的反转更意外", "by": "author", "at": "…"},
+      "length": {"accepted": 2650, "band": [3000, 5000], "sha": "…收下时正文sha…", "by": "author | recommendation", "compressed": false, "note": "…"},
       "retry": 0,
       "drafting_at": "…", "done_at": "…",
       "sha": "…正文sha256前16位…",
@@ -109,15 +110,16 @@
 1. **SHA 新鲜度**：`review.sha` 必须 == 当前正文 `sha`。不等 = 评审作废，必须复评。
 2. **恢复协议**：`resume` 时按 stage＋第一个非 done 章节定位断点；`drafting/reviewing` 状态的章按「文件存在＋字数＋sha」重建事实，不信内存。
 3. **重写计数**：`chapter retry` 达 `max_retry`（默认 3）自动转 `failed`，呈报作者，不自动第 4 轮。
-4. **章节登记**：每章先 `chapter add`（第 1–3 章默认关键章，其余用 `chapter key` 标注）；场景卡写好后 `scene check`、`scene review`；过了故事审才能 `chapter mark … drafting`；写完登记 `chapter hook`（`check_chapter.py` 要查）与 `chapter mood`；关键章 `chapter pick`；审完 `complete --hard pass`。场景卡在审过之后被改动，要重审。
+4. **字数**：`check_chapter.py` 字数不在区间时返回 needs_decision（退出码 3），不让写手补写；作者收下用 `chapter length --accept`（写章循环里按推荐先收加 `--tentative`，单元复盘列出待确认），超长先 `--compressed` 登记一次只删不加的压缩；正文改过，收下作废。本章区间：场景卡写了"字数范围：A-B"就用它，否则用 `ncc.config.yaml`。写手写完前半段用 `words` 量一次。
+5. **章节登记**：每章先 `chapter add`（第 1–3 章默认关键章，其余用 `chapter key` 标注）；场景卡写好后 `scene check`、`scene review`；过了故事审才能 `chapter mark … drafting`；写完登记 `chapter hook`（`check_chapter.py` 要查）与 `chapter mood`；关键章 `chapter pick`；审完 `complete --hard pass`。场景卡在审过之后被改动，要重审。
    **主角失去的东西**记为状态事件 `attribute: 失去`，"读者此刻"会列出最近的失去。
-5. **v0.1 书**：`ncc_state.py migrate` 升级到 schema 2（原伏笔台账保留）。v0.2/v0.3 建的书缺 M3 字段（units、volumes、published_upto、team）时，脚本在用到时自动补齐。
-6. **单元与卷**：`unit open/close`（关单元前须有复盘文件）、`volume end` 后过 `gate volume`；卷通过后下一卷自动从下一章开始。
-7. **读者数据**：`06-台账/读者数据.json`，`feedback add --source 真实|模拟 --kind 追读|弃读|略读|划线|评论|出戏 [--persona 画像]`（出戏的 value 填学科；弃读、略读、划线的 value 填段号，`heat` 按段合成热力）。
+6. **v0.1 书**：`ncc_state.py migrate` 升级到 schema 2（原伏笔台账保留）。v0.2/v0.3 建的书缺 M3 字段（units、volumes、published_upto、team）时，脚本在用到时自动补齐。
+7. **单元与卷**：`unit open/close`（关单元前须有复盘文件）、`volume end` 后过 `gate volume`；卷通过后下一卷自动从下一章开始。
+8. **读者数据**：`06-台账/读者数据.json`，`feedback add --source 真实|模拟 --kind 追读|弃读|略读|划线|评论|出戏 [--persona 画像]`（出戏的 value 填学科；弃读、略读、划线的 value 填段号，`heat` 按段合成热力）。
    **知识点清单**：`02-大纲/知识点/ch-NNNN.md`，场景卡标了"知识"的章由 scholar 写；`knowledge check` 校验，`complete` 拦截不合格的。
-8. **素材卡**：`素材/` 是作者的生活笔记，不是状态；`material check` 校验三项必填（来源、内容、可用处），场景卡用 `素材：M-NNNN` 引用，`scene check` 查编号存在。
-9. **操作日志**：`06-台账/操作日志.jsonl`，每次写操作自动追加（时间、操作者 `NCC_ACTOR`、命令），团队交接用。
-10. **book.json 损坏**：按文件存在性＋check_chapter.py 重建，重建后 diff 给作者看一眼。
+9. **素材卡**：`素材/` 是作者的生活笔记，不是状态；`material check` 校验三项必填（来源、内容、可用处），场景卡用 `素材：M-NNNN` 引用，`scene check` 查编号存在。
+10. **操作日志**：`06-台账/操作日志.jsonl`，每次写操作自动追加（时间、操作者 `NCC_ACTOR`、命令），团队交接用。
+11. **book.json 损坏**：按文件存在性＋check_chapter.py 重建，重建后 diff 给作者看一眼。
 
 ## 目录契约
 

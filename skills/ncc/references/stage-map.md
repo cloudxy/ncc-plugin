@@ -28,7 +28,7 @@ book.json 的 `stage`：`founding → settings → outline → opening → seria
   scene next → chapter add ×N → 场景卡(outliner 一次写完) → 故事审(story-editor 一次审完；关键章作者过目)
   → knowledge plan：标了"知识"的章才派 scholar（一次）→ knowledge check
 每章：
-  pack(脚本组装写手包) → writer 草稿(关键节拍 2–3 版) + 三本账回写 → check_chapter.py(字数/钩子/AI味/水章)
+  pack(脚本组装写手包) → writer 草稿(关键节拍 2–3 版) + 三本账回写 → check_chapter.py(钩子/AI味/水章/退化与元信息；字数不在区间交作者定，不补写)
   → review plan(continuity 必派；pulse 仅兑现章/关键章/开篇) → editor 修订 → review delta → 原审稿人只复审改动
   → 关键章: 成对比较(pulse) + 记忆测试(reader) → 作者 chapter pick
   → ncc_state.py complete --hard pass

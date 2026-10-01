@@ -1,11 +1,20 @@
 #!/usr/bin/env python3
-"""check_chapter.py — 章节机械检查（确定性脚本，替代 LLM 自评；v0.7）。
+"""check_chapter.py — 章节机械检查（确定性脚本，替代 LLM 自评；v1.1）。
 
 用法: check_chapter.py <书目录> <章号seq> [章文件路径]
 
-检查项（退出码非 0 = 不及格）:
-  1. 汉字字数在 [words_min, words_max]（默认 3000–5000；读 ncc.config.yaml）
-  2. book.json 该章已登记章尾钩子（type + intensity）
+结论（JSON 里的 status，与退出码一致）:
+  ready           0  可以进审稿
+  blocked         1  有必须修的问题（下列标"必须修"的项），就地修完重跑
+  needs_decision  3  只是字数不在区间：不让写手补写或重写（硬凑会注水），交作者定——收下当前长度
+                     （ncc_state.py chapter length --accept）、改场景卡或字数范围后重写、或不要这章；
+                     超长先让 editor 做一次只删不加的压缩（chapter length --compressed），仍超再问作者
+  （用法错误退出 2）
+
+检查项:
+  1. 字数：汉字数与本章区间（场景卡「字数范围：A-B」，没写就用 ncc.config.yaml 的 words_min/words_max，
+     默认 3000–5000）；不在区间 → needs_decision；作者收下过且正文未改 → 视为通过
+  2. book.json 该章已登记章尾钩子（type + intensity）（必须修）
   3. AI 味分级（M3-5）：
        A 级（计入退出码）：五星句式"不是A，而是B"出现即须改；其余高危句式与一级禁用词合计超过 ai_level1_max（默认 3）
        B 级（只告警）：二级词密度（缓缓/微微/轻轻/淡淡 每千字 > 3）、总结升华句式、章末空泛预告
@@ -17,10 +26,17 @@
   7. 规避点（M5，只告警）：长段（单段超过 para_max 汉字，默认 200）、长句（一句 sentence_commas_max 个逗号以上，
      默认 10）、对白流（连续 dialogue_run_max 段以引号开头，默认 10）；对话占比只作参考
   8. 文风漂移（M6，只告警）：有 03-文风/文风指纹.json 时，对照句长、段长、对话占比、人称
+  9. 退化与元信息（v1.1）：
+       必须修：长句复读（叙述里同一句 ≥12 字出现 3 次以上，或相邻两行一模一样）、结尾截断（末字不是收句标点）、
+               占位与拒绝语（此处省略、TODO、未完待续、乱码、"作为AI"、"我无法继续写"）、
+               叙述里出现纯工程词（细纲、章纲、场景卡、情节点、写手包、写作简报、承诺台账……）
+       只告警：叙述里的"本章、上一章、下一章、伏笔、读者、前文"等词，台词里的工程词，场景卡原句照搬进正文，
+               用身体小动作标注情绪（指尖、指节、喉结、呼吸、心跳……）超过 2 处
 
-只数汉字、剔除 Markdown 标记。
+只数汉字、剔除 Markdown 标记与修订注记（rev N:）。
 AI 味词表与句式整理自 oh-story-claudecode 的 story-deslop（MIT License，Copyright (c) 2025-2026 oh-story-claudecode），
-只借清单，判定逻辑为本插件自写。规避点的三条整理自作者自有的 novel_guide「13 规避点」。
+只借清单，判定逻辑为本插件自写；退化检查、欠字不补与身体小动作的处理借鉴其 check-degeneration 与
+craft-stock-reaction 实验（v0.8.4，MIT），代码为本插件自写。规避点的三条整理自作者自有的 novel_guide「13 规避点」。
 """
 import json
 import re
@@ -29,7 +45,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from ncc_state import PROMISES, chapter_touches, style_drift_lines  # noqa: E402
+from ncc_state import (PROMISES, REV_LINE, chapter_touches, han_words, length_band, scene_path,  # noqa: E402
+                       sha16, style_drift_lines)
 
 # A 级：五星句式，命中一处即须改
 BLOCK_PATTERNS = {
@@ -182,7 +199,106 @@ def strip_md(text: str) -> str:
 
 
 def han_count(text: str) -> int:
-    return len(re.findall(r"[一-鿿]", strip_md(text)))
+    return han_words(text)
+
+
+# ---------- 退化与元信息（v1.1） ----------
+
+QUOTED = re.compile(r"“[^”]*”|「[^」]*」|『[^』]*』|\"[^\"]*\"")
+TERMINAL = "。！？!?…”」』）)】》~—＿"   # ＿：放行清单遮掉的原句
+ENGINEERING_HARD = ["细纲", "章纲", "卷纲", "场景卡", "情节点", "写手包", "写作简报", "知识点清单", "承诺台账",
+                    "知情台账", "知识台账", "状态事件", "故事审", "任务描述"]
+ENGINEERING_SOFT = {"本章": r"本章(?!程|法)", "上一章": r"上一章", "下一章": r"下一章", "前文": r"前文(?!明|化|件|字)",
+                    "后文": r"后文(?!件|字)", "伏笔": r"伏笔", "读者": r"读者"}
+PLACEHOLDER_HARD = {
+    "乱码": r"�",
+    "括号省略": r"[（(](?:此处|以下|这里|下文|后续)?\s*(?:省略|略)(?:去|过)?[^）)]{0,10}[）)]",
+    "占位符": r"未完待续|TODO|占位符|placeholder",
+    "英文 AI 腔": r"(?m)^(?:Sure|Certainly|Here'?s|As an AI|I (?:cannot|can't|am unable|apologize))",
+}
+PLACEHOLDER_SOFT = {   # 只在叙述里判；台词里可能是合法对话（"对不起，我无法答应你"）
+    "AI 自指": r"作为(?:一个)?(?:AI|人工智能|大?语言模型|智能助手)(?:语言模型|大?模型|助手)?(?=[，,。、；;：:！!？?\s]|我|无法|不能|$)",
+    "生成拒绝语": r"我(?:无法|不能)(?:继续(?:写|创作|生成|下去)|生成|创作|续写)",
+}
+BODY = r"(?:指尖|指节|指腹|喉结|喉咙|呼吸|心跳|心脏|眼皮|睫毛|眉心|眉头|嘴角|唇角|下颌|脊背|后背|头皮|太阳穴)"
+TIC = r"(?:微微|轻轻|一紧|一顿|一僵|一滞|一窒|泛白|发白|发紧|收紧|滚动|颤动|颤了|发颤|蜷缩|蜷起|绷紧|一跳|跳了一下|发麻|发凉|一沉|一松)"
+STOCK_REACTION = re.compile(BODY + r"[^。！？\n“”「」]{0,6}?" + TIC)
+
+
+def narration_of(text: str) -> str:
+    return QUOTED.sub("", text)
+
+
+def degeneration_findings(raw: str):
+    """返回 (必须修, 只告警)。修订注记不算正文。"""
+    body = strip_md(re.sub(r"(?m)^\s*#{1,6}\s.*$", "", REV_LINE.sub("", raw))).strip()   # 标题行可以写第X章
+    body = re.sub(r"\A第[一二三四五六七八九十百千零〇0-9]+章[^\n]*\n", "", body).strip()      # 不带 # 的标题行
+    hard, soft = [], []
+    if not body:
+        return ["正文为空"], soft
+    if body[-1] not in TERMINAL:
+        hard.append(f"结尾像是截断了：最后一句「{body[-20:]}」没有收句标点")
+    narr = narration_of(body)
+    sents = [s.strip() for s in re.split(r"[。！？!?…\n]+", narr) if len(HAN_RE.findall(s)) >= 12]
+    repeated = {s: sents.count(s) for s in set(sents) if sents.count(s) >= 3}
+    if repeated:
+        s, k = max(repeated.items(), key=lambda x: x[1])
+        hard.append(f"复读：「{s[:24]}」在叙述里出现 {k} 次")
+    lines = [l.strip() for l in body.splitlines() if l.strip()]
+    for a, b in zip(lines, lines[1:]):
+        if a == b and a[0] not in "“「『\"" and len(HAN_RE.findall(a)) >= 8:
+            hard.append(f"复读：相邻两行一模一样「{a[:24]}」")
+            break
+    for label, pat in PLACEHOLDER_HARD.items():
+        m = re.search(pat, body)
+        if m:
+            hard.append(f"占位或元信息：{label}「{m.group(0)[:20]}」")
+    for label, pat in PLACEHOLDER_SOFT.items():
+        m = re.search(pat, narr)
+        if m:
+            hard.append(f"元信息泄漏：{label}「{m.group(0)[:20]}」")
+    dialogue = "".join(QUOTED.findall(body))
+    eng = [w for w in ENGINEERING_HARD if w in narr]
+    if eng:
+        hard.append("工程词漏进叙述：" + "、".join(eng) + "（改成角色能感知的事件或时间）")
+    soft_eng = [w for w, pat in ENGINEERING_SOFT.items() if re.search(pat, narr)] + [w for w in ENGINEERING_HARD if w in dialogue]
+    chap = re.findall(r"第[一二三四五六七八九十百千0-9]+章", narr)
+    if chap:
+        soft_eng.append(chap[0])
+    if soft_eng:
+        soft.append("元信息：叙述里有「" + "、".join(dict.fromkeys(soft_eng)) + "」，确认是故事里的东西，不是写作用语")
+    return hard, soft
+
+
+HAN_RE = re.compile(r"[一-鿿]")
+
+
+def scene_copy_warnings(book_dir: Path, seq: int, raw: str):
+    """场景卡原句照搬进正文（只告警）：场景卡是给写手的意图，不是正文。"""
+    card = scene_path(book_dir, seq)
+    if not card.exists():
+        return []
+    norm = lambda s: "".join(HAN_RE.findall(s))
+    body = norm(raw)
+    hits = []
+    for m in re.finditer(r"^[-*]\s*([^：:\n]{1,6})[：:]\s*(.+)$", card.read_text("utf-8"), flags=re.M):
+        field = m.group(1).strip()
+        for value in re.split(r"　+", m.group(2)):
+            v = norm(value.split("：", 1)[-1])
+            if len(v) >= 10 and any(v[i:i + 10] in body for i in range(0, len(v) - 9, 2)):
+                hits.append(field)
+                break
+    if not hits:
+        return []
+    extra = "；「默认写法」是要绕开的走法，更不该出现在正文里" if "默认写法" in hits else ""
+    return ["场景卡照搬：「" + "、".join(dict.fromkeys(hits)) + "」一栏的原句进了正文，改成演出来的戏" + extra]
+
+
+def stock_reaction_warnings(text: str):
+    hits = [m.group(0) for m in STOCK_REACTION.finditer(narration_of(text))]
+    if len(hits) < 3:
+        return []
+    return [f"身体小动作标注情绪 {len(hits)} 处（{'、'.join(hits[:5])}）：只留有后果的，其余改成选择、台词、物件或后果"]
 
 
 def waived_snippets(book_dir: Path):
@@ -227,21 +343,35 @@ def main():
     raw = f.read_text("utf-8")
     cfg = load_config(book_dir)
     words = han_count(raw)
-    if words < cfg["words_min"]:
-        problems.append(f"字数 {words} < {cfg['words_min']}")
-    elif words > cfg["words_max"]:
-        warns.append(f"字数 {words} > {cfg['words_max']}（超上限，确认是否拆章）")
+    lo, hi, band_src = length_band(book_dir, seq)
 
-    hook = None
+    hook, length_rec = None, {}
     bj = book_dir / "book.json"
     if bj.exists():
         try:
             d = json.loads(bj.read_text("utf-8"))
-            hook = next((c.get("hook") for c in d.get("chapters", []) if c.get("seq") == seq), None)
+            ch = next((c for c in d.get("chapters", []) if c.get("seq") == seq), {})
+            hook, length_rec = ch.get("hook"), ch.get("length") or {}
         except json.JSONDecodeError:
             warns.append("book.json 解析失败，跳过钩子核对")
     if not hook or not hook.get("type") or not hook.get("intensity"):
         problems.append("book.json 未登记章尾钩子（type+intensity）")
+
+    length = {"actual": words, "band": [lo, hi], "band_source": band_src, "status": "ok", "actions": []}
+    if length_rec.get("accepted") is not None and length_rec.get("sha") == sha16(f):
+        length["status"] = "accepted"
+    elif words < lo:
+        length.update(status="under", below_half=words < lo / 2, actions=[
+            "收下当前长度（chapter length --accept）" + ("——不到下限一半，作者明确要才收（--force）" if words < lo / 2 else "（推荐）"),
+            "改场景卡或字数范围后重写", "不要这章"])
+    elif words > hi:
+        length.update(status="over", compressed=bool(length_rec.get("compressed")), actions=(
+            ["收下当前长度（chapter length --accept）", "拆章或改场景卡后重写"] if length_rec.get("compressed") else
+            [f"editor 做一次只删不加的压缩，约删 {words - hi} 字（之后 chapter length --compressed）"]))
+
+    hard, soft = degeneration_findings(mask_waived(raw, waived_snippets(book_dir)))
+    problems += hard
+    warns += soft
 
     # AI 味分级
     waived = waived_snippets(book_dir)
@@ -273,6 +403,8 @@ def main():
     warns += k_warns
     warns += avoidance_warnings(raw, cfg)
     warns += style_drift_lines(book_dir, raw)
+    warns += scene_copy_warnings(book_dir, seq, text)
+    warns += stock_reaction_warnings(text)
     rhythm = burstiness(raw) or {}
     rhythm["dialogue_share"] = dialogue_share(raw)
 
@@ -290,18 +422,19 @@ def main():
     else:
         warns.append("无承诺台账，跳过水章检测（v0.1 书先运行 ncc_state.py migrate）")
 
+    status = "blocked" if problems else ("needs_decision" if length["status"] in ("under", "over") else "ready")
     result = {
-        "seq": seq, "file": str(f), "han_words": words,
-        "band": [cfg["words_min"], cfg["words_max"]], "hook": hook,
+        "seq": seq, "file": str(f), "status": status, "han_words": words,
+        "band": [lo, hi], "length": length, "hook": hook,
         "ai": {"block": block, "high_risk": high, "level1": l1, "level2_per_1000": round(per_k, 1), "summary": summ,
                "waived_snippets": len(waived)},
         "rhythm_reference": rhythm,
         "facts_mentioned": facts_used,
         "promise_touches": [f"{i} {k}" for i, k in touches],
-        "warnings": warns, "problems": problems, "pass": not problems,
+        "warnings": warns, "problems": problems, "pass": status == "ready",
     }
     print(json.dumps(result, ensure_ascii=False, indent=2))
-    sys.exit(0 if not problems else 1)
+    sys.exit({"ready": 0, "blocked": 1, "needs_decision": 3}[status])
 
 
 if __name__ == "__main__":

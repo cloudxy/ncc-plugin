@@ -248,6 +248,9 @@ class TestSlimming(Base):
         for key in ("写作简报", "读者此刻", "人物声音", "拿回工牌", "我记着", "雨里的工牌", "陆言 = 高三", "注意雨声"):
             self.assertIn(key, pack)
         self.assertIn("读者目前知道「高三学生」", pack)
+        self.assertIn("### 篇幅", pack)
+        self.assertIn("本章 3000–5000 字", pack)
+        self.assertIn("不用指尖、指节、喉结", pack)
         for banned in ("不该出现", "谁有资格定义", "硬伤", "审稿清单", "死亡之书的宿主"):
             self.assertNotIn(banned, pack)
         self.write("02-大纲/场景卡/ch-0004.md", SCENE_SHORT + "- 主题：谁有资格定义一个人的价值\n")
@@ -812,7 +815,7 @@ class TestMigrate(unittest.TestCase):
 class TestCheckChapter(Base):
     def test_water_in_check_chapter(self):
         f = "04-正文/第0004章-开端.md"
-        self.write(f, "字" * 3200)
+        self.write(f, "字" * 3200 + "。")
         self.ok("chapter", "add", self.book, 4, "--file", f)
         self.ok("chapter", "hook", self.book, 4, "--type", "悬念", "--intensity", 4)
         code, out = run(self.book, 4, script=CHECK)
@@ -854,6 +857,85 @@ class TestCheckChapter(Base):
         self.assertIn("规避点：长句", out)
         self.assertIn("对白流", out)
         self.assertIn("dialogue_share", out)
+
+
+
+class TestLengthAndDegeneration(Base):
+    """v1.1（借鉴 oh-story）：字数不够不补写、交作者定；退化与元信息检查；身体小动作提醒。"""
+
+    def chapter(self, body, seq=4):
+        f = f"04-正文/第{seq:04d}章-x.md"
+        self.write(f, body)
+        if not any(c["seq"] == seq for c in self.book_json()["chapters"]):
+            self.ok("chapter", "add", self.book, seq, "--file", f)
+            self.ok("chapter", "hook", self.book, seq, "--type", "悬念", "--intensity", 3)
+            self.ok("promise", "add", self.book, "--type", "悬念", "--content", "门后", "--ch", seq)
+        code, out = run(self.book, seq, script=CHECK)
+        return code, json.loads(out)
+
+    def test_under_length_goes_to_author(self):
+        code, r = self.chapter("门开了。" * 600)                    # 1800 字
+        self.assertEqual((code, r["status"], r["length"]["status"]), (3, "needs_decision", "under"))
+        self.assertIn("（推荐）", r["length"]["actions"][0])
+        out = self.ok("words", self.book, 4)
+        self.assertIn("现在 1800 字", out)
+        self.assertIn("后半段大约还要 1200–3200 字", out)
+        self.ok("chapter", "length", self.book, 4, "--accept", "--note", "就这样")
+        code, r = self.chapter("门开了。" * 600)
+        self.assertEqual((code, r["length"]["status"]), (0, "accepted"))
+        code, r = self.chapter("门开了。" * 601)                    # 正文改了，收下作废
+        self.assertEqual(code, 3)
+        self.chapter("门开了。" * 500)                              # 1500：正好一半，写章循环里可以按推荐先收
+        self.ok("chapter", "length", self.book, 4, "--accept", "--tentative")
+        self.ready(4)
+        self.ok("unit", "open", self.book, "--start", 4)
+        self.ok("complete", self.book, 4, "--words", 1500, "--hard", "pass")
+        self.assertIn("第4章 1500 字（区间 3000–5000），按推荐先收，待你确认", self.ok("report", self.book, "unit"))
+        code, r = self.chapter("门开了。" * 400)                    # 1200：不到下限一半
+        self.assertIn("当场问作者", self.bad("chapter", "length", self.book, 4, "--accept", "--tentative"))
+        self.assertTrue(r["length"]["below_half"])
+        self.assertIn("一半", self.bad("chapter", "length", self.book, 4, "--accept"))
+        self.ok("chapter", "length", self.book, 4, "--accept", "--force", "--note", "作者：短章收下")
+
+    def test_over_length_compress_once_and_card_range(self):
+        self.write("02-大纲/场景卡/ch-0004.md", SCENE_SHORT + "- 字数范围：1000-1500\n")
+        code, r = self.chapter("门开了。" * 450)                    # 1350，在场景卡区间内
+        self.assertEqual((code, r["band"]), (0, [1000, 1500]))
+        code, r = self.chapter("门开了。" * 600)                    # 1800，超出
+        self.assertEqual((code, r["length"]["status"]), (3, "over"))
+        self.assertIn("只删不加", r["length"]["actions"][0])
+        self.assertIn("压缩", self.bad("chapter", "length", self.book, 4, "--accept"))
+        self.ok("chapter", "length", self.book, 4, "--compressed")
+        self.ok("chapter", "length", self.book, 4, "--accept")
+
+    def test_degeneration_blocks(self):
+        good = "门开了。" * 1000
+        for body, key in ((good + "他走进雨里，没有", "截断"),
+                          (good + "他把灯关了又打开再关上一次。" * 3, "复读"),
+                          (good + "（此处省略三百字）。", "括号省略"),
+                          (good + "作为AI，我无法继续写下去。", "AI 自指"),
+                          (good + "按细纲，他该回头了。", "工程词漏进叙述")):
+            code, r = self.chapter(body)
+            self.assertEqual(code, 1, key)
+            self.assertTrue(any(key in p for p in r["problems"]), (key, r["problems"]))
+        code, r = self.chapter(good + "“这一章写完了吗？”他问。读者都在等。\n“那个情节点再改改。”")
+        self.assertEqual(code, 0, r["problems"])                     # 台词里的工程词与叙述里的"读者"只告警
+        self.assertTrue(any("元信息" in w for w in r["warnings"]))
+        code, r = self.chapter(good + "“对不起，我无法继续写下去了。”她说。")
+        self.assertEqual(code, 0, r["problems"])                     # 台词里的"我无法继续写"是人物说的话
+        for title in ("# 第4章 门\n", "第4章 门\n"):                  # 标题行可以写第X章；"前文明"不是"前文"
+            code, r = self.chapter(title + good + "那是前文明留下的门。")
+            self.assertEqual(code, 0, r["problems"])
+            self.assertFalse(any("元信息" in w for w in r["warnings"]), r["warnings"])
+
+    def test_scene_copy_and_stock_reactions(self):
+        self.write("02-大纲/场景卡/ch-0004.md", SCENE_FULL.format(seq=4))
+        code, r = self.chapter("门开了。" * 1000 + "主角亮出底牌，众人震惊。他指节泛白，喉结滚动，呼吸一滞，指尖微微发颤。")
+        warns = "".join(r["warnings"])
+        self.assertIn("场景卡照搬", warns)
+        self.assertIn("默认写法", warns)
+        self.assertIn("身体小动作标注情绪 4 处", warns)
+        self.assertEqual(code, 0, r["problems"])                     # 照搬与身体小动作都只告警
 
 
 if __name__ == "__main__":

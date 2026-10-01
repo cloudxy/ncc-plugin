@@ -63,6 +63,15 @@
 | 文学靠灵感不靠修改，修改会把书改死 | 部分采纳：连载中已发布内容只修硬伤与基础错误、不大改（与五层可逆度一致）；发布前的场景卡故事审、关键章比选和硬伤修订照常 |
 | 主角只要"泛性格"就够了 | 部分采纳：性格底色可以泛，欲望、恐惧、处境必须具体（人物引擎）；写进 character.md |
 
+## v1.1 借鉴 oh-story（第一组）
+
+| 来源 | 许可 | 借鉴 | 落点 |
+|---|---|---|---|
+| [zenstory-ai/oh-story-claudecode](https://github.com/zenstory-ai/oh-story-claudecode) v0.8.4 的写章流程与 storyctl 字数收口 | MIT | 欠字不补、超字只删一次、分组写作与中途一次字数检查、收下长度的下限（不到一半不轻易收） | `check_chapter.py` 的 needs_decision、`ncc_state.py chapter length` 与 `words`、chapter-loop.md |
+| 同上，`check-degeneration.js` | MIT | 退化指纹的分类：复读、截断、占位与拒绝语、工程词泄漏；台词豁免 | `check_chapter.py` 退化与元信息（正则与判定为本插件自写） |
+| 同上，`demo/craft-stock-reaction-eval` | MIT | 实验结论：把身体微动作设为情绪默认译法会产出套路反应；改为只写有后果的反应 | 写作简报、chapter-loop.md、writing-brief.md、身体小动作告警 |
+| 同上，SKILL.md「面向作者的汇报」 | MIT | 只讲写了什么、要作者定什么、下一步；编号带故事标签；技术备注放最后一行 | `skills/ncc/SKILL.md` 面向作者的汇报 |
+
 ## v1.0 格式参照
 
 | 来源 | 用在哪 |
