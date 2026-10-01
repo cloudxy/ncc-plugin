@@ -4,23 +4,24 @@
 
 每一问都按 `../../ncc/references/guidance.md` 的问题卡格式：问题、为什么要紧、**推荐及理由**、2–4 个选项（热门选项＋至少一个非主流项）、自由输入、可以先用推荐。问题数按引导档位控制：新手每层只问影响最大的，其余用默认值并告知。
 
-## 偏好记忆（{_preferences.json}）
+## 偏好记忆（`{book_root}/_preferences.json`，M6-3 偏好演化）
 
-```json
-{
-  "favoriteGenres": [{"name": "都市诡异", "weight": 3}],
-  "preferredProtagonist": ["苟道流", "杀伐果断"],
-  "preferredPerspective": "第三人称限知",
-  "preferredTone": ["冷静", "黑色幽默"],
-  "typicalChapterCount": [200, 400],
-  "styleReferences": ["某书", "某作者"],
-  "dislikes": ["圣母主角", "无脑后宫"],
-  "creationHistory": [{"title": "…", "genre": "…", "at": "…"}]
-}
+偏好由脚本维护，经理不手改 JSON：
+
+```bash
+ncc_state.py pref show <书目录或书库根目录> [--key 题材]          # 衰减后的权重，⭐ 为当前偏好；否决过的标"不首推"
+ncc_state.py pref like    <…> --key 题材 --value 都市诡异           # 作者选了某个选项：+1
+ncc_state.py pref confirm <…> --key 主契约 --value 凡人逆袭         # 作者明确说"我就喜欢这个"：+2，重新计时
+ncc_state.py pref reject  <…> --key 主契约 --value 无敌流 --note "不想写没有代价的赢"   # 否决：-2，记原因，同类问题不再首推
+ncc_state.py pref dislike <…> --value 圣母主角                      # 雷点：硬约束，不衰减
 ```
 
-- 每层答完**静默同步**；选项排序按 weight，命中偏好标 ⭐；🎲 在偏好加权后的池子里抽。
-- `dislikes` 是硬约束：worldbuilder/outliner 生成方案时排除。
+- **衰减**：权重按半衰期衰减（默认 180 天，`ncc.config.yaml` 的 `half_life_days` 可改）。人的口味会变，三年前的偏好不该和昨天的一样重。作者确认过的会重新计时。
+- **确认修正**：作者否决的推荐降权并记下原因；作者后来又选了它，否决记录自动撤销（作者改主意是常事）。
+- **雷点**（dislikes）是硬约束：worldbuilder、outliner 生成方案时排除，不衰减。
+- 常用键：题材、主契约、主角、视角、基调、风格参考、写作模式、金手指、力量体系。v0.6 及以前的旧格式（favoriteGenres 等）第一次写入时自动迁移。
+- `init` 建书时自动把书名、题材记进 `creationHistory`（保留最近 50 条）。
+- 用法：选项排序按 `pref show` 的权重，⭐ 标当前偏好；推荐理由可写"你以前选过……"，但排在作者种子之后。
 
 ## L1 必答（不答不开书）
 

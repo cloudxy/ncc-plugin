@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""check_chapter.py — 章节机械检查（确定性脚本，替代 LLM 自评；v0.6）。
+"""check_chapter.py — 章节机械检查（确定性脚本，替代 LLM 自评；v0.7）。
 
 用法: check_chapter.py <书目录> <章号seq> [章文件路径]
 
@@ -16,6 +16,7 @@
      可在 01-设定/时代错置词.md 追加本书的词）、敬称谦称用反、月相与日期不符；并列出本章用到的知识台账条目
   7. 规避点（M5，只告警）：长段（单段超过 para_max 汉字，默认 200）、长句（一句 sentence_commas_max 个逗号以上，
      默认 10）、对白流（连续 dialogue_run_max 段以引号开头，默认 10）；对话占比只作参考
+  8. 文风漂移（M6，只告警）：有 03-文风/文风指纹.json 时，对照句长、段长、对话占比、人称
 
 只数汉字、剔除 Markdown 标记。
 AI 味词表与句式整理自 oh-story-claudecode 的 story-deslop（MIT License，Copyright (c) 2025-2026 oh-story-claudecode），
@@ -28,7 +29,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from ncc_state import PROMISES, chapter_touches  # noqa: E402
+from ncc_state import PROMISES, chapter_touches, style_drift_lines  # noqa: E402
 
 # A 级：五星句式，命中一处即须改
 BLOCK_PATTERNS = {
@@ -271,6 +272,7 @@ def main():
     k_warns, facts_used = knowledge_warnings(book_dir, text)
     warns += k_warns
     warns += avoidance_warnings(raw, cfg)
+    warns += style_drift_lines(book_dir, raw)
     rhythm = burstiness(raw) or {}
     rhythm["dialogue_share"] = dialogue_share(raw)
 

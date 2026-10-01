@@ -14,11 +14,15 @@ when_to_use: "User wants to start a new novel, has only a vague idea for one, or
 
 ## Step 0 — 入口
 
-1. 读 `{book_root}/_preferences.json`（无则初始化空偏好）。偏好驱动选项排序、⭐ 标记与推荐理由。
+1. 读偏好：`ncc_state.py pref show {book_root}`（M6-3：权重按时间衰减，作者否决过的不首推，雷点是硬约束）。偏好驱动选项排序、⭐ 标记与推荐理由。
 2. **第一问：引导档位**（guidance §三）。按作者自述推荐：第一次写长篇或只有模糊想法 → 新手；写过一两本 → 熟手；有成熟方法论 → 老手。
 3. 建书：`python3 <PLUGIN_ROOT>/scripts/ncc_state.py init {book_root}/{书名或暂名} --title … --level …`。脚本会建目录、三本账、`author-intent.md` 与 `00-策划/作者种子.md` 模板，`stage: founding`。书名未定就用暂名，L3 再定。
 4. **作者种子**（上限引擎 U1，guidance §〇）：给任何题材选项之前，先问作者自己的材料——最先出现的画面、最在乎的问题、亲历的事、最爱作品里最打动他的时刻、最讨厌的写法、别人不知道的生活经验、最想让读者记住的场面。都可以跳过；新手只问第 1、2、7 条。原话写进种子文件。此后所有推荐都要标明从哪条种子长出来。#3（亲历）、#6（生活经验）有内容的，顺手各记一张素材卡（`ncc_state.py material add`，见 [references/material.md](references/material.md)）。
 5. **快捷通道**：作者首条消息已含题材＋主角设定＋核心冲突时，跳过对应问答，把已给信息填表后请作者确认。信息不足才问，问题数按档位控制（新手每个决策点只问影响最大的 1–2 个）。
+
+## Step 0.5 — 读技艺库（M6-4，写过书的作者）
+
+方向定下（Step 1）、类型契约定下（Step 3）后各跑一次 `ncc_state.py craft read <书目录>`：从书库根目录 `_craft-library/` 里挑出与本书题材、主契约、弧光、写作模式相关的条目（"适用条件"写"通用"的总会挑出来），写进 `00-策划/技艺库摘录.md`。此后的推荐理由可以写"源自技艺库《上一本》#3"，排在作者种子之后、题材常规之前。第一本书没有技艺库，跳过；有别的书的条目而没读，`gate soul` 会提醒。
 
 ## Step 1 — 选题与整本方向（S0）
 
@@ -28,6 +32,14 @@ when_to_use: "User wants to start a new novel, has only a vague idea for one, or
 ## Step 2 — 三层递进问答（S0）
 
 按 [references/qa-layers.md](references/qa-layers.md)。L1 必答三问（题材、主角、核心冲突）；L2 可选四问（世界观、视角与基调、读者与风格参考、篇幅）；L3 书名。主题不再放在 L2，而是进入 Step 3 的书魂流程。
+
+## Step 2.5 — 旧文采样（M6-1，可选）
+
+问作者（问题卡格式，推荐置顶）：**有没有你自己写过的文字，3 章或 1 万字以上？** 写过的网文、日记、长帖都行，体裁不限，越像你想写的这本越好。
+
+- **有（推荐）**：`ncc_state.py style <书目录> --sample <文件或目录>…` 算出文风指纹（句长、段长、对话占比、人称、标点习惯，存 `03-文风/文风指纹.json`，只给审稿看），并列出校准段候选。派 worldbuilder（task: style）写 `03-文风/文风基准.md`：一两句"语感"、2–3 段原文校准段、三五条负面清单；作者确认。此后写手动笔前最后读的就是作者自己的声音。
+- **没有**：跳过。黄金三章第 1 章定稿后用 `style --from-chapters 1` 反推（golden-three.md），G3 会查。
+- 样本不足 1 万字也能用，脚本会标"只作参考"。
 
 ## Step 3 — 书魂与类型契约（S0）→ G0
 
@@ -82,4 +94,4 @@ when_to_use: "User wants to start a new novel, has only a vague idea for one, or
 - 本流程停在 G2；开篇（黄金三章）属于 ncc-write。
 - 作者不答的题不编造：用推荐项记"暂定"并登记最晚决定点，worldbuilder 保守处理并显式标注。
 - 推测出来的候选只是选项；作者没选之前，不写进任何文件当结论。
-- 偏好文件只增不删；`creationHistory` 超过 50 条滚动裁剪最旧的。作者否决过的推荐记进偏好并降权。
+- 偏好由 `pref` 维护：作者选了 `pref like`，明确认可 `pref confirm`，否决 `pref reject --note 原因`，雷点 `pref dislike`；`creationHistory` 由 `init` 自动记、保留最近 50 条。

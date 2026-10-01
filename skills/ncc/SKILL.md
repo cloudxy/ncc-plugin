@@ -101,7 +101,8 @@ authority: 只产出草稿，不审稿，不改 book.json
 - **G2 大纲冻结**：呈示总纲主线一句话＋卷一钩子链＋承诺台账摘要，问「冻结吗」。
 - **单元开始时的关键章认定**：按规则（卷首卷末、名场面兑现、重要人物登场与退场、主题显形）先推荐约两成，作者确认后 `chapter key`。
 - **关键章的场景卡与版本选定**：呈示 story-editor 意见与场景卡，作者过目；各版本的成对比较、记忆测试与推荐，作者 `chapter pick`。尽量在单元设计时集中批，不在写章循环中途打断。
-- **G3 开篇闸**：呈示三章的硬伤层结论、版本选定记录、读者盲评与记忆测试、签约点落地情况，问「过 / 改 / 重写」，并给推荐。
+- **旧文采样**（开书时，可选）：问作者有没有 3 章或 1 万字以上的旧文；有就 `style --sample` 定文风指纹，派 worldbuilder（task: style）写文风基准，作者确认。
+- **G3 开篇闸**：呈示三章的硬伤层结论、版本选定记录、至少 2 个画像的读者盲评、弃读热力与记忆测试、读者此刻对照、签约点落地情况，问「过 / 改 / 重写」，并给推荐。
 - **机械检查不过但作者要放行**：可以 `gate … --action pass --force --quote "作者原话"`，脚本会记下未满足的项。
 - **战略分歧**（题材转向、主角换人、烂尾止损）：列选项与推荐，等作者明确答复。沉默不是同意。
 - **暂定项**：作者暂不决定的，用 `promise add --type 暂定决策 --content … --ch <当前章> --deadline …` 登记；到期前在状态汇报里提醒。
@@ -132,6 +133,7 @@ authority: 只产出草稿，不审稿，不改 book.json
 | [references/sustain.md](references/sustain.md)、[references/team.md](references/team.md) | 作者可持续；团队认领 |
 | [references/guidance.md](references/guidance.md) | 任何需要作者决定、或作者需求模糊时 |
 | `skills/ncc-new/references/material.md` | 作者要记素材时；排场景卡前看素材索引 |
+| `skills/ncc-review/references/reader-personas.md` | 派 reader 盲评前（选画像、写画像说明、登记与热力、读者此刻对照） |
 | `skills/ncc-write/references/scene-card.md`、`writing-brief.md` | 写章前组装场景卡与写作简报 |
 | [references/stage-map.md](references/stage-map.md) | 派单前查阶段、角色、产物、闸门 |
 | [references/book-state.md](references/book-state.md) | book.json 与三本账字段；断点恢复 |

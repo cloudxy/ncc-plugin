@@ -374,6 +374,14 @@ class TestOpeningGate(Base):
         self.write("05-审稿/blind-ch-0001-0003.md", "盲评\n## 记忆测试\n记住了工牌")
         for pt in ("主角与欲望", "世界的不公", "主角的机会", "第一次小兑现", "长线钩子"):
             self.ok("sign", self.book, pt, "--ch", 2)
+        out = self.bad("gate", self.book, "opening")
+        for key in ("1 个读者画像", "本书校准段", "文风指纹"):
+            self.assertIn(key, out)
+        self.write("05-审稿/blind-ch-0001-0003-老白.md", "盲评\n## 记忆测试\n记住了雨")
+        self.ok("style", self.book, "--from-chapters", 1)
+        tpl = (self.book / "03-文风/文风基准.md").read_text("utf-8")
+        self.assertIn("## 本书校准段", tpl)
+        self.write("03-文风/文风基准.md", tpl.replace("<从作者旧文或第 1 章定稿里摘 2–3 段", "雨" * 120 + "\n<从作者旧文或第 1 章定稿里摘 2–3 段"))
         self.ok("gate", self.book, "opening")
 
     def test_volume_gate_outside_review(self):
@@ -430,9 +438,10 @@ class TestLoops(Base):
         self.ok("soul", self.book, "--question", "Q", "--answer", "A", "--injustice", "I", "--ending", "E", "--status", "确定")
         self.write("00-策划/收束清单.md", self.ok("report", self.book, "finale"))
         self.write("00-策划/复盘/全书.md", "全书复盘")
+        self.ok("craft", "init", self.book)
         lib = self.book.parent / "_craft-library" / "测试书.md"
-        lib.parent.mkdir(parents=True, exist_ok=True)
-        lib.write_text("技艺条目", "utf-8")
+        self.assertIn("条目表是空的", self.bad("gate", self.book, "finale"))
+        lib.write_text(lib.read_text("utf-8") + "| 1 | 平弧主角被亲人质疑时追读最高 | 第48–60章 | 守护型主契约 | 平弧、守护 |\n", "utf-8")
         self.ok("gate", self.book, "finale", "--action", "pass", "--quote", "完本")
         self.assertEqual(self.book_json()["stage"], "finished")
 
@@ -575,6 +584,88 @@ class TestMaterials(Base):
         self.assertIn("## 素材", rep)
         self.assertIn("M-0001（第4章）", rep)
         self.assertIn("素材: 2 张", self.ok("status", self.book))
+
+
+class TestLearning(Base):
+    """M6：文风指纹、读者画像热力、偏好演化、技艺库回灌。"""
+
+    def test_style_fingerprint_and_drift(self):
+        old = Path(self.tmp.name) / "旧文"
+        old.mkdir()
+        para = "陆言把手套摘下来。他先去摸暖气片，摸完才打卡。夜班的灯只开一半。" * 6
+        (old / "旧文1.md").write_text("\n".join([para] * 30), "utf-8")
+        out = self.ok("style", self.book, "--sample", old)
+        self.assertIn("不足 10000 字", out)
+        self.assertIn("校准段候选", out)
+        fp = json.loads((self.book / "03-文风/文风指纹.json").read_text("utf-8"))
+        self.assertEqual((fp["source"], fp["person"], fp["enough"]), ("旧文样本", "第三人称", False))
+        self.assertTrue((self.book / "03-文风/文风基准.md").exists())
+        self.assertIn("文风指纹: 旧文样本", self.ok("status", self.book))
+        f = "04-正文/第0004章-开端.md"
+        self.write(f, "\n".join(["我说：“你别再说了，我真的全都知道，你什么都不用再讲了。”"] * 120))
+        self.ok("chapter", "add", self.book, 4, "--file", f)
+        code, out = run(self.book, 4, script=CHECK)
+        self.assertIn("文风：对话占比", out)
+        self.assertIn("人称像是第一人称", out)
+
+    def test_personas_heat_and_calibration(self):
+        for persona, follow, drop in (("目标读者", 4, "段12"), ("老白", 2, "第12段"), ("小白", 5, "段3")):
+            self.ok("feedback", "add", self.book, "--ch", 2, "--source", "模拟", "--kind", "追读", "--value", follow,
+                    "--persona", persona)
+            self.ok("feedback", "add", self.book, "--ch", 2, "--source", "模拟", "--kind", "弃读", "--value", drop,
+                    "--persona", persona)
+        self.ok("feedback", "add", self.book, "--ch", 2, "--source", "模拟", "--kind", "略读", "--value", "段12", "--persona", "懂行读者")
+        self.ok("feedback", "add", self.book, "--ch", 2, "--source", "模拟", "--kind", "出戏", "--value", "医学",
+                "--note", "抢救流程不对", "--persona", "懂行读者")
+        self.bad("feedback", "add", self.book, "--ch", 2, "--source", "模拟", "--kind", "打分", "--value", 3)
+        self.add(2)
+        out = self.ok("heat", self.book, "--ch", "1-3")
+        self.assertIn("| 第2章 | 4 | 2 | 5 |", out)
+        self.assertIn("第2章 第12段：███ 3", out)
+        self.assertIn("抢救流程不对", out)
+        self.assertIn("老白", self.ok("feedback", "list", self.book))
+
+    def test_preferences_evolve(self):
+        root = self.book.parent
+        prefs = root / "_preferences.json"
+        self.assertEqual(json.loads(prefs.read_text("utf-8"))["creationHistory"][-1]["title"], "测试书")
+        prefs.write_text(json.dumps({"favoriteGenres": [{"name": "都市诡异", "weight": 3}], "dislikes": ["圣母主角"],
+                                     "preferredPerspective": "第三人称限知", "typicalChapterCount": [200, 400]},
+                                    ensure_ascii=False), "utf-8")
+        out = self.ok("pref", "show", root)
+        self.assertIn("题材：都市诡异 3.0⭐", out)
+        self.assertIn("视角：第三人称限知", out)
+        self.assertIn("雷点（硬约束，不衰减）：圣母主角", out)
+        self.ok("pref", "like", self.book, "--key", "主契约", "--value", "凡人逆袭")
+        self.bad("pref", "reject", root, "--key", "主契约", "--value", "无敌流")
+        self.ok("pref", "reject", root, "--key", "主契约", "--value", "无敌流", "--note", "不想写没有代价的赢")
+        out = self.ok("pref", "show", root, "--key", "主契约")
+        self.assertLess(out.index("凡人逆袭"), out.index("无敌流"))
+        self.assertIn("无敌流 -2.0（作者否决过，不首推）", out)
+        self.assertIn("撤销", self.ok("pref", "confirm", root, "--key", "主契约", "--value", "无敌流"))
+        data = json.loads(prefs.read_text("utf-8"))
+        self.assertEqual((data["version"], data["settings"]["typicalChapterCount"]), (2, [200, 400]))
+        for it in data["items"]:
+            if it["value"] == "都市诡异":
+                it["last"] = "2025-10-01T00:00:00"          # 一年前：按 180 天半衰期约剩四分之一
+        prefs.write_text(json.dumps(data, ensure_ascii=False), "utf-8")
+        self.assertRegex(self.ok("pref", "show", root, "--key", "题材"), r"都市诡异 0\.[67]")
+
+    def test_craft_library_feeds_next_book(self):
+        root = self.book.parent
+        lib = root / "_craft-library" / "上一本.md"
+        lib.parent.mkdir(parents=True, exist_ok=True)
+        lib.write_text("# 技艺库：上一本\n- 题材：都市、诡异\n- 主契约：凡人逆袭＋守护\n\n| # | 条目 | 证据 | 适用条件 | 标签 |\n|---|---|---|---|---|\n"
+                       "| 1 | 平弧主角被亲人质疑时追读最高 | 第48–60章追读+12% | 守护型主契约 | 平弧 |\n"
+                       "| 2 | 宫斗戏的称谓要先立表 | 第3章出戏 | 古代宫廷 | 宫斗 |\n", "utf-8")
+        self.ok("soul", self.book, "--question", "Q", "--answer", "A", "--injustice", "I", "--ending", "E", "--status", "确定")
+        self.ok("contract", self.book, "--main", "凡人逆袭＋守护", "--poison", "主角降智")
+        self.assertIn("技艺库里有别的书的 2 条经验", self.bad("gate", self.book, "soul"))
+        out = self.ok("craft", "read", self.book)
+        self.assertIn("平弧主角被亲人质疑时追读最高", out)
+        self.assertIn("《上一本》1 条", out)                    # 宫斗那条与本书无关，列在"其他"
+        self.assertTrue((self.book / "00-策划/技艺库摘录.md").exists())
+        self.ok("gate", self.book, "soul")
 
 
 class TestMigrate(unittest.TestCase):

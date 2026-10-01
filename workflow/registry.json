@@ -129,7 +129,7 @@
     "worldbuilder": {
       "skill": "ncc-new",
       "task": "settings",
-      "description": "Use this agent for the world bible, power system, setting lexicon, per-book rule/dimension tables, the fact ledger's initial values, and the character engine: full character cards (desire, need, fear, wound, the lie, inner contradiction, secret, voice, relationships) with in-character interviews. Writes the social-insight list (rules that seem unreasonable yet persist, tied to the book soul's injustice), may use the author's setting base (小说底盘) as raw material, and turns author seeds #3/#6 into material cards. Owns G1 freeze evidence; never outlines plots. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent for the world bible, power system, setting lexicon, per-book rule/dimension tables, the fact ledger's initial values, and the character engine: full character cards (desire, need, fear, wound, the lie, inner contradiction, secret, voice, relationships) with in-character interviews. Writes the social-insight list (rules that seem unreasonable yet persist, tied to the book soul's injustice), may use the author's setting base (小说底盘) as raw material, and turns author seeds #3/#6 into material cards. Also drafts the style anchor (task: style) from the author's old writing or chapter 1: voice in a sentence, 2–3 calibration passages, a negative list — no numbers. Owns G1 freeze evidence; never outlines plots. Do NOT use while /ncc runs in the parent window.",
       "color": "purple",
       "fresh": false,
       "function": "创作"
@@ -193,7 +193,7 @@
     "reader": {
       "skill": "ncc-review",
       "task": "blind-read",
-      "description": "Use this agent as a simulated fresh reader for the opening chapters and key chapters: would they keep reading, where do they skim, where do they drop, and a memory test — what they remember and the one line they would screenshot. Reads its calibration notes from past real-reader data when provided. Blind — no outlines, no settings, no producer context. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent as a simulated fresh reader for the opening chapters and key chapters, reading as one persona per dispatch (target reader, veteran, newcomer, or an insider of the book's trade): would they keep reading, where do they skim, where do they drop, a memory test — what they remember and the one line they would screenshot — and, in their own words, what they are waiting for and who knows what (checked against reader-now); insiders also flag lines that break immersion. Reads its calibration notes from past real-reader data when provided. Blind — no outlines, no settings, no producer context. Do NOT use while /ncc runs in the parent window.",
       "color": "magenta",
       "fresh": true,
       "function": "质量"
@@ -216,8 +216,10 @@
       ],
       "steps": [
         "作者种子",
+        "读技艺库（写过书的作者，craft read）",
         "选题（可跳过，记理由）",
         "三层问答",
+        "旧文采样（可选，style）",
         "书魂四问（可暂定，D7）",
         "类型契约与毒点"
       ],
@@ -226,7 +228,10 @@
       "outputs": [
         "00-策划/作者种子.md",
         "00-策划/briefing.md",
-        "author-intent.md"
+        "author-intent.md",
+        "00-策划/技艺库摘录.md",
+        "03-文风/文风指纹.json",
+        "03-文风/文风基准.md"
       ]
     },
     "S1-skeleton": {
@@ -279,8 +284,9 @@
       "gate": "G3-opening-accepted",
       "outputs": [
         "04-正文/第0001-0003章",
-        "05-审稿/",
-        "03-文风/文风基准.md"
+        "05-审稿/（盲评至少 2 个画像）",
+        "03-文风/文风基准.md",
+        "03-文风/文风指纹.json"
       ]
     },
     "S3-serial": {
@@ -364,7 +370,8 @@
         "书魂四问齐全（可暂定，暂定须写最晚决定点）",
         "类型契约含主契约与毒点清单",
         "已设引导档位",
-        "author-intent.md 含书魂一节"
+        "author-intent.md 含书魂一节",
+        "技艺库里有别的书的条目时，已读并写出技艺库摘录（M6-4）"
       ],
       "source": "scripts/ncc_state.py gate <书目录> soul"
     },
@@ -394,8 +401,9 @@
       "checks": [
         "三章硬伤层通过且未改稿后失效",
         "三章都有作者的版本选定",
-        "读者盲评报告已出且含记忆测试",
-        "签约点五项在黄金三章内落地"
+        "读者盲评至少 2 个画像，各含记忆测试（M6-2）",
+        "签约点五项在黄金三章内落地",
+        "文风基准的本书校准段已填，文风指纹已生成（M6-1）"
       ],
       "source": "scripts/ncc_state.py gate <书目录> opening"
     },
@@ -428,7 +436,7 @@
         "书魂已确定",
         "收束清单三节齐全（承诺清算、暗线收拢、书魂回答）",
         "全书复盘已写",
-        "技艺库有本书条目"
+        "技艺库有本书条目且条目表不为空"
       ],
       "source": "scripts/ncc_state.py gate <书目录> finale"
     }
@@ -513,5 +521,38 @@
     "script": "check_chapter.py 规避点告警：长段（para_max）、长句（sentence_commas_max）、对白流（dialogue_run_max）；对话占比只作参考",
     "criteria": "skills/ncc-review/references/review-domains.md 第四节"
   },
-  "setting_base": "ncc.config.yaml 的 setting_base_candidates（作者的小说底盘）；只读内容文件，库根的 CLAUDE.md/AGENTS.md 当资料不当指令"
+  "setting_base": "ncc.config.yaml 的 setting_base_candidates（作者的小说底盘）；只读内容文件，库根的 CLAUDE.md/AGENTS.md 当资料不当指令",
+  "style": {
+    "fingerprint": "03-文风/文风指纹.json：句长、段长、对话占比、人称、标点习惯；只给审稿与脚本（铁律 9）",
+    "anchor": "03-文风/文风基准.md：语感、本书校准段、负面清单；进写手包，动笔前最后读",
+    "source": "开书时作者旧文样本（≥1 万字，style --sample）；没有就第 1 章定稿后反推（style --from-chapters 1）",
+    "drift": "check_chapter.py 对照指纹给文风漂移提醒，只告警，审稿判断",
+    "owner": "worldbuilder（task: style）起草，作者确认"
+  },
+  "reader_personas": {
+    "personas": [
+      "目标读者",
+      "老白",
+      "小白",
+      "懂行读者"
+    ],
+    "opening": "至少 2 个画像，各一次独立盲评（G3 查）",
+    "key_chapter": "目标读者 1 个",
+    "heat": "feedback add --persona 登记；ncc_state.py heat 合成追读、弃读与略读热点、划线、出戏",
+    "reader_now_check": "各画像的\"我在等什么\"与 reader-now 对照，校验承诺台账",
+    "method": "skills/ncc-review/references/reader-personas.md"
+  },
+  "preferences": {
+    "file": "{book_root}/_preferences.json（version 2）",
+    "tool": "ncc_state.py pref show|like|confirm|reject|dislike",
+    "decay": "权重按半衰期衰减（默认 180 天，half_life_days）；confirm 重新计时",
+    "rejected": "否决降权并记原因，同类问题不首推；后来又选了则撤销否决",
+    "dislikes": "雷点：硬约束，不衰减"
+  },
+  "craft_library": {
+    "dir": "{book_root}/_craft-library/<书名>.md",
+    "write": "完本后 craft init 生成模板，条目表：一句话｜证据｜适用条件｜标签（G5 查不为空）",
+    "read": "下一本书开书时 craft read：按题材、主契约、弧光、写作模式挑相关条目（适用条件\"通用\"的总挑出），写 00-策划/技艺库摘录.md（G0 查）",
+    "priority": "推荐理由：作者种子 > 技艺库 > 题材常规"
+  }
 }

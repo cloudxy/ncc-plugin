@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ncc_state.py — book.json 与 06-台账 的确定性读写工具（schema v2，v0.6 素材层）。
+"""ncc_state.py — book.json 与 06-台账 的确定性读写工具（schema v2，v0.7 学习与嗓音层）。
 
 状态只从这里（和经理派单回收）写入；markdown 投影与正文永不回写状态。
 只依赖标准库。
@@ -23,7 +23,7 @@
   volume end <book> --end N               本卷写完，进入卷复盘（stage → volume），之后过 gate volume
   finale begin <book>                     进入收束（stage → finale），之后过 gate finale
   report <book> unit|volume|finale        按台账生成复盘或收束清单的底稿（打印到标准输出）
-  feedback add <book> --ch N --source 真实|模拟 --kind 追读|弃读|划线|评论 --value V [--note X]
+  feedback add <book> --ch N --source 真实|模拟 --kind 追读|弃读|略读|划线|评论|出戏 --value V [--note X] [--persona 画像]
   feedback list <book> [--ch N]
   team set <book> <位> <名字>              团队认领：主编|主笔|设定|考据|发展编辑|审稿|试读|拆书
   team list <book>
@@ -46,6 +46,15 @@
                                          记一张素材卡到 素材/<八域>/M-NNNN-短名.md（--shared 记到书库根目录 _素材/，跨书共用）
   material list <book> [--domain 学科] [--unused]   素材索引（outliner 写场景卡时读这份，不读全部卡）
   material check <book>                  校验素材卡（来源、内容、可用处三项必填）
+
+学习与嗓音（M6）
+  style <book> --sample 文件或目录... | --from-chapters 1
+                                         文风指纹 03-文风/文风指纹.json（数字只给审稿看）＋文风基准.md 模板＋校准段候选
+  heat <book> [--ch A-B]                 读者画像热力：各画像追读、弃读与略读热点、划线、出戏
+  pref show|like|confirm|reject|dislike <书目录或书库根目录> [--key K] [--value V] [--note N]
+                                         偏好演化：权重按半衰期衰减；作者否决过的降权、不首推；雷点是硬约束
+  craft init <book>                      完本后生成技艺库条目模板 _craft-library/<书名>.md
+  craft read <book> [--top N]            开书时读别的书的技艺库，挑出相关条目写进 00-策划/技艺库摘录.md
 
 写手包与审稿（D17、D18）
   pack <book> <seq> [--note 本章特别提醒]   脚本组装写手包 04-正文/_packs/ch-NNNN.md（审稿文件与书魂原文一律不进）
@@ -91,6 +100,7 @@ import hashlib
 import json
 import os
 import re
+import statistics
 import sys
 import tempfile
 from pathlib import Path
@@ -152,6 +162,15 @@ MATERIAL_TRUST = ("亲历", "转述", "文献", "传闻", "拆书")
 MATERIAL_HINT = {"转述": "（转述自真人：人名、地名和能认出本人的细节都要换掉）",
                  "传闻": "（传闻：只能当人物口中的说法，叙述不当事实写）",
                  "拆书": "（拆书样本：只借写法，不搬内容）"}
+STYLE_FP = "03-文风/文风指纹.json"      # 数字指纹：只给审稿与脚本看，不进写手包（铁律 9）
+STYLE_ANCHOR = "03-文风/文风基准.md"    # 语感、校准段、负面清单：进写手包
+STYLE_MIN = 10000                       # 旧文样本至少 1 万汉字（约 3 章）
+PREFS = "_preferences.json"
+PREF_HALF_LIFE = 180
+PREF_V1 = {"favoriteGenres": "题材", "preferredProtagonist": "主角", "preferredPerspective": "视角",
+           "preferredTone": "基调", "styleReferences": "风格参考"}
+CRAFT_EXCERPT = "00-策划/技艺库摘录.md"
+HAN = re.compile(r"[一-鿿]")
 WRITER_SEEDS = ("1", "3", "6")   # 画面、亲历、生活经验；#2"最在乎的问题"离主题太近，不进写手包
 CHARACTER_REQUIRED = ("欲望", "需要", "恐惧", "声音")
 UNIT_REVIEW_REQUIRED = ("暂定决策", "故事审", "下一单元")
@@ -159,7 +178,7 @@ VOLUME_REVIEW_REQUIRED = ("承诺盘点", "书魂检验", "数据归因", "变�
 FINALE_REQUIRED = ("承诺清算", "暗线收拢", "书魂回答")
 TEAM_POSITIONS = ("主编", "主笔", "设定", "考据", "发展编辑", "审稿", "试读", "拆书")
 FEEDBACK_SOURCES = ("真实", "模拟")
-FEEDBACK_KINDS = ("追读", "弃读", "划线", "评论", "出戏")
+FEEDBACK_KINDS = ("追读", "弃读", "略读", "划线", "评论", "出戏")
 
 # 阶段（D10）：founding → settings → outline → opening → serial ⇄ volume → finale → finished
 GATES = {
@@ -964,16 +983,19 @@ def cmd_feedback(a):
         for f in data["items"]:
             if a.ch and f.get("ch") != a.ch:
                 continue
-            print(f"第{f['ch']}章 [{f['source']}] {f['kind']}={f['value']}  {f.get('note', '')}")
+            print(f"第{f['ch']}章 [{f['source']}{'·' + f['persona'] if f.get('persona') else ''}] "
+                  f"{f['kind']}={f['value']}  {f.get('note', '')}")
         return
     if a.source not in FEEDBACK_SOURCES:
         die(f"--source 只能是 {'/'.join(FEEDBACK_SOURCES)}")
     if a.kind not in FEEDBACK_KINDS:
         die(f"--kind 只能是 {'/'.join(FEEDBACK_KINDS)}")
-    data["items"].append({"ch": a.ch, "source": a.source, "kind": a.kind, "value": a.value,
-                          "note": a.note or "", "at": now()})
+    item = {"ch": a.ch, "source": a.source, "kind": a.kind, "value": a.value, "note": a.note or "", "at": now()}
+    if a.persona:
+        item["persona"] = a.persona
+    data["items"].append(item)
     write_json(book_dir / READER_DATA, data)
-    print(f"OK 第{a.ch}章 {a.source}{a.kind}={a.value}")
+    print(f"OK 第{a.ch}章 {a.source}{'·' + a.persona if a.persona else ''} {a.kind}={a.value}")
 
 
 def cmd_team(a):
@@ -1072,7 +1094,11 @@ def cmd_report(a):
         out += ["", "## 失去", ""] + ([f"- 第{e.get('chapter')}章 {e.get('entity')}：{e.get('old')} → {e.get('new')}" for e in lost] or ["- （本段主角没有失去任何东西——检查是否只有爽没有痛）"])
         seg_fb = [f for f in fb if lo <= f.get("ch", -1) <= hi]
         out += ["", "## 读者数据", ""] + ([f"- 第{f['ch']}章 [{f['source']}] {f['kind']}={f['value']} {f.get('note', '')}" for f in seg_fb] or ["- （无回流数据）"])
-        sim = {f["ch"]: f["value"] for f in seg_fb if f["source"] == "模拟" and f["kind"] == "追读"}
+        sim = {}
+        for f in seg_fb:
+            if f["source"] == "模拟" and f["kind"] == "追读":
+                v = f"{f['value']}（{f['persona']}）" if f.get("persona") else str(f["value"])
+                sim[f["ch"]] = f"{sim[f['ch']]}／{v}" if f["ch"] in sim else v
         real = {f["ch"]: f["value"] for f in seg_fb if f["source"] == "真实" and f["kind"] == "追读"}
         both = sorted(set(sim) & set(real))
         if both:
@@ -1132,6 +1158,307 @@ def cmd_report(a):
                 "- 终局给出的回答：主角答案的胜利、修正，还是胜利的代价？（待填）",
                 "- 收束方案候选 2–3 个，标推荐（outliner 填）（待填）"]
     print("\n".join(out))
+
+
+# ---------- M6：文风指纹 ----------
+
+def style_metrics(text: str) -> dict:
+    """可复算的文风指纹：句长、段长、对话占比、人称、标点习惯。只给审稿与脚本用。"""
+    body = re.sub(r"^[#>*\-|`\s]+", "", text, flags=re.M)
+    han = len(HAN.findall(body))
+    lens = [len(HAN.findall(s)) for s in re.split(r"[。！？!?…\n]+", body) if HAN.search(s)]
+    plens = [len(HAN.findall(p)) for p in body.splitlines() if HAN.search(p)]
+    quoted = "".join(re.findall(r"[“「『\"]([^”」』\"]*)[”」』\"]", body))
+    narr = re.sub(r"[“「『\"][^”」』\"]*[”」』\"]", "", body)
+    mean = statistics.mean(lens) if lens else 0
+    k = max(han / 1000, 1)
+    return {
+        "han": han,
+        "sentence_mean": round(mean, 1),
+        "sentence_cv": round(statistics.pstdev(lens) / mean, 2) if mean else 0,
+        "short_share": round(sum(1 for n in lens if n <= 8) / len(lens), 2) if lens else 0,
+        "long_share": round(sum(1 for n in lens if n >= 40) / len(lens), 2) if lens else 0,
+        "paragraph_mean": round(statistics.mean(plens), 1) if plens else 0,
+        "dialogue_share": round(len(HAN.findall(quoted)) / han, 2) if han else 0,
+        "person": "第一人称" if narr.count("我") > narr.count("他") + narr.count("她") else "第三人称",
+        "per_1000": {p: round(body.count(p) / k, 1) for p in ("——", "……", "！", "？")},
+    }
+
+
+def style_drift_lines(book_dir: Path, text: str) -> list:
+    """本章与文风指纹的偏离（只作参考，交审稿判断是否"文风明显漂移"）。"""
+    fp = read_json(book_dir / STYLE_FP, None)
+    if not fp:
+        return []
+    m = style_metrics(text)
+    tag = "" if fp.get("enough") else "（指纹样本不足 1 万字，只作参考）"
+    out = []
+    if fp.get("sentence_mean") and abs(m["sentence_mean"] - fp["sentence_mean"]) > fp["sentence_mean"] * 0.35:
+        out.append(f"文风：平均句长 {m['sentence_mean']} 字，指纹 {fp['sentence_mean']} 字{tag}")
+    if fp.get("paragraph_mean") and abs(m["paragraph_mean"] - fp["paragraph_mean"]) > fp["paragraph_mean"] * 0.6:
+        out.append(f"文风：平均段长 {m['paragraph_mean']} 字，指纹 {fp['paragraph_mean']} 字{tag}")
+    if abs(m["dialogue_share"] - fp.get("dialogue_share", 0)) > 0.2:
+        out.append(f"文风：对话占比 {m['dialogue_share']}，指纹 {fp.get('dialogue_share')}{tag}")
+    if fp.get("person") and m["person"] != fp["person"]:
+        out.append(f"文风：人称像是{m['person']}，指纹是{fp['person']}{tag}")
+    return out
+
+
+def sample_files(paths) -> list:
+    files = []
+    for s in paths:
+        p = Path(os.path.expanduser(s))
+        if p.is_dir():
+            files += sorted(x for x in p.rglob("*") if x.suffix in (".md", ".txt"))
+        elif p.is_file():
+            files.append(p)
+        else:
+            die(f"找不到样本：{s}")
+    return files
+
+
+def cmd_style(a):
+    book_dir = Path(a.book_dir)
+    d = ensure_m3_fields(load(book_dir))
+    if a.from_chapters:
+        lo, hi = parse_window(a.from_chapters) if re.search(r"[-~～至]", a.from_chapters) else (int(a.from_chapters),) * 2
+        files = [book_dir / c["file"] for c in range_chapters(d, lo, hi) if c.get("status") == "done"]
+        if not files:
+            die(f"第 {lo}–{hi} 章还没有定稿的正文，不能反推")
+        source = f"本书第{lo}–{hi}章" if lo != hi else f"本书第{lo}章"
+    elif a.sample:
+        files, source = sample_files(a.sample), "旧文样本"
+    else:
+        die("给 --sample <作者旧文的文件或目录>，或 --from-chapters 1（没有旧文时，第 1 章定稿后反推）")
+    texts = [(f, f.read_text("utf-8", errors="ignore")) for f in files]
+    m = style_metrics("\n".join(t for _, t in texts))
+    enough = m["han"] >= STYLE_MIN or source != "旧文样本"
+    fp = {"source": source, "files": [f.name for f in files], "enough": enough, "at": now(), **m}
+    write_json(book_dir / STYLE_FP, fp)
+    anchor = book_dir / STYLE_ANCHOR
+    copy_template("style-anchor.md", anchor)
+    d["style"] = {"source": source, "han": m["han"], "at": fp["at"]}
+    save(book_dir, d)
+    print(f"OK 文风指纹 {STYLE_FP}（{source}，{m['han']} 字"
+          + ("" if enough else f"，不足 {STYLE_MIN} 字：指纹只作参考，第 1 章定稿后可再用 --from-chapters 1 补") + "）")
+    print(f"  句长 {m['sentence_mean']} 字（起伏 {m['sentence_cv']}），段长 {m['paragraph_mean']} 字，"
+          f"对话占比 {m['dialogue_share']}，{m['person']}")
+    cands = []
+    for f, t in texts:
+        for i, para in enumerate((x.strip() for x in t.splitlines() if HAN.search(x)), 1):
+            n = len(HAN.findall(para))
+            if 150 <= n <= 400 and para[0] not in "“「『\"":
+                sm = style_metrics(para)["sentence_mean"]
+                cands.append((abs(sm - m["sentence_mean"]), f.name, i, para))
+    cands.sort(key=lambda x: x[0])
+    if cands:
+        print("  校准段候选（句长最接近整体的叙述段，worldbuilder 从中挑 2–3 段、作者确认后写进 文风基准.md）：")
+        for _, name, i, para in cands[:5]:
+            print(f"  - {name} 第{i}段：{para[:30]}……")
+
+
+# ---------- M6：读者画像热力 ----------
+
+def cmd_heat(a):
+    book_dir = Path(a.book_dir)
+    d = load(book_dir)
+    lo, hi = parse_window(a.ch) if a.ch else (1, max([c["seq"] for c in d.get("chapters", [])] or [1]))
+    fb = [f for f in ledger(book_dir, READER_DATA)["items"] if lo <= f.get("ch", -1) <= hi]
+    who = lambda f: f.get("persona") or ("真实读者" if f.get("source") == "真实" else "模拟（未标画像）")
+    people = list(dict.fromkeys(who(f) for f in fb))
+    out = [f"# 读者热力（第{lo}–{hi}章）", ""]
+    follow = [f for f in fb if f["kind"] == "追读"]
+    if follow:
+        out += ["## 追读", "", "| 章 | " + " | ".join(people) + " |", "|---|" + "---|" * len(people)]
+        for ch in sorted({f["ch"] for f in follow}):
+            row = {who(f): str(f["value"]) for f in follow if f["ch"] == ch}
+            out.append(f"| 第{ch}章 | " + " | ".join(row.get(p, "—") for p in people) + " |")
+        out.append("")
+    for kinds, title in ((("弃读", "略读"), "弃读与略读热点（越多画像在同一段失去耐心，越要先改）"), (("划线",), "划线")):
+        spots = {}
+        for f in fb:
+            if f["kind"] in kinds:
+                m = re.search(r"\d+", str(f["value"]))
+                spots.setdefault((f["ch"], int(m.group()) if m else 0), []).append(f"{f['kind']}·{who(f)}")
+        out += [f"## {title}", ""]
+        for (ch, para), hits in sorted(spots.items(), key=lambda x: (-len(x[1]), x[0])):
+            out.append(f"- 第{ch}章 " + (f"第{para}段" if para else "（未标段落）") + f"：{'█' * len(hits)} {len(hits)}（{'、'.join(hits)}）")
+        if not spots:
+            out.append("- （无）")
+        out.append("")
+    slips = [f for f in fb if f["kind"] == "出戏"]
+    if slips:
+        out += ["## 出戏（懂行读者）", ""] + [f"- 第{f['ch']}章 {f['value']}：{f.get('note', '')}（{who(f)}）" for f in slips]
+    print("\n".join(out))
+
+
+# ---------- M6：偏好演化 ----------
+
+def pref_file(p: Path) -> Path:
+    return (p.parent if (p / "book.json").exists() else p) / PREFS
+
+
+def pref_load(path: Path) -> dict:
+    raw = read_json(path, {})
+    if raw.get("version") == 2:
+        return raw
+    data = {"version": 2, "items": [], "dislikes": list(raw.get("dislikes", [])), "rejected": [],
+            "settings": {}, "creationHistory": raw.get("creationHistory", [])}
+    for k, v in raw.items():
+        if k in ("dislikes", "creationHistory", "version"):
+            continue
+        if k not in PREF_V1:
+            data["settings"][k] = v
+            continue
+        for x in v if isinstance(v, list) else [v]:
+            name, w = (x.get("name"), x.get("weight", 1)) if isinstance(x, dict) else (x, 1)
+            data["items"].append({"key": PREF_V1[k], "value": name, "weight": w, "last": now()})
+    return data
+
+
+def pref_half_life(path: Path) -> int:
+    for cfg in (path.parent / "ncc.config.yaml", path.parent.parent / "ncc.config.yaml"):
+        if cfg.exists():
+            m = re.search(r"half_life_days:\s*(\d+)", cfg.read_text("utf-8"))
+            if m:
+                return int(m.group(1))
+    return PREF_HALF_LIFE
+
+
+def pref_effective(item: dict, half_life: int) -> float:
+    age = (datetime.datetime.now() - datetime.datetime.fromisoformat(item.get("last") or now())).days
+    return item["weight"] * 0.5 ** (max(age, 0) / half_life)
+
+
+def cmd_pref(a):
+    path = pref_file(Path(a.path))
+    data = pref_load(path)
+    hl = pref_half_life(path)
+    if a.action == "show":
+        rejected = {(r["key"], r["value"]): r for r in data["rejected"]}
+        keys = [a.key] if a.key else list(dict.fromkeys(i["key"] for i in data["items"]))
+        for key in keys:
+            items = sorted((i for i in data["items"] if i["key"] == key), key=lambda i: -pref_effective(i, hl))
+            line = []
+            for i in items:
+                eff = pref_effective(i, hl)
+                flag = "（作者否决过，不首推）" if (key, i["value"]) in rejected else ("⭐" if eff >= 2 else "")
+                line.append(f"{i['value']} {eff:.1f}{flag}")
+            print(f"{key}：" + "；".join(line))
+        if data["dislikes"]:
+            print("雷点（硬约束，不衰减）：" + "、".join(data["dislikes"]))
+        for r in data["rejected"]:
+            if not a.key or r["key"] == a.key:
+                print(f"否决记录：{r['key']}「{r['value']}」{r['at'][:10]} {r.get('note', '')}")
+        print(f"（权重按半衰期 {hl} 天衰减；作者确认过的会重新计时）")
+        return
+    if a.action == "dislike":
+        if a.value not in data["dislikes"]:
+            data["dislikes"].append(a.value)
+        write_json(path, data)
+        print(f"OK 雷点「{a.value}」")
+        return
+    if not a.key:
+        die("--key 必填（如 题材、主契约、主角、视角、基调、风格参考、写作模式、金手指、力量体系）")
+    item = next((i for i in data["items"] if i["key"] == a.key and i["value"] == a.value), None)
+    if not item:
+        item = {"key": a.key, "value": a.value, "weight": 0, "last": now()}
+        data["items"].append(item)
+    if a.action == "reject":
+        if not (a.note or "").strip():
+            die("否决要写 --note（为什么不要，下次推荐时避开的就是这一点）")
+        item["weight"] -= 2
+        data["rejected"].append({"key": a.key, "value": a.value, "at": now(), "note": a.note})
+    else:
+        item["weight"] += 2 if a.action == "confirm" else 1
+        if a.action == "confirm":
+            item["confirmed"] = now()
+        before = len(data["rejected"])
+        data["rejected"] = [r for r in data["rejected"] if (r["key"], r["value"]) != (a.key, a.value)]
+        if len(data["rejected"]) < before:
+            print(f"  （作者改了主意：撤销对「{a.value}」的否决记录）")
+    item["last"] = now()
+    write_json(path, data)
+    print(f"OK {a.action} {a.key}「{a.value}」权重 {item['weight']}")
+
+
+def pref_note_book(book_dir: Path, title: str, genre: list):
+    path = pref_file(book_dir)
+    data = pref_load(path)
+    data["creationHistory"] = (data["creationHistory"] + [{"title": title, "genre": "、".join(genre), "at": now()}])[-50:]
+    write_json(path, data)
+
+
+# ---------- M6：技艺库回灌 ----------
+
+def craft_entries(p: Path):
+    rows = []
+    for line in p.read_text("utf-8").splitlines():
+        cells = [c.strip() for c in line.strip().strip("|").split("|")] if line.strip().startswith("|") else []
+        if len(cells) >= 5 and re.fullmatch(r"\d+", cells[0]) and cells[1]:
+            rows.append({"n": cells[0], "entry": cells[1], "evidence": cells[2], "when": cells[3], "tags": cells[4]})
+    return rows
+
+
+def book_terms(d: dict) -> list:
+    ct = d.get("contract", {})
+    raw = list(d.get("genre_tags", [])) + re.split(r"[＋+、,，/\s]", ct.get("main", "")) + list(ct.get("extras", []))
+    raw += [d.get("soul", {}).get("arc", ""), d.get("mode", "")]
+    return [t for t in dict.fromkeys(x.strip() for x in raw) if len(t) >= 2]
+
+
+def cmd_craft(a):
+    book_dir = Path(a.book_dir)
+    d = load(book_dir)
+    lib = book_dir.parent / CRAFT_LIBRARY
+    if a.action == "init":
+        dest = lib / f"{d.get('title')}.md"
+        if dest.exists():
+            die(f"已存在：{dest}")
+        tpl = (PLUGIN_ROOT / "skills/ncc/templates/craft-entry.md").read_text("utf-8")
+        ct, soul = d.get("contract", {}), d.get("soul", {})
+        tpl = (tpl.replace("{书名}", d.get("title", "")).replace("{题材}", "、".join(d.get("genre_tags", [])))
+               .replace("{主契约}", ct.get("main", "")).replace("{弧光}", soul.get("arc", "")).replace("{写作模式}", d.get("mode", "")))
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(tpl, "utf-8")
+        print(f"OK 技艺库条目模板 {CRAFT_LIBRARY}/{dest.name}（全书复盘后填，每条一句话＋证据＋适用条件＋标签）")
+        return
+    terms = book_terms(d)
+    hits, others = [], {}
+    for p in sorted(lib.glob("*.md")) if lib.is_dir() else []:
+        if p.stem == d.get("title"):
+            continue
+        for r in craft_entries(p):
+            generic = r["when"] in ("", "通用", "—", "——", "-")
+            why = ["通用"] if generic else [t for t in terms if t in f"{r['when']} {r['tags']}"]
+            if why:
+                hits.append((len(why), p.stem, r, why))
+            else:
+                others[p.stem] = others.get(p.stem, 0) + 1
+    if not hits and not others:
+        print("技艺库里还没有别的书的条目（第一本书不需要这一步）")
+        return
+    hits.sort(key=lambda x: -x[0])
+    out = ["# 技艺库摘录（开书时读，M6-4）", "",
+           f"> 由 ncc_state.py craft read 生成。本书：{'、'.join(terms) or '（题材与契约未定）'}。"
+           "推荐理由引用时写\"源自技艺库《书名》#n\"；排在作者种子之后、题材常规之前。", "",
+           "## 相关条目", "", "| 来源 | # | 条目 | 证据 | 适用条件 | 为什么相关 |", "|---|---|---|---|---|---|"]
+    out += [f"| 《{b}》 | {r['n']} | {r['entry']} | {r['evidence']} | {r['when']} | "
+            + ("通用经验" if w == ["通用"] else f"本书也有 {'、'.join(w)}") + " |" for _, b, r, w in hits[:a.top]]
+    if not hits:
+        out.append("| —— | | （没有和本书题材、契约、弧光、写作模式相关的条目） | | | |")
+    if others:
+        out += ["", "## 其他条目（不一定适用）", ""] + [f"- 《{b}》{n} 条" for b, n in others.items()]
+    dest = book_dir / CRAFT_EXCERPT
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text("\n".join(out) + "\n", "utf-8")
+    print("\n".join(out))
+
+
+def craft_pending(book_dir: Path, d: dict) -> int:
+    """别的书在技艺库里的条目数（本书开书时要读）。"""
+    lib = book_dir.parent / CRAFT_LIBRARY
+    return sum(len(craft_entries(p)) for p in lib.glob("*.md") if p.stem != d.get("title")) if lib.is_dir() else 0
 
 
 # ---------- 书与闸门 ----------
@@ -1201,6 +1528,7 @@ def cmd_init(a):
     save(book_dir, new_book(a.title, genre, a.chapters, a.level, a.mode))
     init_ledgers(book_dir)
     refresh_summary(book_dir)
+    pref_note_book(book_dir, a.title, genre)
     print(f"OK init {book_dir} stage=founding level={a.level} mode={a.mode}")
 
 
@@ -1310,6 +1638,8 @@ def cmd_status(a):
         rows = knowledge_rows(book_dir, c["seq"]) or []
         pending_k += sum(1 for r in rows if len(r) >= 5 and r[4] == "待核")
     print(f"底蕴: 时代背景 {d.get('era') or '未设'}  一书一深学 {'、'.join(d.get('study', [])) or '未选'}  待核知识点 {pending_k}")
+    st = d.get("style") or {}
+    print(f"文风指纹: {st.get('source')}（{st.get('han')} 字）" if st else "文风指纹: 未生成（style --sample 旧文，或第 1 章定稿后 --from-chapters 1）")
     mats = material_cards(book_dir)
     if mats:
         own = sum(1 for k in mats if k.startswith("M-"))
@@ -1374,6 +1704,9 @@ def gate_check(book_dir: Path, name: str, d: dict) -> list:
         ai = book_dir / "author-intent.md"
         if not ai.exists() or "书魂" not in ai.read_text("utf-8"):
             problems.append("author-intent.md 缺书魂一节")
+        n = craft_pending(book_dir, d)
+        if n and not (book_dir / CRAFT_EXCERPT).exists():
+            problems.append(f"技艺库里有别的书的 {n} 条经验，开书前先读（ncc_state.py craft read，M6-4）")
     elif name == "settings":
         for rel in ("01-设定/世界观圣经.md", "01-设定/力量体系.md", "01-设定/设定词典.md"):
             if not nonempty(book_dir, rel):
@@ -1422,10 +1755,20 @@ def gate_check(book_dir: Path, name: str, d: dict) -> list:
             if c.get("key") and not c.get("selection"):
                 problems.append(f"第 {seq} 章是关键章，缺作者的版本选定（chapter pick）")
         blinds = list((book_dir / "05-审稿").glob("blind-*"))
+        tested = [p for p in blinds if "记忆测试" in p.read_text("utf-8")]
         if not blinds:
             problems.append("缺读者盲评报告（05-审稿/blind-*.md）")
-        elif not any("记忆测试" in p.read_text("utf-8") for p in blinds):
+        elif not tested:
             problems.append("盲评报告缺「记忆测试」一节")
+        elif len(tested) < 2:
+            problems.append("开篇盲评只有 1 个读者画像，至少 2 个（目标读者＋老白或懂行读者，各一份 "
+                            "05-审稿/blind-ch-0001-0003-<画像>.md，见 reader-personas.md）")
+        anchor = book_dir / STYLE_ANCHOR
+        calib = section(anchor.read_text("utf-8"), "本书校准段") if anchor.exists() else ""
+        if len(HAN.findall(re.sub(r"^\s*<.*>\s*$", "", calib, flags=re.M))) < 100:
+            problems.append("文风基准.md 的「本书校准段」还没填（从第 1 章定稿里摘 200–400 字，见 golden-three.md）")
+        if not (book_dir / STYLE_FP).exists():
+            problems.append("缺文风指纹（有旧文样本用 style --sample；没有就 style --from-chapters 1）")
         signing = d.get("contract", {}).get("signing", {})
         for pt in SIGNING_POINTS:
             ch = signing.get(pt)
@@ -1461,7 +1804,9 @@ def gate_check(book_dir: Path, name: str, d: dict) -> list:
         problems += [x.replace("缺文件或为空", "缺书复盘") for x in has_sections(book_dir / REVIEW_DIR / "全书.md", ())]
         lib = book_dir.parent / CRAFT_LIBRARY / f"{d.get('title')}.md"
         if not lib.exists():
-            problems.append(f"技艺库还没有这本书的条目：{CRAFT_LIBRARY}/{d.get('title')}.md（见 loops.md 书循环）")
+            problems.append(f"技艺库还没有这本书的条目：{CRAFT_LIBRARY}/{d.get('title')}.md（craft init 生成模板，见 loops.md 书循环）")
+        elif not craft_entries(lib):
+            problems.append(f"技艺库条目表是空的：{CRAFT_LIBRARY}/{d.get('title')}.md（每条一句话＋证据＋适用条件＋标签）")
     return problems
 
 
@@ -1898,7 +2243,7 @@ def main():
     p = sub.add_parser("feedback"); fbs = p.add_subparsers(dest="action", required=True)
     q = fbs.add_parser("add"); q.add_argument("book_dir"); q.add_argument("--ch", type=int, required=True)
     q.add_argument("--source", required=True); q.add_argument("--kind", required=True); q.add_argument("--value", required=True)
-    q.add_argument("--note")
+    q.add_argument("--note"); q.add_argument("--persona")
     q = fbs.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--ch", type=int)
     p.set_defaults(fn=cmd_feedback)
     p = sub.add_parser("team"); ts = p.add_subparsers(dest="action", required=True)
@@ -1955,6 +2300,20 @@ def main():
     q = ms.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--domain"); q.add_argument("--unused", action="store_true")
     q = ms.add_parser("check"); q.add_argument("book_dir")
     p.set_defaults(fn=cmd_material)
+    p = sub.add_parser("style"); p.add_argument("book_dir"); p.add_argument("--sample", nargs="+")
+    p.add_argument("--from-chapters"); p.set_defaults(fn=cmd_style)
+    p = sub.add_parser("heat"); p.add_argument("book_dir"); p.add_argument("--ch"); p.set_defaults(fn=cmd_heat)
+    p = sub.add_parser("pref"); prs = p.add_subparsers(dest="action", required=True)
+    q = prs.add_parser("show"); q.add_argument("path"); q.add_argument("--key")
+    for act in ("like", "confirm", "reject"):
+        q = prs.add_parser(act); q.add_argument("path"); q.add_argument("--key", required=True)
+        q.add_argument("--value", required=True); q.add_argument("--note")
+    q = prs.add_parser("dislike"); q.add_argument("path"); q.add_argument("--value", required=True); q.add_argument("--key")
+    p.set_defaults(fn=cmd_pref)
+    p = sub.add_parser("craft"); crs = p.add_subparsers(dest="action", required=True)
+    q = crs.add_parser("init"); q.add_argument("book_dir")
+    q = crs.add_parser("read"); q.add_argument("book_dir"); q.add_argument("--top", type=int, default=12)
+    p.set_defaults(fn=cmd_craft)
     p = sub.add_parser("pack"); p.add_argument("book_dir"); p.add_argument("seq", type=int); p.add_argument("--note")
     p.set_defaults(fn=cmd_pack)
     p = sub.add_parser("review"); rs = p.add_subparsers(dest="action", required=True)
@@ -1973,7 +2332,7 @@ def main():
 READ_ONLY = {("status", None), ("next", None), ("report", None), ("sha", None), ("water", None),
              ("reader-now", None), ("scene", "check"), ("scene", "next"), ("knowledge", "plan"), ("knowledge", "check"), ("promise", "list"), ("know", "list"),
              ("fact", "get"), ("fact", "list"), ("feedback", "list"), ("team", "list"), ("unit", "list"),
-             ("material", "list"), ("material", "check")}
+             ("material", "list"), ("material", "check"), ("heat", None), ("pref", "show")}
 
 
 def log_op(a):

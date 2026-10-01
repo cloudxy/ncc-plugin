@@ -26,12 +26,13 @@ when_to_use: "User says /ncc-review, 审第N章, 打回重写, 全书体检, 比
 2. **硬伤层**：先 `ncc_state.py review plan` 定派谁并存快照；continuity（task: audit）必派，pulse（task: pulse）按计划参加，fresh 上下文。每条 observation：`{类别, 严重度: critical|major|minor, 正文引用, 推荐处置与理由}`。
 3. **汇总**：经理合成 `05-审稿/ch-XXXX-review.md`：硬伤层结论（通过／不通过）、可判定率（能下结论的检查项占比，<0.8 视为不通过）、observation 清单。记 review.sha。
 4. **修订**：有 critical 或 major → 派 editor（task: revise）显式修订。**正文一变 SHA 即变，旧评审作废**：`ncc_state.py review delta` 列出改动的段落，由上次给出不通过项的审稿人只复审这些段落与那几项，更新审稿报告。minor 可留到卷末统一打磨。
-5. **品质层（关键章）**：pulse 对 `04-正文/_versions/` 里的版本两两比较（每组说明哪版更好、好在哪、另一版有什么值得保留），reader 对候选版本做记忆测试；经理把结论和推荐呈给作者，作者 `chapter pick` 选定。选中版本接进正文后再过一次硬伤层。
+5. **品质层（关键章）**：pulse 对 `04-正文/_versions/` 里的版本两两比较（每组说明哪版更好、好在哪、另一版有什么值得保留），reader（默认目标读者画像，见 [references/reader-personas.md](references/reader-personas.md)）对候选版本做记忆测试；经理把结论和推荐呈给作者，作者 `chapter pick` 选定。选中版本接进正文后再过一次硬伤层。
 6. **打回重写**：审稿判"章级失败"（场景卡里的翻转或两难没写出来、结构问题）→ 先改场景卡、重过故事审，再 `chapter retry` 重写；达上限自动转 failed，停呈作者并给推荐处置。
 7. **全书体检**（`全书` 参数；卷复盘时也可调用）：抽样章（首 3、中段、最新 3）＋台账体检——承诺逾期与到期暂定决策（`ncc_state.py status`）、水章、没有翻转的场景比例、知情台账与正文不符、知识台账冲突、状态事件断档、孤儿词条、文风漂移、同型爽点与同色情绪重复。
 8. **两版比较**（作者说"比一比这两版"）：直接走第 5 步的成对比较。
 
 9. **文风放行**：作者认定"有意为之"的原句，按 `../ncc/references/craft-canon.md` §一写进 `03-文风/放行清单.md`（附章号与理由），机械检查不再计入。
+10. **读者画像与热力**（M6-2）：开篇至少 2 个画像各读一遍；各画像的反应用 `feedback add --persona` 登记，`ncc_state.py heat` 合成弃读热力；"我在等什么"与 `reader-now` 对照，看承诺台账准不准。
 
 ## 边界
 

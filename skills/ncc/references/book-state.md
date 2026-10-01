@@ -24,6 +24,7 @@
   "mode": "建筑师 | 园丁 | 混合",
   "era": "古代 | 架空古代 | 近代 | 现代 | 架空现代 | 未来",
   "study": ["天文"],
+  "style": {"source": "旧文样本 | 本书第1章", "han": 12000, "at": "…"},
   "writing_mode": "serial | batch",
   "experience_level": "新手 | 熟手 | 老手",
   "soul": {"question": "", "answer": "", "injustice": "", "ending": "", "status": "未填|暂定|确定", "deadline": "第一卷卷复盘", "arc": "正向|负向|平弧"},
@@ -112,7 +113,7 @@
    **主角失去的东西**记为状态事件 `attribute: 失去`，"读者此刻"会列出最近的失去。
 5. **v0.1 书**：`ncc_state.py migrate` 升级到 schema 2（原伏笔台账保留）。v0.2/v0.3 建的书缺 M3 字段（units、volumes、published_upto、team）时，脚本在用到时自动补齐。
 6. **单元与卷**：`unit open/close`（关单元前须有复盘文件）、`volume end` 后过 `gate volume`；卷通过后下一卷自动从下一章开始。
-7. **读者数据**：`06-台账/读者数据.json`，`feedback add --source 真实|模拟 --kind 追读|弃读|划线|评论|出戏`（出戏的 value 填学科）。
+7. **读者数据**：`06-台账/读者数据.json`，`feedback add --source 真实|模拟 --kind 追读|弃读|略读|划线|评论|出戏 [--persona 画像]`（出戏的 value 填学科；弃读、略读、划线的 value 填段号，`heat` 按段合成热力）。
    **知识点清单**：`02-大纲/知识点/ch-NNNN.md`，场景卡标了"知识"的章由 scholar 写；`knowledge check` 校验，`complete` 拦截不合格的。
 8. **素材卡**：`素材/` 是作者的生活笔记，不是状态；`material check` 校验三项必填（来源、内容、可用处），场景卡用 `素材：M-NNNN` 引用，`scene check` 查编号存在。
 9. **操作日志**：`06-台账/操作日志.jsonl`，每次写操作自动追加（时间、操作者 `NCC_ACTOR`、命令），团队交接用。
@@ -125,17 +126,18 @@
   book.json               # 唯一状态源
   author-intent.md        # L0：书魂、类型契约、签约点、目标读者、终局（写给所有帽）
   current-focus.md        # 近1-3章焦点，writer 每章更新
-  00-策划/  作者种子.md  briefing.md  对标分析.md  变更提议.md  收束清单.md  复盘/单元-U1.md 卷1.md 全书.md
+  00-策划/  作者种子.md  技艺库摘录.md（craft read）  briefing.md  对标分析.md  变更提议.md  收束清单.md  复盘/单元-U1.md 卷1.md 全书.md
   01-设定/  世界观圣经.md  力量体系.md  设定词典.md  规则表.md  时代错置词.md（可选）  人物卡/（含 <名字>-采访.md）
   02-大纲/  总纲.md  卷纲/卷1.md  章纲/ch-0001.md  场景卡/ch-0001.md  知识点/ch-0001.md
-  03-文风/  文风基准.md  放行清单.md
+  03-文风/  文风基准.md（语感、校准段、负面清单；进写手包）  文风指纹.json（style 生成；只给审稿与脚本）  放行清单.md
   04-正文/  第0001章-标题.md  _packs/ch-0001.md（pack 生成）  _versions/ch-0001-<节拍>-A.md
-  05-审稿/  story-ch-0001.md  ch-0001-review.md  blind-ch-0001-0003.md  _snapshots/ch-0001.md（review plan/delta 用）
+  05-审稿/  story-ch-0001.md  ch-0001-review.md  blind-ch-0001-0003-<画像>.md  _snapshots/ch-0001.md（review plan/delta 用）
   06-台账/  承诺台账.json  知情台账.json  知识台账.json  状态事件.json  读者数据.json  操作日志.jsonl  冲突登记.md  待校验池.md
   07-导出/
   素材/  甲-爽感/ 乙-人间/ … 辛-想象/ 未分/  M-0001-短名.md（素材卡，material add；见 ncc-new/references/material.md）
   memory/  manager.md  writer.md  editor.md  reader.md（校准备注）…（每帽一份）
 
-{book_root}/_craft-library/<书名>.md   # 跨书技艺库（书循环写入，下一本书开书时读）
+{book_root}/_craft-library/<书名>.md   # 跨书技艺库（craft init 生成模板；下一本书 craft read）
+{book_root}/_preferences.json        # 跨书偏好（pref；权重衰减、否决降权、雷点）
 {book_root}/_素材/<八域>/MS-0001-短名.md  # 跨书共用的素材卡（material add --shared）
 ```
