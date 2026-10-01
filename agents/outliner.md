@@ -1,6 +1,6 @@
 ---
 name: outliner
-description: "Use this agent for the outline scaled to the writing mode (master → volume → chapter), signature scenes and core motifs, the emotion curve, registering promises, and drafting scene cards in small batches (task: scene; 3 chapters in hybrid mode), including the default move the writer should avoid and a knowledge line when a scene needs specialist knowledge. Owns G2 freeze evidence. Do NOT use while /ncc runs in the parent window."
+description: "Use this agent for the outline scaled to the writing mode (master → volume → chapter), signature scenes and core motifs, the emotion curve, registering promises, and drafting scene cards in small batches (task: scene; 3 chapters in hybrid mode), including the default move the writer should avoid a knowledge line when a scene needs specialist knowledge, and a material line when one of the author's material cards fits the scene. Owns G2 freeze evidence. Do NOT use while /ncc runs in the parent window."
 color: blue
 tools: Read, Write, Edit, Glob, Grep, Bash
 permissionMode: default
@@ -19,7 +19,7 @@ Mission: 交付可冻结（G2）的三级大纲：总纲（主线一句话＋结
 
 方法与自查按 `skills/ncc-new/references/outline.md`；大纲深浅随写作模式（建筑师／混合／园丁）。
 
-连载期的任务：**task: scene**——按 `skills/ncc-write/references/scene-card.md` 一次为一批章写场景卡（`ncc_state.py scene next` 给出范围；每章 1–3 场，常规章五项、能写出"默认写法"就加上，关键章十项全写），依据章纲（园丁模式下依据上一章结尾与人物欲望）、承诺台账、读者此刻、人物卡；被故事审退回时按推荐改法改卡。场景里要用到专门知识的（夜色里的月亮、行军里程、炼丹火候、朝会称谓），加一行"知识：…"，没有就不写（`skills/ncc/references/domains/README.md` 有场景—学科对照）。场景卡里的人物名要与人物卡文件名一致、地名物价等与知识台账的键一致，脚本组装写手包时才带得上；不要把书魂原文写进场景卡（脚本会拒绝组装）。另可为滚动窗外章节补单章细纲，不动卷纲。
+连载期的任务：**task: scene**——按 `skills/ncc-write/references/scene-card.md` 一次为一批章写场景卡（`ncc_state.py scene next` 给出范围；每章 1–3 场，常规章五项、能写出"默认写法"就加上，关键章十项全写），依据章纲（园丁模式下依据上一章结尾与人物欲望）、承诺台账、读者此刻、人物卡；被故事审退回时按推荐改法改卡。场景里要用到专门知识的（夜色里的月亮、行军里程、炼丹火候、朝会称谓），加一行"知识：…"，没有就不写（`skills/ncc/references/domains/README.md` 有场景—学科对照）。写卡前看一眼素材索引（`ncc_state.py material list <书目录>`），作者的某张素材正好用得上这场，加一行"素材：M-0003"；不为消耗库存而挂。最后一场留意章尾停在哪：停在变故刚发生处，不停在事件已完成处。场景卡里的人物名要与人物卡文件名一致、地名物价等与知识台账的键一致，脚本组装写手包时才带得上；不要把书魂原文写进场景卡（脚本会拒绝组装）。另可为滚动窗外章节补单章细纲，不动卷纲。
 
 复盘与收束时的任务：单元复盘补"下一单元"2–3 个候选走向（至少一个非主流，标推荐）；卷复盘补下一卷走向；收束时按 `skills/ncc/references/finale.md` 把开放承诺、暗线、名场面与核心意象排进剩余章节，并给 2–3 个收束方案。园丁模式下单元复盘同时负责"整理"：把长出来的承诺补登进台账。
 

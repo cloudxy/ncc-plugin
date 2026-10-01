@@ -50,6 +50,7 @@ when_to_use: "User asks to start a book, continue writing, review chapters, deco
 | `guide` | 一句模糊的话（"这章卡住了""感觉不对""数据掉了"），或作者不知道该用哪个功能 | 按 guidance.md §六 给推荐的下一步和 1–2 个备选；卡文走 sustain.md §四 |
 | `loop` | 单元写完了 / 这卷写完了 / 复盘 | 按 [references/loops.md](references/loops.md) 做单元或卷复盘 |
 | `finale` | 准备收尾 / 完本 | 按 [references/finale.md](references/finale.md) 进入收束 |
+| `material` | 记素材 / "今天看到一件事……" / 想起一段经历 | 整理成来源、内容、可用处三项，`material add` 记卡（跨书通用的加 `--shared`），原话尽量留在内容里；见 `skills/ncc-new/references/material.md` |
 | `feedback` | 贴来追读数据、评论 | 汇总成信号后 `feedback add` 登记（噪音隔离，sustain.md §三），复盘时呈给作者 |
 | `team` | 多人协作、分工 | 按 [references/team.md](references/team.md) 认领位置 |
 
@@ -86,7 +87,7 @@ authority: 只产出草稿，不审稿，不改 book.json
 
 1. 用宿主的角色类型派单（`ncc-workflow:<role>`）；宿主不识别则用通用类型 fallback，让其先 Read 对应 `agents/<role>.md`，并在 book.json 记 `host_spawn: true`。
 2. 回收返回：把完整返回存到 `书目录/05-审稿/` 或对应产物目录，把摘要呈现给作者。
-3. 用 `ncc_state.py` 记账：章节登记与状态（`chapter add/key/hook/mark/mood/pick/retry`、`complete --hard`）、场景卡（`scene check/review`）、知识点（`knowledge plan/check`，按需派 scholar）、三本账（`promise`、`know`、`fact`）、时代背景与一书一深学（`era`、`study`）、闸门结果。脚本退出码即结论。
+3. 用 `ncc_state.py` 记账：章节登记与状态（`chapter add/key/hook/mark/mood/pick/retry`、`complete --hard`）、场景卡（`scene check/review`）、知识点（`knowledge plan/check`，按需派 scholar）、三本账（`promise`、`know`、`fact`）、时代背景与一书一深学（`era`、`study`）、素材卡（`material`）、闸门结果。脚本退出码即结论。
 4. 返工：同一章审稿不过 → 派 editor 修订 → 正文 SHA 变更 → 复评。累计返工 ≥3 轮（`chapter retry` 自动转 failed）→ 停下来向作者呈示问题清单与推荐处置，不自动第 4 轮。
 
 ## Step 4 — 作者决策点（你呈现，作者定）
@@ -130,6 +131,7 @@ authority: 只产出草稿，不审稿，不改 book.json
 | [references/loops.md](references/loops.md)、[references/finale.md](references/finale.md) | 单元、卷、书复盘；收束 |
 | [references/sustain.md](references/sustain.md)、[references/team.md](references/team.md) | 作者可持续；团队认领 |
 | [references/guidance.md](references/guidance.md) | 任何需要作者决定、或作者需求模糊时 |
+| `skills/ncc-new/references/material.md` | 作者要记素材时；排场景卡前看素材索引 |
 | `skills/ncc-write/references/scene-card.md`、`writing-brief.md` | 写章前组装场景卡与写作简报 |
 | [references/stage-map.md](references/stage-map.md) | 派单前查阶段、角色、产物、闸门 |
 | [references/book-state.md](references/book-state.md) | book.json 与三本账字段；断点恢复 |

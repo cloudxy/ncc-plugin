@@ -33,7 +33,7 @@ when_to_use: "User says /ncc-write, 写下一章, 今更N章, 黄金三章, or r
 ## Step 1 — 一批场景卡
 
 1. `ncc_state.py scene next <书目录>` 给出下一批章号；逐章 `chapter add <书目录> <章号> --file 04-正文/第NNNN章-标题.md [--key]`。
-2. 派 outliner（task: scene）按 [references/scene-card.md](references/scene-card.md) 一次写完这一批 `02-大纲/场景卡/ch-NNNN.md`：每章 1–3 场；常规章每场五项（能写出"默认写法"就加上），关键章十项全写。园丁模式可以没有章纲，从上一章结尾与人物欲望往下推。
+2. 派 outliner（task: scene）按 [references/scene-card.md](references/scene-card.md) 一次写完这一批 `02-大纲/场景卡/ch-NNNN.md`：每章 1–3 场；常规章每场五项（能写出"默认写法"就加上），关键章十项全写；作者的素材卡用得上就挂一行"素材：M-NNNN"（`material list` 看索引）。园丁模式可以没有章纲，从上一章结尾与人物欲望往下推。
 3. `ncc_state.py scene check <书目录> 4 5 6` 过格式。
 
 ## Step 2 — 故事审（一批一次）
@@ -51,7 +51,7 @@ when_to_use: "User says /ncc-write, 写下一章, 今更N章, 黄金三章, or r
 
 ## Step 3 — 写手包
 
-`ncc_state.py pack <书目录> <章号> [--note "本章特别提醒：只写意图与材料"]`：脚本把场景卡逐场转成写作简报（含"默认写法——不要这样写"、关键节拍写多版的提示），附本章知识点（scholar 写的"写成什么"，不带来源与卡）、读者此刻、出场人物的欲望恐惧与声音、可用材料（作者种子 #1、#3、#6，场景卡提到的知识台账数据）、前情、前一章结尾原文、文风基准，写到 `04-正文/_packs/ch-NNNN.md`。审稿文件、书魂原文、author-intent 一律不进；场景卡里混进书魂原文时脚本拒绝组装。然后 `chapter mark … drafting`。
+`ncc_state.py pack <书目录> <章号> [--note "本章特别提醒：只写意图与材料"]`：脚本把场景卡逐场转成写作简报（含"默认写法——不要这样写"、关键节拍写多版的提示），附本章知识点（scholar 写的"写成什么"，不带来源与卡）、读者此刻、出场人物的欲望恐惧与声音、可用材料（作者种子 #1、#3、#6，场景卡挂的素材卡，场景卡提到的知识台账数据）、前情、前一章结尾原文、文风基准，写到 `04-正文/_packs/ch-NNNN.md`。审稿文件、书魂原文、author-intent 一律不进；场景卡里混进书魂原文时脚本拒绝组装。然后 `chapter mark … drafting`。
 
 ## Step 4 — 派 writer
 

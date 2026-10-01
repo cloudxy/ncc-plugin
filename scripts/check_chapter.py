@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""check_chapter.py — 章节机械检查（确定性脚本，替代 LLM 自评；v0.4）。
+"""check_chapter.py — 章节机械检查（确定性脚本，替代 LLM 自评；v0.6）。
 
 用法: check_chapter.py <书目录> <章号seq> [章文件路径]
 
@@ -14,10 +14,12 @@
   5. 句长起伏（诊断参考，不计入退出码）：句长变异系数、落在 15–35 字"舒适区"的句子占比
   6. 底蕴提醒（M4，只告警，交 continuity 核对）：时代错置词（book.json era 为古代或架空古代时启用，
      可在 01-设定/时代错置词.md 追加本书的词）、敬称谦称用反、月相与日期不符；并列出本章用到的知识台账条目
+  7. 规避点（M5，只告警）：长段（单段超过 para_max 汉字，默认 200）、长句（一句 sentence_commas_max 个逗号以上，
+     默认 10）、对白流（连续 dialogue_run_max 段以引号开头，默认 10）；对话占比只作参考
 
 只数汉字、剔除 Markdown 标记。
 AI 味词表与句式整理自 oh-story-claudecode 的 story-deslop（MIT License，Copyright (c) 2025-2026 oh-story-claudecode），
-只借清单，判定逻辑为本插件自写。
+只借清单，判定逻辑为本插件自写。规避点的三条整理自作者自有的 novel_guide「13 规避点」。
 """
 import json
 import re
@@ -112,8 +114,46 @@ def knowledge_warnings(book_dir: Path, text: str):
     return warns, used
 
 
+QUOTE_OPEN = "“「『\""
+
+
+def avoidance_warnings(raw: str, cfg: dict):
+    """规避点（M5-2，整理自 novel_guide 13：长段、长句、对白流）。只告警。"""
+    warns = []
+    paras = [p.strip() for p in strip_md(raw).splitlines() if p.strip()]
+    long_p = [i for i, p in enumerate(paras, 1) if len(re.findall(r"[一-鿿]", p)) > cfg["para_max"]]
+    if long_p:
+        warns.append(f"规避点：长段 {len(long_p)} 处（单段超过 {cfg['para_max']} 字，手机上满屏，读者会扫过去）："
+                     f"第 {'、'.join(map(str, long_p[:5]))} 段")
+    sents = re.split(r"[。！？!?…\n]+", strip_md(raw))
+    long_s = [s.strip() for s in sents if s.count("，") + s.count(",") >= cfg["sentence_commas_max"]]
+    if long_s:
+        warns.append(f"规避点：长句 {len(long_s)} 处（一句 {cfg['sentence_commas_max']} 个逗号以上）：「{long_s[0][:30]}……」")
+    run = best = start = best_start = 0
+    for i, p in enumerate(paras, 1):
+        if p[0] in QUOTE_OPEN:
+            start = i if run == 0 else start
+            run += 1
+            if run > best:
+                best, best_start = run, start
+        else:
+            run = 0
+    if best >= cfg["dialogue_run_max"]:
+        warns.append(f"规避点：对白流——第 {best_start}–{best_start + best - 1} 段连续 {best} 段以引号开头，"
+                     "中间没有动作、神态或叙述")
+    return warns
+
+
+def dialogue_share(raw: str):
+    body = strip_md(raw)
+    total = len(re.findall(r"[一-鿿]", body))
+    inside = sum(len(re.findall(r"[一-鿿]", m)) for m in re.findall(r"[“「『\"]([^”」』\"]*)[”」』\"]", body))
+    return round(inside / total, 2) if total else None
+
+
 def load_config(book_dir: Path):
-    cfg = {"words_min": 3000, "words_max": 5000, "ai_level1_max": 3}
+    cfg = {"words_min": 3000, "words_max": 5000, "ai_level1_max": 3,
+           "para_max": 200, "sentence_commas_max": 10, "dialogue_run_max": 10}
     for p in (book_dir.parent / "ncc.config.yaml", book_dir / "ncc.config.yaml"):
         if p.exists():
             text = p.read_text("utf-8")
@@ -230,6 +270,9 @@ def main():
 
     k_warns, facts_used = knowledge_warnings(book_dir, text)
     warns += k_warns
+    warns += avoidance_warnings(raw, cfg)
+    rhythm = burstiness(raw) or {}
+    rhythm["dialogue_share"] = dialogue_share(raw)
 
     # 水章
     ledger = book_dir / PROMISES
@@ -250,7 +293,7 @@ def main():
         "band": [cfg["words_min"], cfg["words_max"]], "hook": hook,
         "ai": {"block": block, "high_risk": high, "level1": l1, "level2_per_1000": round(per_k, 1), "summary": summ,
                "waived_snippets": len(waived)},
-        "rhythm_reference": burstiness(raw),
+        "rhythm_reference": rhythm,
         "facts_mentioned": facts_used,
         "promise_touches": [f"{i} {k}" for i, k in touches],
         "warnings": warns, "problems": problems, "pass": not problems,

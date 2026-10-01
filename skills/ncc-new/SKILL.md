@@ -17,7 +17,7 @@ when_to_use: "User wants to start a new novel, has only a vague idea for one, or
 1. 读 `{book_root}/_preferences.json`（无则初始化空偏好）。偏好驱动选项排序、⭐ 标记与推荐理由。
 2. **第一问：引导档位**（guidance §三）。按作者自述推荐：第一次写长篇或只有模糊想法 → 新手；写过一两本 → 熟手；有成熟方法论 → 老手。
 3. 建书：`python3 <PLUGIN_ROOT>/scripts/ncc_state.py init {book_root}/{书名或暂名} --title … --level …`。脚本会建目录、三本账、`author-intent.md` 与 `00-策划/作者种子.md` 模板，`stage: founding`。书名未定就用暂名，L3 再定。
-4. **作者种子**（上限引擎 U1，guidance §〇）：给任何题材选项之前，先问作者自己的材料——最先出现的画面、最在乎的问题、亲历的事、最爱作品里最打动他的时刻、最讨厌的写法、别人不知道的生活经验、最想让读者记住的场面。都可以跳过；新手只问第 1、2、7 条。原话写进种子文件。此后所有推荐都要标明从哪条种子长出来。
+4. **作者种子**（上限引擎 U1，guidance §〇）：给任何题材选项之前，先问作者自己的材料——最先出现的画面、最在乎的问题、亲历的事、最爱作品里最打动他的时刻、最讨厌的写法、别人不知道的生活经验、最想让读者记住的场面。都可以跳过；新手只问第 1、2、7 条。原话写进种子文件。此后所有推荐都要标明从哪条种子长出来。#3（亲历）、#6（生活经验）有内容的，顺手各记一张素材卡（`ncc_state.py material add`，见 [references/material.md](references/material.md)）。
 5. **快捷通道**：作者首条消息已含题材＋主角设定＋核心冲突时，跳过对应问答，把已给信息填表后请作者确认。信息不足才问，问题数按档位控制（新手每个决策点只问影响最大的 1–2 个）。
 
 ## Step 1 — 选题与整本方向（S0）
@@ -50,10 +50,12 @@ when_to_use: "User wants to start a new novel, has only a vague idea for one, or
 - `01-设定/人物卡/`——**人物引擎**（上限引擎 U2），按 [references/character.md](references/character.md)：主角与主要配角用完整版（欲望、需要、恐惧、伤口、信错的那句话、内在矛盾、秘密、声音、关系），并做**角色采访**，产出声音样例；主角弧光类型（正向／负向／平弧）按 guidance 给推荐，作者选定后 `ncc_state.py soul <书目录> --arc …`。
 - 知识台账初值：已定的距离、物价、历法、称谓等用 `ncc_state.py fact set` 写入。
 - 时代背景：`ncc_state.py era <书目录> …`（按 guidance 给推荐）。
+- **社会洞察**（M5-4）：世界观圣经里"看似不合理却存在"的规矩清单，每条写谁受益、谁受害、主角在哪、对应书魂"世界的不公"哪一面（`gate settings` 会查）。
+- **小说底盘**（M5-2，玄幻、仙侠类）：力量体系与资源设定可以用作者的小说底盘做底料（`ncc.config.yaml` 的 `setting_base_candidates`），改成只对本书有效的版本并标 `底盘:` 来源；新手档推荐套用成熟体系再改名。
 - **设定规律核对**（M4，按需）：虚构设定借用了真实规律的，派 scholar（task: rules）核一遍运转规律，问题按推荐呈作者。
 - 一书一深学（可选，也可以第一卷卷复盘时再选）：按题材常涉及学科给推荐，`ncc_state.py study <书目录> --add …`（`../ncc/references/domains/reading-list.md`）。
 
-若有拆书产物（设定库／词典片段），worldbuilder 直接吸收并在卡上记来源。
+若有拆书产物（设定库／词典片段），worldbuilder 直接吸收并在卡上记来源；拆书得出的对标书书魂与契约（`报告/书魂与契约.md`）可作类型契约候选的对标参照。
 
 **G1 冻结**：`ncc_state.py gate <书目录> settings`，呈示脚本结果＋空白项清单；作者确认后 `--action pass`，`stage → outline`。冻结后的改动走变更提议（`workflow/architecture.md` §一）。
 

@@ -148,6 +148,9 @@ class TestSettingsGate(Base):
         self.assertIn("弧光", out)
         self.write("01-设定/人物卡/陆言.md", "欲望 需要 恐惧 伤口 声音")
         self.ok("soul", self.book, "--arc", "正向")
+        self.assertIn("社会洞察", self.bad("gate", self.book, "settings"))
+        self.write("01-设定/世界观圣经.md", "# 圣经\n## 社会洞察\n| 规矩 | 为什么 | 谁受益 | 谁受害 | 主角在哪 | 不公 |\n"
+                   "|---|---|---|---|---|---|\n| 夜班不开灯 | 省电 | 厂方 | 工人 | 守夜 | 弱者付成本 |\n## 世界秘密\n")
         self.ok("gate", self.book, "settings")
 
 
@@ -529,6 +532,51 @@ class TestKnowledge(Base):
         self.assertIn("化学：知识点 1 条，待核 1 条", out)
 
 
+class TestMaterials(Base):
+    def add_material(self, *extra):
+        return self.ok("material", "add", self.book, "--content", "凌晨四点换岗，接班的人先摸暖气片",
+                       "--source", "作者 2019 年物流园夜班", "--use", "底层人物的疲惫", *extra)
+
+    def test_add_list_check(self):
+        out = self.add_material("--domain", "社会", "--trust", "亲历")
+        self.assertIn("M-0001", out)
+        self.assertTrue(list((self.book / "素材/乙-人间").glob("M-0001-*.md")))
+        self.ok("material", "add", self.book, "--content", "医院走廊里有人蹲着吃泡面", "--source", "表姐讲的",
+                "--use", "陪护的狼狈", "--trust", "转述", "--shared")
+        self.assertTrue(list((self.book.parent / "_素材").rglob("MS-0001-*.md")))
+        self.bad("material", "add", self.book, "--content", "x", "--source", "y", "--use", "z", "--domain", "占星")
+        self.bad("material", "add", self.book, "--content", "x", "--source", "y", "--use", "z", "--trust", "听说")
+        out = self.ok("material", "check", self.book)
+        self.assertIn("2 张", out)
+        self.assertIn("至少 10 张", out)
+        self.write("素材/未分/M-0002-坏卡.md", "# M-0002 坏卡\n- 来源：\n- 内容：x\n")
+        out = self.bad("material", "check", self.book)
+        self.assertIn("缺「来源」", out)
+        self.assertIn("缺「可用处」", out)
+        self.assertIn("M-0001", self.ok("material", "list", self.book, "--domain", "社会"))
+
+    def test_scene_reference_pack_and_report(self):
+        self.add_material("--trust", "亲历")
+        self.ok("material", "add", self.book, "--content", "医院走廊里有人蹲着吃泡面", "--source", "表姐讲的",
+                "--use", "陪护的狼狈", "--trust", "转述")
+        self.add(4)
+        self.write("02-大纲/场景卡/ch-0004.md", SCENE_SHORT + "- 素材：M-0009\n")
+        self.assertIn("素材卡不存在", self.bad("scene", "check", self.book, 4))
+        self.write("02-大纲/场景卡/ch-0004.md", SCENE_SHORT + "- 素材：M-0001、M-0002\n")
+        self.ok("scene", "review", self.book, 4, "--result", "pass", "--by", "story-editor")
+        self.ok("pack", self.book, 4)
+        pack = (self.book / "04-正文/_packs/ch-0004.md").read_text("utf-8")
+        self.assertIn("素材 M-0001：凌晨四点换岗", pack)
+        self.assertIn("能认出本人的细节都要换掉", pack)
+        self.assertNotIn("物流园夜班", pack)            # 来源不进写手包
+        self.ok("unit", "open", self.book, "--start", 4)
+        self.ok("complete", self.book, 4, "--words", 3000, "--hard", "pass")
+        rep = self.ok("report", self.book, "unit")
+        self.assertIn("## 素材", rep)
+        self.assertIn("M-0001（第4章）", rep)
+        self.assertIn("素材: 2 张", self.ok("status", self.book))
+
+
 class TestMigrate(unittest.TestCase):
     def test_v01_book(self):
         with tempfile.TemporaryDirectory() as t:
@@ -583,6 +631,21 @@ class TestCheckChapter(Base):
         code, out = run(self.book, 4, script=CHECK)
         self.assertEqual(code, 1, out)
         self.assertIn("合计 5 处", out)
+
+    def test_avoidance_warnings(self):
+        f = "04-正文/第0004章-开端.md"
+        talk = "\n".join(f"“第{i}句话说完了。”" for i in range(12))
+        long_sentence = "，".join(["他走"] * 12) + "。"
+        self.write(f, "字" * 3200 + "\n" + talk + "\n" + long_sentence + "\n")
+        self.ok("chapter", "add", self.book, 4, "--file", f)
+        self.ok("chapter", "hook", self.book, 4, "--type", "悬念", "--intensity", 4)
+        self.ok("promise", "add", self.book, "--type", "悬念", "--content", "门后", "--ch", 4)
+        code, out = run(self.book, 4, script=CHECK)
+        self.assertEqual(code, 0, out)                   # 规避点只告警
+        self.assertIn("规避点：长段", out)
+        self.assertIn("规避点：长句", out)
+        self.assertIn("对白流", out)
+        self.assertIn("dialogue_share", out)
 
 
 if __name__ == "__main__":

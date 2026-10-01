@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ncc_state.py — book.json 与 06-台账 的确定性读写工具（schema v2，v0.5 底蕴层）。
+"""ncc_state.py — book.json 与 06-台账 的确定性读写工具（schema v2，v0.6 素材层）。
 
 状态只从这里（和经理派单回收）写入；markdown 投影与正文永不回写状态。
 只依赖标准库。
@@ -39,6 +39,13 @@
   knowledge check <book> <seq>...        校验 02-大纲/知识点/ch-NNNN.md（学科、来源、状态）
   era <book> 古代|架空古代|近代|现代|架空现代|未来     时代背景（机械检查的时代错置词据此启用）
   study <book> [--add 学科]               一书一深学
+
+素材（M5：艺术源于生活；场景卡写"素材：M-0003"，写手包自动带上）
+  material add <book> --content C --source S --use U [--trust 亲历|转述|文献|传闻|拆书] [--domain 学科]
+                      [--genre G] [--title T] [--shared]
+                                         记一张素材卡到 素材/<八域>/M-NNNN-短名.md（--shared 记到书库根目录 _素材/，跨书共用）
+  material list <book> [--domain 学科] [--unused]   素材索引（outliner 写场景卡时读这份，不读全部卡）
+  material check <book>                  校验素材卡（来源、内容、可用处三项必填）
 
 写手包与审稿（D17、D18）
   pack <book> <seq> [--note 本章特别提醒]   脚本组装写手包 04-正文/_packs/ch-NNNN.md（审稿文件与书魂原文一律不进）
@@ -93,7 +100,7 @@ PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 
 DIRS = [
     "00-策划", "00-策划/复盘", "01-设定/人物卡", "02-大纲/卷纲", "02-大纲/章纲", "02-大纲/场景卡",
-    "02-大纲/知识点", "03-文风", "04-正文/_packs", "05-审稿", "06-台账", "07-导出", "memory",
+    "02-大纲/知识点", "03-文风", "04-正文/_packs", "05-审稿", "06-台账", "07-导出", "memory", "素材",
 ]
 LEDGER = "06-台账"
 PROMISES = f"{LEDGER}/承诺台账.json"
@@ -133,6 +140,18 @@ DOMAIN_ALIAS = {"人情": "人情冷暖", "历史": "历史与朝代更替", "�
                 "神话": "宗教神话民俗", "民俗": "宗教神话民俗", "影视": "视频", "建筑": "建造", "医学": "生物", "医药": "生物",
                 "气象": "自然", "历法": "天文", "称谓": "语言", "礼仪": "语言", "诗词": "文学", "音乐": "艺术", "书画": "艺术"}
 ERAS = ("古代", "架空古代", "近代", "现代", "架空现代", "未来")
+REGIONS = {"甲-爽感": ("爽文",), "乙-人间": ("人情冷暖", "社会", "心理"),
+           "丙-天下": ("历史与朝代更替", "政治", "经济", "军事"), "丁-天地": ("天文", "地理", "生物", "自然"),
+           "戊-物数": ("物理", "化学", "数学"), "己-造物": ("工程", "建造", "工艺"),
+           "庚-表达": ("语言", "文学", "艺术", "视频"), "辛-想象": ("想象力", "宗教神话民俗")}
+MATERIAL_DIR = "素材"
+SHARED_MATERIALS = "_素材"   # 书库根目录下，跨书共用，格式相同，编号前缀 MS
+MATERIAL_REQUIRED = ("来源", "内容", "可用处")
+MATERIAL_FIELDS = MATERIAL_REQUIRED + ("可信级", "域", "题材")
+MATERIAL_TRUST = ("亲历", "转述", "文献", "传闻", "拆书")
+MATERIAL_HINT = {"转述": "（转述自真人：人名、地名和能认出本人的细节都要换掉）",
+                 "传闻": "（传闻：只能当人物口中的说法，叙述不当事实写）",
+                 "拆书": "（拆书样本：只借写法，不搬内容）"}
 WRITER_SEEDS = ("1", "3", "6")   # 画面、亲历、生活经验；#2"最在乎的问题"离主题太近，不进写手包
 CHARACTER_REQUIRED = ("欲望", "需要", "恐惧", "声音")
 UNIT_REVIEW_REQUIRED = ("暂定决策", "故事审", "下一单元")
@@ -338,6 +357,11 @@ def scene_problems(book_dir: Path, seq: int, key: bool):
         missing = [f for f in need if f not in b]
         if missing:
             problems.append(f"场景 {i} 缺: {'、'.join(missing)}" + ("（关键章用完整版）" if key else ""))
+    refs = material_refs(text)
+    if refs:
+        lost = [r for r in refs if r not in material_cards(book_dir)]
+        if lost:
+            problems.append(f"引用的素材卡不存在: {'、'.join(lost)}（material list 查编号）")
     return problems, len(blocks)
 
 
@@ -593,6 +617,114 @@ def cmd_study(a):
     print("一书一深学：" + ("、".join(d["study"]) or "（未选）"))
 
 
+# ---------- 素材（M5） ----------
+
+def region_of(dom: str) -> str:
+    return next((r for r, doms in REGIONS.items() if dom in doms), "未分")
+
+
+def material_dirs(book_dir: Path):
+    return [(book_dir / MATERIAL_DIR, "M"), (book_dir.parent / SHARED_MATERIALS, "MS")]
+
+
+def material_cards(book_dir: Path) -> dict:
+    """本书 素材/ 与书库根目录 _素材/ 里的全部素材卡：{编号: {path, title, 各字段}}。"""
+    cards = {}
+    for base, prefix in material_dirs(book_dir):
+        if not base.is_dir():
+            continue
+        for p in sorted(base.rglob("*.md")):
+            m = re.match(rf"({prefix}-\d{{4}})", p.stem)
+            if not m:
+                continue
+            text = p.read_text("utf-8")
+            head = re.search(r"^#\s*\S+\s*(.*)$", text, flags=re.M)
+            card = {"path": p, "title": head.group(1).strip() if head else ""}
+            for f in MATERIAL_FIELDS:
+                mm = re.search(rf"^[-*]\s*{f}[：:][ \t]*(.*)$", text, flags=re.M)
+                card[f] = mm.group(1).strip() if mm else ""
+            cards[m.group(1)] = card
+    return cards
+
+
+def material_problems(card: dict) -> list:
+    problems = [f"缺「{f}」" for f in MATERIAL_REQUIRED if card.get(f, "") in ("", "——", "-", "—")]
+    if card.get("可信级") and card["可信级"] not in MATERIAL_TRUST:
+        problems.append(f"可信级「{card['可信级']}」应为 {'/'.join(MATERIAL_TRUST)}")
+    if card.get("域") and not normalize_domain(card["域"]):
+        problems.append(f"域「{card['域']}」不是 24 张底蕴卡之一")
+    return problems
+
+
+def material_refs(text: str) -> list:
+    refs = []
+    for m in re.finditer(r"素材[：:]\s*([^\n]+)", text):
+        refs += re.findall(r"MS?-\d{4}", m.group(1))
+    return list(dict.fromkeys(refs))
+
+
+def material_usage(book_dir: Path) -> dict:
+    used = {}
+    for p in sorted((book_dir / SCENE_DIR).glob("ch-*.md")):
+        seq = int(re.search(r"(\d+)", p.stem).group(1))
+        for r in material_refs(p.read_text("utf-8")):
+            used.setdefault(r, []).append(seq)
+    return used
+
+
+def cmd_material(a):
+    book_dir = Path(a.book_dir)
+    load(book_dir)
+    cards = material_cards(book_dir)
+    if a.action == "add":
+        dom = ""
+        if a.domain:
+            dom = normalize_domain(a.domain)
+            if not dom:
+                die(f"「{a.domain}」不是 24 张底蕴卡之一（见 skills/ncc/references/domains/README.md）")
+        if a.trust and a.trust not in MATERIAL_TRUST:
+            die(f"--trust 只能是 {'/'.join(MATERIAL_TRUST)}")
+        base, prefix = material_dirs(book_dir)[1 if a.shared else 0]
+        mid = next_id([{"id": k} for k in cards], prefix)
+        first = a.title or re.split(r"[，。、！？；：,.!?;:\s]", a.content.strip())[0]
+        title = re.sub(r"[\\/:*?\"<>|\s，。、！？；：]+", "", first)[:16] or "素材"
+        dest = base / region_of(dom) / f"{mid}-{title}.md"
+        lines = [f"# {mid} {title}", "", f"- 来源：{a.source}", f"- 内容：{a.content}", f"- 可用处：{a.use}"]
+        lines += [f"- {k}：{v}" for k, v in (("可信级", a.trust), ("域", dom), ("题材", a.genre)) if v]
+        lines.append(f"- 记录于：{now()[:10]}")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text("\n".join(lines) + "\n", "utf-8")
+        print(f"OK {mid} → {dest.relative_to(base.parent)}")
+        return
+    used = material_usage(book_dir)
+    if a.action == "list":
+        for mid, c in cards.items():
+            if a.domain and normalize_domain(c.get("域", "")) != normalize_domain(a.domain):
+                continue
+            if a.unused and mid in used:
+                continue
+            where = f"  已用：第{'、'.join(map(str, used[mid]))}章" if mid in used else ""
+            print(f"{mid} [{c.get('域') or '未分'}] 可用处：{c.get('可用处')}｜{c.get('内容', '')[:30]}"
+                  + (f"（{c['可信级']}）" if c.get("可信级") else "") + where)
+        if not cards:
+            print("（还没有素材卡：material add，或从作者种子 #3、#6 起头）")
+        elif a.unused and all(k in used for k in cards):
+            print("（素材卡都用过了）")
+        return
+    bad = 0
+    for mid, c in cards.items():
+        problems = material_problems(c)
+        if problems:
+            bad += 1
+            print(f"MATERIAL {mid}: FAIL（{c['path'].name}）")
+            for p in problems:
+                print(f"  - {p}")
+    ok = len(cards) - bad
+    print(f"素材卡 {len(cards)} 张，合格 {ok} 张，场景卡已引用 {len([k for k in cards if k in used])} 张"
+          + ("；开写前建议至少 10 张（作者种子 #3、#6 和生活里的观察都可以记）" if ok < 10 else ""))
+    sys.exit(1 if bad else 0)
+
+
 def cmd_pack(a):
     book_dir = Path(a.book_dir)
     d = load(book_dir)
@@ -650,6 +782,11 @@ def cmd_pack(a):
             m = re.match(r"^\|\s*(\d+)\s*\|[^|]*\|\s*([^|]+?)\s*\|", line)
             if m and m.group(1) in WRITER_SEEDS and m.group(2).strip():
                 out.append(f"- 作者种子 #{m.group(1)}：{m.group(2).strip()}")
+    mats = material_cards(book_dir)
+    for r in material_refs(card):
+        if r in mats:
+            m = mats[r]
+            out.append(f"- 素材 {r}：{m['内容']}（可用在：{m['可用处']}）{MATERIAL_HINT.get(m.get('可信级'), '')}")
     facts = read_json(book_dir / FACTS, {"facts": {}}).get("facts", {})
     for k, f in facts.items():
         if k in card:
@@ -946,6 +1083,15 @@ def cmd_report(a):
         pend_rows = [(c["seq"], r) for c in chs for r in (knowledge_rows(book_dir, c["seq"]) or []) if len(r) >= 5 and r[4] == "待核"]
         out += ["", "## 待核知识点（请作者核实，或维持宁缺写法）", ""]
         out += [f"- 第{seq}章 {r[0]}（{r[1]}）：{r[2]}" for seq, r in pend_rows] or ["- （无）"]
+        mats, used = material_cards(book_dir), material_usage(book_dir)
+        seg = {r: [s for s in seqs if lo <= s <= hi] for r, seqs in used.items()}
+        seg = {r: s for r, s in seg.items() if s}
+        idle = [r for r in mats if r not in used]
+        out += ["", "## 素材", ""]
+        out.append("- 本段用到：" + "；".join(f"{r}（第{'、'.join(map(str, s))}章）" for r, s in seg.items())
+                   if seg else "- 本段场景卡没有引用素材")
+        out.append(f"- 素材库共 {len(mats)} 张，从未用过 {len(idle)} 张" + (f"：{'、'.join(idle[:10])}" if idle else "")
+                   + "（outliner 排下一单元时可以挑；作者这段时间新看到、新想到的，随时 material add）")
     if a.kind == "unit":
         out += ["", "## 下一单元", "", "- 候选走向 2–3 个（outliner 从承诺账、读者此刻、书魂推出；标推荐与理由，至少一个非主流）（待填）",
                 "- 下一单元的关键章（系统先按规则推荐，作者确认）（待填）"]
@@ -1164,6 +1310,11 @@ def cmd_status(a):
         rows = knowledge_rows(book_dir, c["seq"]) or []
         pending_k += sum(1 for r in rows if len(r) >= 5 and r[4] == "待核")
     print(f"底蕴: 时代背景 {d.get('era') or '未设'}  一书一深学 {'、'.join(d.get('study', [])) or '未选'}  待核知识点 {pending_k}")
+    mats = material_cards(book_dir)
+    if mats:
+        own = sum(1 for k in mats if k.startswith("M-"))
+        print(f"素材: {len(mats)} 张（本书 {own}、跨书 {len(mats) - own}），场景卡已引用 "
+              f"{len([k for k in mats if k in material_usage(book_dir)])} 张")
     print(f"更新于: {d.get('updated_at')}")
 
 
@@ -1233,6 +1384,10 @@ def gate_check(book_dir: Path, name: str, d: dict) -> list:
         hb = book_dir / "01-设定" / "力量体系.md"
         if hb.exists() and "量纲" not in hb.read_text("utf-8"):
             problems.append("力量体系未含量纲定义")
+        bible = book_dir / "01-设定" / "世界观圣经.md"
+        if bible.exists() and not section(bible.read_text("utf-8"), "社会洞察"):
+            problems.append("世界观圣经缺「社会洞察」一节或为空（看似不合理却存在的规矩：谁受益、谁受害、主角在哪，"
+                            "对应书魂里世界的不公哪一面，见 worldbuilding.md；确实用不上就写一行理由）")
         cards = [p for p in (book_dir / "01-设定" / "人物卡").glob("*.md")
                  if all(f in p.read_text("utf-8") for f in CHARACTER_REQUIRED)]
         if not cards:
@@ -1793,6 +1948,13 @@ def main():
     p.set_defaults(fn=cmd_knowledge)
     p = sub.add_parser("era"); p.add_argument("book_dir"); p.add_argument("era"); p.set_defaults(fn=cmd_era)
     p = sub.add_parser("study"); p.add_argument("book_dir"); p.add_argument("--add"); p.set_defaults(fn=cmd_study)
+    p = sub.add_parser("material"); ms = p.add_subparsers(dest="action", required=True)
+    q = ms.add_parser("add"); q.add_argument("book_dir"); q.add_argument("--content", required=True)
+    q.add_argument("--source", required=True); q.add_argument("--use", required=True); q.add_argument("--trust")
+    q.add_argument("--domain"); q.add_argument("--genre"); q.add_argument("--title"); q.add_argument("--shared", action="store_true")
+    q = ms.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--domain"); q.add_argument("--unused", action="store_true")
+    q = ms.add_parser("check"); q.add_argument("book_dir")
+    p.set_defaults(fn=cmd_material)
     p = sub.add_parser("pack"); p.add_argument("book_dir"); p.add_argument("seq", type=int); p.add_argument("--note")
     p.set_defaults(fn=cmd_pack)
     p = sub.add_parser("review"); rs = p.add_subparsers(dest="action", required=True)
@@ -1810,7 +1972,8 @@ def main():
 
 READ_ONLY = {("status", None), ("next", None), ("report", None), ("sha", None), ("water", None),
              ("reader-now", None), ("scene", "check"), ("scene", "next"), ("knowledge", "plan"), ("knowledge", "check"), ("promise", "list"), ("know", "list"),
-             ("fact", "get"), ("fact", "list"), ("feedback", "list"), ("team", "list"), ("unit", "list")}
+             ("fact", "get"), ("fact", "list"), ("feedback", "list"), ("team", "list"), ("unit", "list"),
+             ("material", "list"), ("material", "check")}
 
 
 def log_op(a):
