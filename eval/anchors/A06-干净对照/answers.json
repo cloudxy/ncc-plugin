@@ -1,0 +1,9 @@
+{
+  "id": "A06-干净对照",
+  "suite": "对照",
+  "era": "古代",
+  "verdict": "pass",
+  "mech": [],
+  "mech_clean": true,
+  "expected": []
+}

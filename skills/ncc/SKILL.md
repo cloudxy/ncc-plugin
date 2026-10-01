@@ -34,7 +34,7 @@ when_to_use: "User asks to start a book, continue writing, review chapters, deco
 2. 作者点名书名 → 定位 `{book_root}/{书名}/`；没点名且书库有多本书 → 一行列出（书名、阶段、最新章），推荐最近写过的那本，请作者选。
 3. 每次运行先跑 `python3 <PLUGIN_ROOT>/scripts/ncc_state.py status <书目录>`，把输出作为事实基础；不要凭目录猜状态。
 4. 脚本提示 schema 1（v0.1 的书）→ 推荐运行 `ncc_state.py migrate <书目录>`（原伏笔台账保留不删），说明会改什么，作者同意后执行。
-5. 无书且意图是开书 → 转 `ncc-new`。无书且意图是拆书 → 转 `ncc-deconstruct`。
+5. 无书且意图是开书 → 转 `ncc-new`。无书且意图是拆书 → 转 `ncc-deconstruct`。意图是评测 → 转 `ncc-eval`（不需要书）。
 
 ## Step 1 — 意图分类（对作者最后一条实质消息）
 
@@ -53,6 +53,9 @@ when_to_use: "User asks to start a book, continue writing, review chapters, deco
 | `material` | 记素材 / "今天看到一件事……" / 想起一段经历 | 整理成来源、内容、可用处三项，`material add` 记卡（跨书通用的加 `--shared`），原话尽量留在内容里；见 `skills/ncc-new/references/material.md` |
 | `feedback` | 贴来追读数据、评论 | 汇总成信号后 `feedback add` 登记（噪音隔离，sustain.md §三），复盘时呈给作者 |
 | `team` | 多人协作、分工 | 按 [references/team.md](references/team.md) 认领位置 |
+| `dashboard` | 几本书一起看 / 总览 / 哪本书欠账多 | `ncc_state.py dashboard <书库根目录> [--html 文件]`：各书阶段、进度、存稿、承诺健康度与承诺热力图 |
+| `export` | 导出 / 合稿 / 做个 epub | `ncc_state.py export <书目录> --format md\|txt\|epub [--from N --to M]`：只收已定稿的章，产物在 `07-导出/` |
+| `eval` | 测审稿准不准 / 改了判据要回归 / 比模型 | 转 `ncc-eval`（锚定章回归、模型横评） |
 
 意图本身拿不准时，不猜，也归入 `guide`：给出最可能的两种理解，推荐一种。
 

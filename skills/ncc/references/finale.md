@@ -12,6 +12,7 @@
 3. 收束章照常走章循环（场景卡、故事审、写作简报、硬伤审）；最后一章与名场面兑现章默认是关键章。
 4. 写完后做书循环复盘（`loops.md` §三）：`00-策划/复盘/全书.md` 与 `{书库根目录}/_craft-library/<书名>.md`（`ncc_state.py craft init` 生成模板，条目表至少一条）。
 5. `ncc_state.py gate <书目录> finale`：检查开放承诺（期权、母题除外）与暂定决策已全部清算、书魂已确定、收束清单三节齐全、全书复盘已写、技艺库条目表不为空。作者确认后 `--action pass --quote "…"`，stage → finished。
+6. 完本导出：`ncc_state.py export <书目录> --format epub`（也可 md、txt），全书合稿在 `07-导出/`。
 
 ## 收束的三个常见坑
 

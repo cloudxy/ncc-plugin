@@ -10,6 +10,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 STATE = str(HERE / "ncc_state.py")
 CHECK = str(HERE / "check_chapter.py")
+EVAL = str(HERE / "ncc_eval.py")
 
 SCENE_FULL = """# ch-{seq:04d} 场景卡
 
@@ -666,6 +667,122 @@ class TestLearning(Base):
         self.assertIn("《上一本》1 条", out)                    # 宫斗那条与本书无关，列在"其他"
         self.assertTrue((self.book / "00-策划/技艺库摘录.md").exists())
         self.ok("gate", self.book, "soul")
+
+
+class TestEval(unittest.TestCase):
+    """M7：锚定章回归评测。"""
+
+    def test_mech_regression(self):
+        code, out = run("mech", script=EVAL)
+        self.assertEqual(code, 0, out)
+        self.assertIn("PASS A06-干净对照", out)
+
+    def test_prepare_and_score(self):
+        with tempfile.TemporaryDirectory() as t:
+            rd = Path(t) / "run1"
+            code, out = run("prepare", rd, "--runs", 2, script=EVAL)
+            self.assertEqual(code, 0, out)
+            packets = sorted((rd / "packets").glob("*.md"))
+            self.assertEqual(len(packets), 12)
+            p = (rd / "packets" / "A01-古代时代错置与称谓-r1.md").read_text("utf-8")
+            self.assertIn("看了看手表", p)                 # 正文在
+            self.assertIn("时代错置词", p)                 # 机械提醒在
+            self.assertNotIn("古代背景出现手表（时代错置）", p)   # 答案不在
+            anchors = json.loads((rd / "manifest.json").read_text("utf-8"))["anchors"]
+            for aid in anchors:
+                ans = json.loads((HERE.parent / "eval/anchors" / aid / "answers.json").read_text("utf-8"))
+                rows = [f"| {i} | {e['category']} | {e['severity']} | 「{e['quotes'][0]}」 | {e['desc']} | 改 |"
+                        for i, e in enumerate(ans["expected"], 1)] or ["| 1 | 无 | | | 无 | |"]
+                good = ("硬伤层: " + ("通过" if ans["verdict"] == "pass" else "不通过") + "\n\n"
+                        "| # | 类别 | 严重度 | 正文引用 | 问题 | 推荐处置与理由 |\n|---|---|---|---|---|---|\n" + "\n".join(rows))
+                if aid.startswith("A05"):                  # 引用别处、但问题里说清了没有揭穿：按关键词算检出
+                    good = good.replace("「转身走了」", "「身后排队打卡的工人越来越多」").replace(ans["expected"][0]["desc"], "主角没有当众揭穿队长，翻转没发生")
+                (rd / "reports" / f"{aid}-r1.md").write_text(good, "utf-8")
+                bad = "硬伤层: 通过\n\n| # | 类别 | 严重度 | 正文引用 | 问题 | 推荐处置与理由 |\n|---|---|---|---|---|---|\n| 1 | 无 | | | 无 | |\n"
+                if aid.startswith("A06"):
+                    bad = bad.replace("通过", "不通过", 1) + "| 2 | 底蕴 | major | 「西天挂着一弯月牙」 | 月相不对 | 改 |\n"
+                (rd / "reports" / f"{aid}-r2.md").write_text(bad, "utf-8")
+            code, out = run("score", rd, script=EVAL)
+            self.assertEqual(code, 0, out)
+            self.assertIn("检出率（埋的错被指出）：8/16（50%）", out)
+            self.assertIn("结论准确率（通过／不通过判对）：6/12（50%）", out)
+            self.assertIn("干净章误报（critical／major）：1 条", out)
+            self.assertIn("A01-古代时代错置与称谓（结论 50% 一致）（d1、d2 时有时无）", out)
+            self.assertTrue((rd / "score.md").exists())
+
+
+class TestBenchDashboardExport(Base):
+    """M7：模型横评、多书仪表盘、导出。"""
+
+    def test_bench(self):
+        self.add(4)
+        self.write("02-大纲/场景卡/ch-0004.md", SCENE_SHORT)
+        self.ok("scene", "review", self.book, 4, "--result", "pass", "--by", "story-editor")
+        code, out = run("bench", "init", self.book, 4, script=EVAL)
+        self.assertEqual(code, 1, out)                    # 还没有写手包
+        self.ok("pack", self.book, 4)
+        code, out = run("bench", "init", self.book, 4, script=EVAL)
+        self.assertEqual(code, 0, out)
+        for model, text in (("模型甲", "雨下了一夜。" * 400), ("模型乙", "仿佛一丝一抹些许。" * 300)):
+            f = self.write(f"草稿-{model}.md", text)
+            code, out = run("bench", "add", self.book, 4, "--model", model, "--file", f, script=EVAL)
+            self.assertEqual(code, 0, out)
+        code, out = run("bench", "blind", self.book, 4, script=EVAL)
+        self.assertIn("A vs B", out)
+        m = json.loads((self.book / "05-审稿/_bench/ch-0004/manifest.json").read_text("utf-8"))
+        jia = next(k for k, v in m["blind"].items() if v == "模型甲")
+        yi = next(k for k, v in m["blind"].items() if v == "模型乙")
+        run("bench", "vote", self.book, 4, "--winner", jia, "--loser", yi, script=EVAL)
+        run("bench", "vote", self.book, 4, "--winner", yi, "--loser", jia, "--tie", script=EVAL)
+        code, out = run("bench", "score", self.book, 4, script=EVAL)
+        self.assertIn("| 模型甲 | " + jia + " | 75%（1.5/2）", out)
+        self.ok("pack", self.book, 4, "--note", "换了提醒")      # 写手包变了
+        f = self.write("草稿-丙.md", "风停了。" * 500)
+        code, out = run("bench", "add", self.book, 4, "--model", "模型丙", "--file", f, script=EVAL)
+        self.assertEqual(code, 1, out)
+        self.assertIn("写手包在横评开始后变了", out)
+
+    def test_dashboard(self):
+        self.finish(4)
+        self.ok("promise", "add", self.book, "--type", "悬念", "--content", "门后", "--ch", 4, "--window", "1-3")
+        self.ok("promise", "touch", self.book, "P-0001", "--ch", 15)
+        out = self.ok("dashboard", self.book.parent, "--html", self.book.parent / "dash.html")
+        self.assertIn("书库仪表盘（1 本）", out)
+        self.assertIn("| 测试书 |", out)
+        self.assertIn("悬念", out)
+        self.assertIn("逾期：P-0001", out)
+        self.assertIn("<table", (self.book.parent / "dash.html").read_text("utf-8"))
+
+    def test_export(self):
+        import zipfile
+        from xml.dom import minidom
+        for seq, title in ((1, "雨夜"), (2, "当铺")):
+            f = f"04-正文/第{seq:04d}章-{title}.md"
+            self.ok("chapter", "add", self.book, seq, "--file", f)
+            self.write(f, f"# 第{seq}章 {title}\n\n陆言把手套摘下来。\n\n“又停暖了？”老周问。<b>\n\n---\nrev 1: 依据 ch-000{seq}-review 修改 措辞\n")
+            self.ready(seq)
+            self.ok("chapter", "pick", self.book, seq, "--version", "A")
+            self.ok("complete", self.book, seq, "--words", 3000, "--hard", "pass")
+        self.add(3)
+        out = self.ok("export", self.book, "--format", "txt")
+        self.assertIn("未定稿未导出：第 3 章", out)
+        txt = (self.book / "07-导出/测试书-第1-2章.txt").read_text("utf-8")
+        self.assertIn("第2章 当铺", txt)
+        self.assertIn("\u3000\u3000陆言把手套摘下来。", txt)
+        self.assertNotIn("rev 1", txt)
+        self.ok("export", self.book, "--format", "md", "--to", 1)
+        self.assertIn("## 第1章 雨夜", (self.book / "07-导出/测试书-第1-1章.md").read_text("utf-8"))
+        self.ok("export", self.book, "--format", "epub", "--author", "作者")
+        with zipfile.ZipFile(self.book / "07-导出/测试书-第1-2章.epub") as z:
+            first = z.infolist()[0]
+            self.assertEqual((first.filename, first.compress_type), ("mimetype", zipfile.ZIP_STORED))
+            self.assertEqual(z.read("mimetype"), b"application/epub+zip")
+            for name in ("META-INF/container.xml", "OEBPS/content.opf", "OEBPS/nav.xhtml", "OEBPS/toc.ncx", "OEBPS/ch0001.xhtml"):
+                minidom.parseString(z.read(name))      # 都是合法 XML
+            ch = z.read("OEBPS/ch0002.xhtml").decode("utf-8")
+            self.assertIn("&lt;b&gt;", ch)              # 正文里的尖括号被转义
+            self.assertNotIn("rev 1", ch)
+            self.assertIn("<dc:creator>作者</dc:creator>", z.read("OEBPS/content.opf").decode("utf-8"))
 
 
 class TestMigrate(unittest.TestCase):

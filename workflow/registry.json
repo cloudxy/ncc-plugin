@@ -4,8 +4,8 @@
     "ncc": {
       "skill": "ncc",
       "mode": "auto",
-      "description": "Novel Create Center 主入口：一句话入口（识别意图并推荐下一步）、书项目状态（含存稿与倦怠信号）、续写恢复、单元与卷复盘、收束、读者数据登记、素材记录、团队认领、派单与闸门记账。本窗口始终是经理。",
-      "argument_hint": "[一句话 | 开新书 | 续写 | 审稿 | 拆书 | 复盘 | 收尾 | 记素材 | continue | status]"
+      "description": "Novel Create Center 主入口：一句话入口（识别意图并推荐下一步）、书项目状态（含存稿与倦怠信号）、续写恢复、单元与卷复盘、收束、读者数据登记、素材记录、团队认领、多书仪表盘、合稿导出、派单与闸门记账。本窗口始终是经理。",
+      "argument_hint": "[一句话 | 开新书 | 续写 | 审稿 | 拆书 | 复盘 | 收尾 | 记素材 | 仪表盘 | 导出 | continue | status]"
     },
     "ncc-new": {
       "skill": "ncc-new",
@@ -30,6 +30,12 @@
       "mode": "deconstruct",
       "description": "按《小说拆分总纲 5.0》拆对标书：章节索引唯一真源、逐章抽取带证据与置信级、事件溯源状态台账，产出喂给设定库与设定词典。",
       "argument_hint": "[原著路径或拆书库目录 | continue]"
+    },
+    "ncc-eval": {
+      "skill": "ncc-eval",
+      "mode": "eval",
+      "description": "评测工作流本身：锚定章回归（审稿对故意埋的错检出多少、会不会冤枉干净章、几次之间稳不稳）与模型横评（同一个写手包换不同模型写，盲评比较）。脚本只出派单包和打分，不调用模型。",
+      "argument_hint": "[回归 | 机械层 | 横评 第N章 | 打分 <评测目录>]"
     }
   },
   "layers": {
@@ -554,5 +560,15 @@
     "write": "完本后 craft init 生成模板，条目表：一句话｜证据｜适用条件｜标签（G5 查不为空）",
     "read": "下一本书开书时 craft read：按题材、主契约、弧光、写作模式挑相关条目（适用条件\"通用\"的总挑出），写 00-策划/技艺库摘录.md（G0 查）",
     "priority": "推荐理由：作者种子 > 技艺库 > 题材常规"
-  }
+  },
+  "eval": {
+    "anchors": "eval/anchors/（6 章：底蕴 3、连贯 1、承诺 1、干净对照 1；答案在 answers.json，不进派单包）",
+    "mech": "ncc_eval.py mech：check_chapter 的提醒命中埋的错、干净章零误报（确定性，进自测）",
+    "judge": "ncc_eval.py prepare → 经理逐包派 continuity → score：检出率、定级到位、结论准确率、干净章误报、多次稳定性",
+    "bench": "ncc_eval.py bench init|add|blind|vote|score：冻结写手包 SHA，各模型同包写一版，盲稿成对比较，揭盲算胜率与机械指标",
+    "when": "改了审稿判据或换了审稿、写作模型之后",
+    "method": "skills/ncc-eval/SKILL.md"
+  },
+  "dashboard": "ncc_state.py dashboard <书库根目录> [--bucket 10] [--html 文件]：各书阶段、进度、存稿、承诺健康度与承诺热力图",
+  "export": "ncc_state.py export <书目录> --format md|txt|epub：只收已定稿的章，去掉修订注记，epub 为 EPUB 3（附 NCX）"
 }

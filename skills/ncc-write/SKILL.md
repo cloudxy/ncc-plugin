@@ -85,7 +85,7 @@ task: draft，派单包只给写手包路径。写手按 [references/chapter-loo
 
 ## 连载节奏（S3）
 
-- 每章完成即是一个可发布单元；`07-导出/` 由作者手动或要求时生成合稿。
+- 每章完成即是一个可发布单元；要合稿或做电子书时 `ncc_state.py export <书目录> --format md|txt|epub [--from N --to M]`，产物在 `07-导出/`（只收已定稿的章，修订注记自动去掉）。
 - 存稿：作者可要求「先攒 N 章再更」——batch 模式即为此设计。
 - 每次发布后 `ncc_state.py chapter publish <书目录> --upto N`，存稿线才有意义。
 - 每个剧情单元结束：按 `../ncc/references/loops.md` §一做单元复盘（`report unit` 生成底稿 → 发展编辑的单元问题 → 下一单元走向 → 作者集中确认暂定决策 → `unit close`）。

@@ -131,9 +131,9 @@
   02-大纲/  总纲.md  卷纲/卷1.md  章纲/ch-0001.md  场景卡/ch-0001.md  知识点/ch-0001.md
   03-文风/  文风基准.md（语感、校准段、负面清单；进写手包）  文风指纹.json（style 生成；只给审稿与脚本）  放行清单.md
   04-正文/  第0001章-标题.md  _packs/ch-0001.md（pack 生成）  _versions/ch-0001-<节拍>-A.md
-  05-审稿/  story-ch-0001.md  ch-0001-review.md  blind-ch-0001-0003-<画像>.md  _snapshots/ch-0001.md（review plan/delta 用）
+  05-审稿/  story-ch-0001.md  ch-0001-review.md  blind-ch-0001-0003-<画像>.md  _snapshots/ch-0001.md（review plan/delta 用）  _bench/ch-0001/（模型横评：manifest、各模型草稿、盲稿、score.md）
   06-台账/  承诺台账.json  知情台账.json  知识台账.json  状态事件.json  读者数据.json  操作日志.jsonl  冲突登记.md  待校验池.md
-  07-导出/
+  07-导出/  <书名>-第M-N章.md|txt|epub（export；只收已定稿的章）
   素材/  甲-爽感/ 乙-人间/ … 辛-想象/ 未分/  M-0001-短名.md（素材卡，material add；见 ncc-new/references/material.md）
   memory/  manager.md  writer.md  editor.md  reader.md（校准备注）…（每帽一份）
 

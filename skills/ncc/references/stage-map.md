@@ -17,7 +17,7 @@ S0 立书 ─G0书魂闸─▶ S1 立骨(设定 ─G1─▶ 大纲 ─G2─) ─
 | S2 开篇 | L2 | writer | outliner、story-editor、editor、continuity、pulse、reader | 第 1–3 章（关键章：场景卡作者过目、多版比选）、审稿报告、至少 2 个画像的盲评与记忆测试、弃读热力、文风基准回填与文风指纹、签约点登记 | **G3** 开篇闸 |
 | S3 连载 | L2–L4 | writer | outliner（场景卡）、story-editor（故事审）、editor、continuity、pulse、reader（关键章） | 场景卡＋逐章正文＋三本账回写 | **G-chapter** 章定稿闸 |
 | S4 卷复盘 | L1–L2 | story-editor、pulse、outliner | scout（数据归因） | 复盘/卷N.md（承诺盘点、书魂检验、数据归因、变更提议） | **G4** 卷间闸 |
-| S5 收束 | L0–L2 | outliner、continuity | story-editor、writer | 收束清单（承诺清算、暗线收拢、书魂回答）、全书复盘、技艺库条目 | **G5** 完本闸 |
+| S5 收束 | L0–L2 | outliner、continuity | story-editor、writer | 收束清单（承诺清算、暗线收拢、书魂回答）、全书复盘、技艺库条目；完本后导出全书（export） | **G5** 完本闸 |
 
 book.json 的 `stage`：`founding → settings → outline → opening → serial ⇄ volume → finale → finished`。
 

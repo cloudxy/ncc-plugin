@@ -1,6 +1,6 @@
 # ncc-workflow — Novel Create Center
 
-ZCode 插件 · v0.7.0 · 个人本地插件
+ZCode 插件 · v1.0.0 · 个人本地插件
 
 **小说创作中心**：长篇网文从立书到收束的完整工作流。它把长篇网文当作"边写边发、不可撤回、读者每章投票"的活来设计，由两台引擎组成：
 
@@ -53,7 +53,7 @@ flowchart TD
   UNIT --> SER
   SER --> VOL["S4 卷复盘<br/>承诺盘点·书魂检验·数据归因·变更提议 → G4"]
   VOL --> SER
-  SER --> FIN["S5 收束<br/>承诺清算·暗线收拢·书魂回答 → 全书复盘与技艺库 → G5"]
+  SER --> FIN["S5 收束<br/>承诺清算·暗线收拢·书魂回答 → 全书复盘与技艺库 → G5 → 导出"]
   D -.->|"随时"| DC["ncc-deconstruct 拆对标书<br/>喂设定库与词典"]
 ```
 
@@ -72,6 +72,10 @@ flowchart TD
 /ncc 记一条素材：今天在医院走廊看到……        # 素材卡：来源、内容、可用处，写到合适的场景时送进写手包
 /ncc-review 第12章 打回重写                  # 独立审稿
 /ncc-deconstruct ~/Documents/网文拆解/Novels/某书.txt
+/ncc 导出成 epub                              # 合稿与电子书：只收已定稿的章
+/ncc 几本书一起看看                            # 多书仪表盘与承诺热力图
+/ncc-eval 回归                                # 改了审稿判据后，用锚定章测检出率与稳定性
+/ncc-eval 横评 第12章                         # 同一个写手包换不同模型写，盲评比较
 ```
 
 脚本自检（无书也可跑）：
@@ -82,6 +86,8 @@ python3 scripts/ncc_state.py init /tmp/t/novels/测试 --title 测试 --level �
 python3 scripts/ncc_state.py status /tmp/t/novels/测试
 python3 scripts/ncc_state.py reader-now /tmp/t/novels/测试 1
 python3 scripts/check_chapter.py <书目录> <章号>
+python3 scripts/ncc_eval.py mech                                     # 锚定章机械层回归
+python3 scripts/ncc_state.py dashboard /tmp/t/novels --html /tmp/t/dash.html
 ```
 
 v0.1 建的书：`python3 scripts/ncc_state.py migrate <书目录>` 升级到 schema 2（原伏笔台账保留）。
@@ -93,7 +99,7 @@ ncc-workflow/
   .zcode-plugin/plugin.json     # 插件清单
   workflow/registry.json        # 层/阶段/角色/闸门/三本账/公理/铁律的唯一事实源
   workflow/architecture.md      # 五层决策·三本账·四循环·读者模型·引导层
-  commands/                     # /ncc /ncc-new /ncc-write /ncc-review /ncc-deconstruct
+  commands/                     # /ncc /ncc-new /ncc-write /ncc-review /ncc-deconstruct /ncc-eval
   agents/                       # 11 角色：scout worldbuilder outliner story-editor scholar writer
                                 #          editor continuity pulse reader deconstructor
   skills/
@@ -103,11 +109,14 @@ ncc-workflow/
     ncc-write/                  # 写章：scene-card / writing-brief / chapter-loop / golden-three
     ncc-review/                 # 审稿：review-domains（三层评价细则+报告模板）
     ncc-deconstruct/            # 拆书：对接《小说拆分总纲 5.0》
+    ncc-eval/                   # 评测：锚定章回归、模型横评
   scripts/
     ncc_state.py                # 状态机：书/闸门/写作模式/场景卡/章节与比选/三本账/读者此刻/
                                 #         单元与卷/复盘底稿/收束/读者数据/存稿/团队与操作日志/迁移
     check_chapter.py            # 章节机械检查（汉字数/钩子/AI味分级与放行/水章/底蕴与规避点提醒/句长起伏参考）
+    ncc_eval.py                 # 评测：锚定章机械层回归、审稿派单包与打分、模型横评
     test_ncc_state.py           # 自测
+  eval/anchors/                 # 锚定章：故意埋了错的评测样章＋一章干净对照（答案不进派单包）
   docs/usage.md                 # 使用指南
   ACKNOWLEDGMENTS.md            # 设计出处与许可说明
 ```
@@ -124,7 +133,7 @@ ncc-workflow/
 | 水章判据 | 一章既没建立、推进也没兑现任何承诺 → 机械检查不过 | 本插件 |
 | 读者此刻 | 每章上下文包带信息差、在等的承诺、情绪位置、可能腻了什么 | 本插件 |
 | 引导层 | 一次一问、推荐置顶、给备选、可暂定、按经验分档、一句话入口 | superpowers ＋ spec-kit ＋ AI-Novel-Writing-Assistant ＋ oh-story ＋ chinese-novelist-skill ＋ BMAD |
-| 经理窗口＋角色帽 | `/ncc` 只做意图分类、派单、记账；具体工作派给 9 个专职子代理 | sdlc-workflow |
+| 经理窗口＋角色帽 | `/ncc` 只做意图分类、派单、记账；具体工作派给 11 个专职子代理 | sdlc-workflow |
 | book.json 单一状态源 | 状态只由脚本写入；MD 投影永不回写状态 | chinese-novelist-skill ＋ InkOS |
 | 上下文包契约 | 无包不写：章纲＋读者此刻＋承诺义务＋人物卡＋意图＋前章结尾＋文风锚 | Openwrite ＋ InkOS ＋ chinese-novelist-skill |
 | 三层评价 | 硬伤层通过／不通过（带正文引用）；故事层在正文之前审场景卡；品质层只在关键章做成对比较与读者记忆测试，不打绝对分 | Openwrite 证据锚点 ＋ D13 ＋ TTCW 等研究 |
@@ -145,6 +154,10 @@ ncc-workflow/
 | 读者画像与热力 | 目标读者、老白、小白、懂行读者分别盲评，合成弃读热力；读者"在等什么"与台账推算的读者此刻对照 | 本插件（M6-2） |
 | 偏好演化 | 偏好权重随时间衰减，作者否决过的降权不首推，雷点是硬约束 | chinese-novelist-skill 偏好记忆＋本插件（M6-3） |
 | 技艺库回灌 | 完本写技艺库条目；下一本书开书时按题材、契约、弧光挑相关条目进推荐理由 | 本插件（M6-4） |
+| 判据层回归评测 | 锚定章埋错，量审稿的检出率、定级、结论准确率、干净章误报与多次稳定性；改判据、换模型后重跑 | 本插件（M7） |
+| 模型横评 | 冻结写手包 SHA，各模型同包写一版，盲稿成对比较，揭盲算胜率 | 本插件（M7） |
+| 多书仪表盘 | 各书阶段、进度、存稿、承诺健康度；承诺热力图（文字版与离线网页） | 本插件（M7） |
+| 导出 | md／txt 合稿、EPUB 3；只收已定稿的章，去掉修订注记 | 本插件（M7） |
 | AI 味分级 | 五星句式出现即改、高危句式与一级词合计限额、二级词密度告警、作者放行清单 | oh-story story-deslop 清单（MIT）＋本插件 |
 | SHA 新鲜度＋强制复评 | 正文一变旧评审作废；修订是显式动作，写者不审己稿 | Openwrite ＋ InkOS ＋ sdlc 铁律 |
 | 事件溯源台账 | 人物/关系/设定变化记状态事件，当前态=重放 | 拆书总纲 5.0 ＋ InkOS |
@@ -159,8 +172,9 @@ ncc-workflow/
 - v0.4.1（减重）：场景卡小批量、常规章一人审硬伤、复审只看改动、写手包由脚本组装（D16–D18）；常规章角色调用从 5 次降到约 2.7 次。
 - v0.5（M4 底蕴层）：24 张底蕴卡入库、scholar、场景触发的知识点清单、定稿拦截、底蕴硬伤检查与提醒、时代背景、一书一深学与补学清单。
 - v0.6（M5 素材层）：素材卡与素材流、作者资产接入（代入感与规避点判据、小说底盘作设定底料）、拆书逆向夹校（质感细节与机制样本、对标书书魂与契约）、社会洞察清单与 G1 检查。
-- **v0.7（本版，M6 学习与嗓音层）**：文风指纹与文风基准（旧文采样或第 1 章反推、漂移提醒）、读者画像盲评与弃读热力、读者此刻对照、偏好演化、技艺库回灌。
-- M7：评测、多书仪表盘、模型横评、导出。
+- v0.7（M6 学习与嗓音层）：文风指纹与文风基准（旧文采样或第 1 章反推、漂移提醒）、读者画像盲评与弃读热力、读者此刻对照、偏好演化、技艺库回灌。
+- **v1.0（本版，M7）**：ncc-eval 锚定章回归与模型横评、多书仪表盘与承诺热力图、合稿与 EPUB 导出。计划原定"M1–M6 各跑通一本书"再做，按作者指示提前完成。
+- 之后：用第一本真书跑通全流程，按评测结果校准判据与阈值。
 
 ## 边界
 
