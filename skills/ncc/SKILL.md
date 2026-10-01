@@ -32,7 +32,7 @@ when_to_use: "User asks to start a book, continue writing, review chapters, deco
 
 1. 解析书库根目录：优先读项目里的 `ncc.config.yaml`（`book_root`，默认 `./novels`）。
 2. 作者点名书名 → 定位 `{book_root}/{书名}/`；没点名且书库有多本书 → 一行列出（书名、阶段、最新章），推荐最近写过的那本，请作者选。
-3. 每次运行先跑 `python3 <PLUGIN_ROOT>/scripts/ncc_state.py status <书目录>`，把输出作为事实基础；不要凭目录猜状态。
+3. 每次运行先跑 `python3 <PLUGIN_ROOT>/scripts/ncc_state.py status <书目录>`，把输出作为事实基础；不要凭目录猜状态。信息放在哪、谁能写、在哪看，按 [references/book-state.md](references/book-state.md) 的"信息地图"：源头只有一个，`author-intent.md`、`current-focus.md`、台账的 .md 都是生成的视图，不手改；`ncc_state.py check` 自查。
 4. 脚本提示 schema 1（v0.1 的书）→ 推荐运行 `ncc_state.py migrate <书目录>`（原伏笔台账保留不删），说明会改什么，作者同意后执行。
 5. 无书且意图是开书 → 转 `ncc-new`。无书且意图是拆书 → 转 `ncc-deconstruct`。意图是评测 → 转 `ncc-eval`（不需要书）。
 
@@ -90,7 +90,7 @@ authority: 只产出草稿，不审稿，不改 book.json
 
 1. 用宿主的角色类型派单（`ncc-workflow:<role>`）；宿主不识别则用通用类型 fallback，让其先 Read 对应 `agents/<role>.md`，并在 book.json 记 `host_spawn: true`。
 2. 回收返回：把完整返回存到 `书目录/05-审稿/` 或对应产物目录，把摘要呈现给作者。
-3. 用 `ncc_state.py` 记账：章节登记与状态（`chapter add/key/hook/mark/mood/pick/retry`、`complete --hard`）、场景卡（`scene check/review`）、知识点（`knowledge plan/check`，按需派 scholar）、三本账（`promise`、`know`、`fact`）、时代背景与一书一深学（`era`、`study`）、素材卡（`material`）、闸门结果。脚本退出码即结论。
+3. 用 `ncc_state.py` 记账：章节登记与状态（`chapter add/key/hook/mark/mood/pick/retry`、`complete --hard`）、场景卡（`scene check/review`）、知识点（`knowledge plan/check`，按需派 scholar）、三本账（`promise`、`know`、`fact`、`event`）、章末状态（`chapter end`）、时代背景与一书一深学（`era`、`study`）、素材卡（`material`）、闸门结果。脚本退出码即结论。
 4. 返工：同一章审稿不过 → 派 editor 修订 → 正文 SHA 变更 → 复评。累计返工 ≥3 轮（`chapter retry` 自动转 failed）→ 停下来向作者呈示问题清单与推荐处置，不自动第 4 轮。
 
 ## Step 4 — 作者决策点（你呈现，作者定）
@@ -114,7 +114,7 @@ authority: 只产出草稿，不审稿，不改 book.json
 ## Step 5 — 上下文纪律（经理自身的）
 
 - 每次会话开头读 `book.json`（一次），不要整本重读正文；需要细节时按台账定位。
-- 你的记忆文件 `书目录/memory/manager.md`：跨会话记录作者偏好、本书特殊约定、作者否决过的推荐。每个角色有自己的记忆文件，互不读写。
+- 你的记忆文件 `书目录/memory/manager.md`：跨会话记录本书的特殊约定。作者偏好、雷点和否决过的推荐只记在偏好文件（`pref`），不在这里另记一份。每个角色有自己的记忆文件，互不读写。
 - 汇报带数字，但说人话：第几章、写了多少字、审稿过没过、还欠读者几件事、有几件事等你定、存稿几章（规范见下节）。
 - 照看作者（公理 7，[references/sustain.md](references/sustain.md)）：存稿低于存稿线时推荐保更模式；出现倦怠信号时给调节奏的推荐；评论原文不直接推给作者。
 
@@ -192,7 +192,5 @@ authority: 只产出草稿，不审稿，不改 book.json
 | [references/book-state.md](references/book-state.md) | book.json 与三本账字段；断点恢复 |
 | [references/context-pack.md](references/context-pack.md) | 组装写手/审稿上下文包 |
 | `workflow/architecture.md` | 五层、变更提议、三本账规则 |
-| [templates/book.json](templates/book.json) | 新书状态样例（实际用 `ncc_state.py init` 生成） |
-| [templates/author-intent.md](templates/author-intent.md) | 书魂与类型契约的完整表述 |
 | [templates/author-seeds.md](templates/author-seeds.md) | 作者种子（开书第一步） |
 | [templates/ncc.config.yaml](templates/ncc.config.yaml) | 项目无配置时生成 |

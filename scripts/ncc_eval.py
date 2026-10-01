@@ -13,7 +13,7 @@
   score <run_dir>                        对照答案算检出率、定级、结论准确率、干净章误报、多次之间的稳定性，写 <run_dir>/score.md
 
 模型横评（同一个写手包，换不同模型写同一章）
-  bench init <book> <seq>                冻结本章写手包的 SHA，建 05-审稿/_bench/ch-NNNN/
+  bench init <book> <seq>                冻结本章写手包的 SHA，建 .ncc/横评/ch-NNNN/
   bench add <book> <seq> --model M --file F    登记一个模型写的草稿；写手包变过就拒绝（比的必须是同一个包）
   bench blind <book> <seq>               打乱成 A/B/C… 盲稿，列出成对比较与记忆测试的派单
   bench vote <book> <seq> --winner A --loser B [--tie]   登记一次成对比较结论（用盲标签）
@@ -33,7 +33,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import check_chapter as cc  # noqa: E402
-from ncc_state import PLUGIN_ROOT, die, find_ch, load, now, read_json, sha16, style_drift_lines, write_json  # noqa: E402
+from ncc_state import PLUGIN_ROOT, WORK, die, find_ch, load, now, read_json, sha16, style_drift_lines, write_json  # noqa: E402
 
 ANCHORS = PLUGIN_ROOT / "eval" / "anchors"
 SEVERE = ("critical", "major")
@@ -230,7 +230,7 @@ def cmd_score(a):
 # ---------- 模型横评 ----------
 
 def bench_dir(book: Path, seq: int) -> Path:
-    return book / "05-审稿" / "_bench" / f"ch-{seq:04d}"
+    return book / WORK / "横评" / f"ch-{seq:04d}"
 
 
 def bench_manifest(book: Path, seq: int) -> dict:

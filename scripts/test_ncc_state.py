@@ -8,6 +8,8 @@ import unittest
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import ncc_state as ncc  # noqa: E402
 STATE = str(HERE / "ncc_state.py")
 CHECK = str(HERE / "check_chapter.py")
 EVAL = str(HERE / "ncc_eval.py")
@@ -68,6 +70,16 @@ class Base(unittest.TestCase):
     def book_json(self):
         return json.loads((self.book / "book.json").read_text("utf-8"))
 
+    def summary(self):
+        """承诺汇总不存进 book.json（派生数据现算，七律一）。"""
+        return ncc.promise_summary(self.book, self.book_json())
+
+    def fill_review(self, rel, answer="作者已确认"):
+        """复盘文件：生成区块外的「（待填）」由作者与角色写上判断。"""
+        p = self.book / rel
+        head, sep, tail = p.read_text("utf-8").partition(ncc.GEN_END)
+        p.write_text(head + sep + tail.replace("（待填）", answer), "utf-8")
+
     def write(self, rel, text):
         p = self.book / rel
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -96,7 +108,8 @@ class Base(unittest.TestCase):
 class TestInitAndSoul(Base):
     def test_init_layout(self):
         d = self.book_json()
-        self.assertEqual(d["schema_version"], 2)
+        self.assertEqual(d["schema_version"], 3)
+        self.assertNotIn("promises", d)
         self.assertEqual(d["stage"], "founding")
         self.assertEqual(d["experience_level"], "新手")
         self.assertEqual(d["mode"], "混合")
@@ -244,7 +257,7 @@ class TestSlimming(Base):
         self.write("02-大纲/场景卡/ch-0004.md", SCENE_SHORT)
         self.ok("scene", "review", self.book, 4, "--result", "pass", "--by", "story-editor")
         self.ok("pack", self.book, 4, "--note", "注意雨声")
-        pack = (self.book / "04-正文/_packs/ch-0004.md").read_text("utf-8")
+        pack = (self.book / ".ncc/写手包/ch-0004.md").read_text("utf-8")
         for key in ("写作简报", "读者此刻", "人物声音", "拿回工牌", "我记着", "雨里的工牌", "陆言 = 高三", "注意雨声"):
             self.assertIn(key, pack)
         self.assertIn("读者目前知道「高三学生」", pack)
@@ -307,7 +320,7 @@ class TestChaptersAndPromises(Base):
         self.bad("promise", "drop", self.book, pid, "--ch", 3, "--compensation", " ")
         self.ok("promise", "resolve", self.book, pid, "--ch", 6)
         self.bad("promise", "touch", self.book, pid, "--ch", 7)
-        self.assertEqual(self.book_json()["promises"]["resolved"], 1)
+        self.assertEqual(self.summary()["resolved"], 1)
 
     def test_option_and_motif_do_not_count_against_water(self):
         self.ok("promise", "add", self.book, "--type", "期权", "--content", "老人手上的旧伤", "--ch", 3)
@@ -323,13 +336,13 @@ class TestChaptersAndPromises(Base):
                 "--ch", 1, "--deadline", 2)
         for seq in (4, 5, 6):
             self.finish(seq)
-        self.assertEqual(self.book_json()["promises"]["overdue"], 1)
+        self.assertEqual(self.summary()["overdue"], 1)
         self.assertIn("逾期", self.ok("status", self.book))
 
     def test_window_overdue(self):
         self.ok("promise", "add", self.book, "--type", "伏笔", "--content", "玉佩", "--ch", 1, "--window", "1-1")
         self.finish(4)
-        self.assertEqual(self.book_json()["promises"]["overdue"], 1)
+        self.assertEqual(self.summary()["overdue"], 1)
 
 
 class TestKnowledgeFactsReaderNow(Base):
@@ -406,7 +419,16 @@ class TestLoops(Base):
         for sec in ("暂定决策", "故事审", "下一单元", "失去", "读者数据"):
             self.assertIn(sec, report)
         self.assertIn("复盘", self.bad("unit", "close", self.book, "--end", 4))
-        self.write("00-策划/复盘/单元-U1.md", report)
+        self.write("00-策划/复盘/单元-U1.md", report)                 # 只把底稿贴进去、没写判断：拦下
+        self.assertIn("（待填）", self.bad("unit", "close", self.book, "--end", 4))
+        (self.book / "00-策划/复盘/单元-U1.md").unlink()
+        self.ok("report", self.book, "unit", "--write")              # 底稿进生成区块，区块外留作者写判断的小节
+        text = (self.book / "00-策划/复盘/单元-U1.md").read_text("utf-8")
+        self.assertEqual(text.count(ncc.GEN_BEGIN), 1)
+        self.assertIn("## 下一单元\n\n（待填）", text)
+        self.fill_review("00-策划/复盘/单元-U1.md")
+        self.ok("report", self.book, "unit", "--write")              # 刷新数据，判断不丢
+        self.assertIn("作者已确认", (self.book / "00-策划/复盘/单元-U1.md").read_text("utf-8"))
         self.ok("unit", "close", self.book, "--end", 4)
 
     def test_volume_cycle(self):
@@ -418,7 +440,8 @@ class TestLoops(Base):
         out = self.bad("gate", self.book, "volume")
         self.assertIn("卷1.md", out)
         self.assertIn("逾期", out)
-        self.write("00-策划/复盘/卷1.md", self.ok("report", self.book, "volume"))
+        self.ok("report", self.book, "volume", "--write")
+        self.fill_review("00-策划/复盘/卷1.md")
         self.assertIn("强化", self.bad("promise", "reschedule", self.book, "FS-0001", "--window", "8-10", "--note", " "))
         self.ok("promise", "reschedule", self.book, "FS-0001", "--window", "8-10", "--note", "第 6 章再露一角")
         self.ok("soul", self.book, "--status", "暂定", "--deadline", "第一卷卷复盘")
@@ -440,10 +463,11 @@ class TestLoops(Base):
             self.assertIn(key, out)
         self.ok("promise", "resolve", self.book, "P-0001", "--ch", 300)
         self.ok("soul", self.book, "--question", "Q", "--answer", "A", "--injustice", "I", "--ending", "E", "--status", "确定")
-        self.write("00-策划/收束清单.md", self.ok("report", self.book, "finale"))
+        self.ok("report", self.book, "finale", "--write")
+        self.fill_review("00-策划/收束清单.md")
         self.write("00-策划/复盘/全书.md", "全书复盘")
         self.ok("craft", "init", self.book)
-        lib = self.book.parent / "_craft-library" / "测试书.md"
+        lib = self.book.parent / "_作者" / "技艺库" / "测试书.md"
         self.assertIn("条目表是空的", self.bad("gate", self.book, "finale"))
         lib.write_text(lib.read_text("utf-8") + "| 1 | 平弧主角被亲人质疑时追读最高 | 第48–60章 | 守护型主契约 | 平弧、守护 |\n", "utf-8")
         self.ok("gate", self.book, "finale", "--action", "pass", "--quote", "完本")
@@ -466,7 +490,7 @@ class TestLoops(Base):
         code, out = run("team", "set", self.book, "主笔", "小李", env={"NCC_ACTOR": "老王"})
         self.assertEqual(code, 0, out)
         self.assertIn("主笔: 小李", self.ok("team", "list", self.book))
-        log = (self.book / "06-台账/操作日志.jsonl").read_text("utf-8").strip().splitlines()
+        log = (self.book / ".ncc/操作日志.jsonl").read_text("utf-8").strip().splitlines()
         last = json.loads(log[-1])
         self.assertEqual((last["actor"], last["argv"][0]), ("老王", "team"))
         self.assertFalse(any(json.loads(x)["argv"][0] == "status" for x in log))
@@ -508,7 +532,7 @@ class TestKnowledge(Base):
         self.assertIn("知识点清单不合格", self.bad("complete", self.book, 5, "--words", 3000, "--hard", "pass"))
         self.write("02-大纲/知识点/ch-0005.md", KNOW_OK)
         self.ok("pack", self.book, 5)
-        pack = (self.book / "04-正文/_packs/ch-0005.md").read_text("utf-8")
+        pack = (self.book / ".ncc/写手包/ch-0005.md").read_text("utf-8")
         self.assertIn("本章知识点", pack)
         self.assertIn("火色由红转白（待核：不写具体数字和术语", pack)
         self.assertNotIn("《左传》", pack)
@@ -556,7 +580,7 @@ class TestMaterials(Base):
         self.assertTrue(list((self.book / "素材/乙-人间").glob("M-0001-*.md")))
         self.ok("material", "add", self.book, "--content", "医院走廊里有人蹲着吃泡面", "--source", "表姐讲的",
                 "--use", "陪护的狼狈", "--trust", "转述", "--shared")
-        self.assertTrue(list((self.book.parent / "_素材").rglob("MS-0001-*.md")))
+        self.assertTrue(list((self.book.parent / "_作者" / "素材").rglob("MS-0001-*.md")))
         self.bad("material", "add", self.book, "--content", "x", "--source", "y", "--use", "z", "--domain", "占星")
         self.bad("material", "add", self.book, "--content", "x", "--source", "y", "--use", "z", "--trust", "听说")
         out = self.ok("material", "check", self.book)
@@ -578,7 +602,7 @@ class TestMaterials(Base):
         self.write("02-大纲/场景卡/ch-0004.md", SCENE_SHORT + "- 素材：M-0001、M-0002\n")
         self.ok("scene", "review", self.book, 4, "--result", "pass", "--by", "story-editor")
         self.ok("pack", self.book, 4)
-        pack = (self.book / "04-正文/_packs/ch-0004.md").read_text("utf-8")
+        pack = (self.book / ".ncc/写手包/ch-0004.md").read_text("utf-8")
         self.assertIn("素材 M-0001：凌晨四点换岗", pack)
         self.assertIn("能认出本人的细节都要换掉", pack)
         self.assertNotIn("物流园夜班", pack)            # 来源不进写手包
@@ -631,7 +655,7 @@ class TestLearning(Base):
 
     def test_preferences_evolve(self):
         root = self.book.parent
-        prefs = root / "_preferences.json"
+        prefs = root / "_作者" / "偏好.json"
         self.assertEqual(json.loads(prefs.read_text("utf-8"))["creationHistory"][-1]["title"], "测试书")
         prefs.write_text(json.dumps({"favoriteGenres": [{"name": "都市诡异", "weight": 3}], "dislikes": ["圣母主角"],
                                      "preferredPerspective": "第三人称限知", "typicalChapterCount": [200, 400]},
@@ -657,7 +681,7 @@ class TestLearning(Base):
 
     def test_craft_library_feeds_next_book(self):
         root = self.book.parent
-        lib = root / "_craft-library" / "上一本.md"
+        lib = root / "_作者" / "技艺库" / "上一本.md"
         lib.parent.mkdir(parents=True, exist_ok=True)
         lib.write_text("# 技艺库：上一本\n- 题材：都市、诡异\n- 主契约：凡人逆袭＋守护\n\n| # | 条目 | 证据 | 适用条件 | 标签 |\n|---|---|---|---|---|\n"
                        "| 1 | 平弧主角被亲人质疑时追读最高 | 第48–60章追读+12% | 守护型主契约 | 平弧 |\n"
@@ -732,7 +756,7 @@ class TestBenchDashboardExport(Base):
             self.assertEqual(code, 0, out)
         code, out = run("bench", "blind", self.book, 4, script=EVAL)
         self.assertIn("A vs B", out)
-        m = json.loads((self.book / "05-审稿/_bench/ch-0004/manifest.json").read_text("utf-8"))
+        m = json.loads((self.book / ".ncc/横评/ch-0004/manifest.json").read_text("utf-8"))
         jia = next(k for k, v in m["blind"].items() if v == "模型甲")
         yi = next(k for k, v in m["blind"].items() if v == "模型乙")
         run("bench", "vote", self.book, 4, "--winner", jia, "--loser", yi, script=EVAL)
@@ -936,6 +960,82 @@ class TestLengthAndDegeneration(Base):
         self.assertIn("默认写法", warns)
         self.assertIn("身体小动作标注情绪 4 处", warns)
         self.assertEqual(code, 0, r["problems"])                     # 照搬与身体小动作都只告警
+
+
+
+class TestSevenLaws(Base):
+    """七律落地：视图只生成、历史只追加、布局归位、前情取自源头。"""
+
+    def test_views_are_generated_and_checked(self):
+        for rel in ("author-intent.md", "current-focus.md", "06-台账/承诺台账.md", "06-台账/知情台账.md", "06-台账/知识台账.md"):
+            self.assertTrue((self.book / rel).exists(), rel)
+        self.ok("soul", self.book, "--question", "人能不能只为自己活", "--status", "暂定", "--deadline", "第一卷卷复盘")
+        self.ok("contract", self.book, "--main", "凡人逆袭＋守护", "--poison", "主角降智", "--audience", "通勤刷都市文的上班族")
+        self.ok("pref", "dislike", self.book.parent, "--value", "圣母主角")
+        self.ok("promise", "add", self.book, "--type", "名场面", "--content", "雨夜摊牌", "--ch", 1)
+        intent = (self.book / "author-intent.md").read_text("utf-8")
+        for key in ("人能不能只为自己活", "暂定，最晚 第一卷卷复盘 定下", "通勤刷都市文的上班族", "圣母主角", "勿手改"):
+            self.assertIn(key, intent)
+        self.assertIn("## 名场面清单", (self.book / "06-台账/承诺台账.md").read_text("utf-8"))
+        self.assertIn("雨夜摊牌", (self.book / "06-台账/承诺台账.md").read_text("utf-8"))
+        self.assertIn("CHECK OK", self.ok("check", self.book))
+        (self.book / "author-intent.md").write_text(intent + "\n我手改了一句\n", "utf-8")
+        self.assertIn("视图与源头不一致：author-intent.md", self.bad("check", self.book))
+        self.ok("render", self.book)
+        self.ok("check", self.book)
+        self.write("01-设定/世界观圣经.md", "# 圣经\n## 地理\n青云城到落霞镇三日路程，约 120 里。\n")
+        self.assertIn("数据只放知识台账", self.ok("check", self.book))
+
+    def test_events_append_only(self):
+        self.ok("event", "add", self.book, "--entity", "陆言", "--ch", 3, "--attr", "失去", "--old", "父亲的工作", "--new", "无", "--reason", "被辞退")
+        self.ok("event", "add", self.book, "--entity", "陆言", "--ch", 4, "--attr", "境界", "--old", "凡武三重", "--new", "凡武四重")
+        self.assertIn("父亲的工作", self.ok("event", "list", self.book, "--entity", "陆言"))
+        p = self.book / "06-台账/状态事件.json"
+        data = json.loads(p.read_text("utf-8"))
+        data["events"][0]["new"] = "又有了工作"                       # 改写历史
+        p.write_text(json.dumps(data, ensure_ascii=False), "utf-8")
+        self.assertIn("历史只允许追加", self.bad("check", self.book))
+        self.assertIn("历史只允许追加", self.bad("event", "add", self.book, "--entity", "陆言", "--ch", 5, "--attr", "x"))
+
+    def test_chapter_end_feeds_focus_and_pack(self):
+        self.finish(4)
+        self.ok("chapter", "end", self.book, 4, "--time", "腊月初三夜里", "--place", "保安亭", "--next", "去三号库看个究竟")
+        focus = (self.book / "current-focus.md").read_text("utf-8")
+        for key in ("写第 5 章前", "腊月初三夜里", "在保安亭", "去三号库看个究竟", "从\"求人\"到\"被人求\""):
+            self.assertIn(key, focus)
+        self.add(5)
+        self.write("02-大纲/场景卡/ch-0005.md", SCENE_SHORT)
+        self.ok("scene", "review", self.book, 5, "--result", "pass", "--by", "story-editor")
+        (self.book / "current-focus.md").write_text("手写的前情不该进写手包", "utf-8")
+        self.ok("pack", self.book, 5)
+        pack = (self.book / ".ncc/写手包/ch-0005.md").read_text("utf-8")
+        self.assertIn("去三号库看个究竟", pack)
+        self.assertNotIn("手写的前情", pack)                          # 写手包从源头算，不读视图
+        self.assertEqual(self.book_json()["chapters"][-1]["pack"], ".ncc/写手包/ch-0005.md")
+
+    def test_migrate_schema2_layout(self):
+        d = self.book_json()
+        d["schema_version"], d["promises"] = 2, {"open": 9}
+        (self.book / "book.json").write_text(json.dumps(d, ensure_ascii=False), "utf-8")
+        self.write("04-正文/_packs/ch-0001.md", "旧写手包")
+        self.write("06-台账/读者数据.json", '{"items": []}')
+        (self.book / "05-审稿/读者数据.json").unlink()
+        self.write("author-intent.md", "# 我手写的创作意图")
+        root = self.book.parent
+        (root / "_作者" / "偏好.json").rename(root / "_preferences.json")
+        (root / "_作者").rmdir()
+        self.assertIn("migrate", self.bad("status", self.book))
+        out = self.ok("migrate", self.book)
+        self.assertIn("按七律归位", out)
+        self.assertTrue((self.book / ".ncc/写手包/ch-0001.md").exists())
+        self.assertTrue((self.book / "05-审稿/读者数据.json").exists())
+        self.assertIn("我手写的创作意图", (self.book / ".ncc/迁移备份/author-intent.旧.md").read_text("utf-8"))
+        self.assertTrue((root / "_作者" / "偏好.json").exists())
+        d = self.book_json()
+        self.assertEqual(d["schema_version"], 3)
+        self.assertNotIn("promises", d)
+        self.ok("render", self.book)
+        self.assertIn("CHECK OK", self.ok("check", self.book))
 
 
 if __name__ == "__main__":

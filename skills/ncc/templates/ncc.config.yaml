@@ -3,7 +3,7 @@
 book_root: ./novels
 
 # 偏好记忆：跨书共享的作者偏好（三层问答用它做推荐与⭐标记；ncc_state.py pref 维护）
-preferences: ./novels/_preferences.json
+preferences: ./novels/_作者/偏好.json
 half_life_days: 180     # 偏好权重的半衰期（天）；作者确认过的重新计时
 
 # 拆书总纲 5.0 路径：ncc-deconstruct 的字段规范来源（按序探测第一个存在的）

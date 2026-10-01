@@ -22,7 +22,7 @@
 |---|---|
 | 审稿累加分制：只有带正文证据的准则计分、问题不扣分、覆盖率独立、critical 只 block | review-domains.md |
 | 评审 SHA 绑定正文：正文一变评审即 stale，修订后强制复评 | book-state.md、ncc-review |
-| 写前上下文包预检（可审计、可留档） | context-pack.md ＋ _packs/ |
+| 写前上下文包预检（可审计、可留档） | context-pack.md ＋ .ncc/写手包/ |
 | 伏笔义务清单（due/overdue/to_plant）进工作简报 | v0.2 扩为承诺台账（ncc_state.py promise）、情节承诺域 |
 | 50 章滚动规划窗 | outline.md |
 | 写→审→修→复评→收尾的交付 DAG | 每章流水线 |
@@ -39,7 +39,7 @@
 | 写-审-改分离：审计只产 observation，修订是显式独立动作 | continuity/editor 角色切分 |
 | 上下文 protected/compressible 分层 | context-pack.md（永不裁的 protected 五件） |
 | author_intent / current_focus 双控制文档 | 书项目根的两个意图文件 |
-| 章节级留痕（intent/context 可追溯） | _packs/ 留档 |
+| 章节级留痕（intent/context 可追溯） | .ncc/写手包/ 留档 |
 | 创作方法外置 SKILL、代码只管协议 | 本插件的 skills/ 结构 |
 
 未移植：Studio/TUI 产品面、pi-agent 运行时、SQLite 检索内核（CLI 场景用 grep＋文件即数据库）、多模型路由。

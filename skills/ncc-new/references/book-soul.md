@@ -47,7 +47,7 @@
 
 ## 四、写入
 
-- 完整表述：`author-intent.md` 的"书魂""类型契约""签约点"三节。
+- 源头是 `book.json`（`soul`、`contract`、`sign` 写入）；`author-intent.md` 是由它生成的视图，给人和各角色读，不手改。
 - 结构化字段：`ncc_state.py soul …`、`ncc_state.py contract …`。
 - 暂定项：`ncc_state.py promise add --type 暂定决策 --content 书魂定稿 --ch 0 --deadline 第一卷卷复盘`。
 - 检查：`ncc_state.py gate <书目录> soul`。

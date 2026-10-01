@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
-"""ncc_state.py — book.json 与 06-台账 的确定性读写工具（schema v2，v0.7 学习与嗓音层）。
+"""ncc_state.py — 书项目状态的确定性读写工具（书项目 schema 3；信息架构见 workflow/principles.md）。
 
-状态只从这里（和经理派单回收）写入；markdown 投影与正文永不回写状态。
+状态只从这里（和经理派单回收）写入；视图（author-intent.md、current-focus.md、台账的 .md）由 render 生成，
+脚本从不读视图当输入；正文永不回写状态。每次写操作后自动重新生成视图。
 只依赖标准库。
 
 书与闸门
   init <book> --title T [--genre a,b] [--chapters N] [--level 新手|熟手|老手] [--mode 建筑师|园丁|混合]
   status <book>                          状态摘要（退出码恒 0）
   next <book>                            第一个非 done 章（无则退出 1）
-  migrate <book>                         v0.1（schema 1）→ schema 2
+  migrate <book>                         旧书（schema 1、2）→ schema 3：按七律归位（.ncc/、_作者/、05-审稿/读者数据）
+  render <book>                          重新生成全部视图
+  check <book>                           七律自查：视图与源头逐字一致、状态事件只追加、旧布局残留、圣经里的数据
   gate <book> soul|settings|outline|opening|volume|finale [--action check|pass|reject] [--quote Q] [--force]
   level <book> 新手|熟手|老手             引导档位
   mode <book> 建筑师|园丁|混合            写作模式（D15）
   soul <book> [--question Q] [--answer A] [--injustice I] [--ending E] [--status 暂定|确定] [--deadline D] [--arc 正向|负向|平弧]
-  contract <book> [--main M] [--extra X]... [--poison a,b]
+  contract <book> [--main M] [--extra X]... [--poison a,b] [--audience 目标读者]
   sign <book> <签约点> --ch N             签约点：主角与欲望|世界的不公|主角的机会|第一次小兑现|长线钩子
 
 循环与收束（M3）
@@ -22,7 +25,8 @@
   unit list <book>
   volume end <book> --end N               本卷写完，进入卷复盘（stage → volume），之后过 gate volume
   finale begin <book>                     进入收束（stage → finale），之后过 gate finale
-  report <book> unit|volume|finale        按台账生成复盘或收束清单的底稿（打印到标准输出）
+  report <book> unit|volume|finale [--write]
+                                         按台账生成复盘或收束清单的底稿；--write 写进对应文件的生成区块（判断写在区块外）
   feedback add <book> --ch N --source 真实|模拟 --kind 追读|弃读|略读|划线|评论|出戏 --value V [--note X] [--persona 画像]
   feedback list <book> [--ch N]
   team set <book> <位> <名字>              团队认领：主编|主笔|设定|考据|发展编辑|审稿|试读|拆书
@@ -53,11 +57,11 @@
   heat <book> [--ch A-B]                 读者画像热力：各画像追读、弃读与略读热点、划线、出戏
   pref show|like|confirm|reject|dislike <书目录或书库根目录> [--key K] [--value V] [--note N]
                                          偏好演化：权重按半衰期衰减；作者否决过的降权、不首推；雷点是硬约束
-  craft init <book>                      完本后生成技艺库条目模板 _craft-library/<书名>.md
+  craft init <book>                      完本后生成技艺库条目模板 _作者/技艺库/<书名>.md
   craft read <book> [--top N]            开书时读别的书的技艺库，挑出相关条目写进 00-策划/技艺库摘录.md
 
 写手包与审稿（D17、D18）
-  pack <book> <seq> [--note 本章特别提醒]   脚本组装写手包 04-正文/_packs/ch-NNNN.md（审稿文件与书魂原文一律不进）
+  pack <book> <seq> [--note 本章特别提醒]   脚本组装写手包 .ncc/写手包/ch-NNNN.md（审稿文件与书魂原文一律不进）
   review plan <book> <seq>               本章该派谁审（continuity 必派；pulse 仅兑现章、关键章、开篇），并存一份正文快照
   review delta <book> <seq>              列出快照之后改动过的段落（复审只看这些），然后更新快照
 
@@ -68,6 +72,7 @@
   chapter mark <book> <seq> <status>     pending|drafting|drafted|checking|reviewing|revising|failed
                                          （标 drafting 前，场景卡必须已过故事审且之后未改动）
   chapter mood <book> <seq> 压|放|平 [--colors 爽,燃,虐,甜,怕,笑,悲,敬,叹]
+  chapter end <book> <seq> [--time T] [--place P] [--next 下一章要接的事]   续写状态卡的源头
   chapter pick <book> <seq> --version V [--note N]   关键章：作者从 2–3 版里选定
   chapter length <book> <seq> --accept [--force] [--tentative] [--note 作者原话]
                                          收下当前长度（字数不在区间时）。--tentative：写章循环里按推荐先收、单元复盘时作者确认；
@@ -92,6 +97,9 @@
   fact set <book> <key> <value> --ch N [--source S] [--category C] [--override]
   fact get <book> <key>
   fact list <book> [--category C]
+  event add <book> --entity E --ch N --attr A [--old O] [--new N] [--reason R] [--evidence 定位词]
+                                         状态事件（只追加；主角失去的东西 --attr 失去）
+  event list <book> [--entity E]
   reader-now <book> <seq> [--top N]      生成上下文包的"读者此刻"块
 
 书库与导出（M7）
@@ -104,7 +112,7 @@
   sha <file>
 
 评测与模型横评见 scripts/ncc_eval.py。
-环境变量 NCC_ACTOR：团队模式下写入操作日志（06-台账/操作日志.jsonl）的操作者名字。
+环境变量 NCC_ACTOR：团队模式下写入操作日志（.ncc/操作日志.jsonl）的操作者名字。
 """
 import argparse
 import datetime
@@ -120,12 +128,12 @@ import zipfile
 import tempfile
 from pathlib import Path
 
-SCHEMA = 2
+SCHEMA = 3
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 
 DIRS = [
     "00-策划", "00-策划/复盘", "01-设定/人物卡", "02-大纲/卷纲", "02-大纲/章纲", "02-大纲/场景卡",
-    "02-大纲/知识点", "03-文风", "04-正文/_packs", "05-审稿", "06-台账", "07-导出", "memory", "素材",
+    "02-大纲/知识点", "03-文风", "05-审稿", "06-台账", "07-导出", "memory", "素材", ".ncc/写手包",
 ]
 LEDGER = "06-台账"
 PROMISES = f"{LEDGER}/承诺台账.json"
@@ -137,9 +145,19 @@ SCENE_DIR = "02-大纲/场景卡"
 SEEDS = "00-策划/作者种子.md"
 REVIEW_DIR = "00-策划/复盘"
 FINALE_LIST = "00-策划/收束清单.md"
-READER_DATA = f"{LEDGER}/读者数据.json"
-OPLOG = f"{LEDGER}/操作日志.jsonl"
-CRAFT_LIBRARY = "_craft-library"
+READER_DATA = "05-审稿/读者数据.json"     # 读者的反馈是评价的一部分，不是世界状态
+WORK = ".ncc"                             # 机器工作件：写手包、快照、横评、操作日志、迁移备份
+PACK_DIR = f"{WORK}/写手包"
+OPLOG = f"{WORK}/操作日志.jsonl"
+AUTHOR_DIR = "_作者"                     # 书库根目录下：关于作者本人的跨书资产
+CRAFT_LIBRARY = f"{AUTHOR_DIR}/技艺库"
+INTENT_VIEW = "author-intent.md"          # 生成的视图（七律二）
+FOCUS_VIEW = "current-focus.md"
+LEDGER_VIEWS = {f"{LEDGER}/承诺台账.md": "promise", f"{LEDGER}/知情台账.md": "know", f"{LEDGER}/知识台账.md": "fact"}
+OLD_BOOK_PATHS = (("04-正文/_packs", PACK_DIR), ("05-审稿/_snapshots", f"{WORK}/快照"), ("05-审稿/_bench", f"{WORK}/横评"),
+                  ("06-台账/操作日志.jsonl", OPLOG), ("06-台账/读者数据.json", READER_DATA),
+                  ("author-intent.md", f"{WORK}/迁移备份/author-intent.旧.md"),
+                  ("current-focus.md", f"{WORK}/迁移备份/current-focus.旧.md"))
 
 LEVELS = ("新手", "熟手", "老手")
 MODES = ("建筑师", "园丁", "混合")
@@ -157,7 +175,7 @@ SCENE_REQUIRED = ("视角", "目标", "翻转", "两难", "情感")
 SCENE_KEY_REQUIRED = ("盲区", "阻碍", "画面", "风险", "默认写法")
 SCENE_BATCH = {"建筑师": 5, "混合": 3, "园丁": 2}
 PACK_BUDGET = 12000
-SNAPSHOT_DIR = "05-审稿/_snapshots"
+SNAPSHOT_DIR = f"{WORK}/快照"
 KNOW_DIR = "02-大纲/知识点"
 DOMAINS = ("爽文", "人情冷暖", "社会", "心理", "历史与朝代更替", "政治", "经济", "军事", "天文", "地理", "生物", "自然",
            "物理", "化学", "数学", "工程", "建造", "工艺", "语言", "文学", "艺术", "视频", "想象力", "宗教神话民俗")
@@ -170,7 +188,7 @@ REGIONS = {"甲-爽感": ("爽文",), "乙-人间": ("人情冷暖", "社会", "
            "戊-物数": ("物理", "化学", "数学"), "己-造物": ("工程", "建造", "工艺"),
            "庚-表达": ("语言", "文学", "艺术", "视频"), "辛-想象": ("想象力", "宗教神话民俗")}
 MATERIAL_DIR = "素材"
-SHARED_MATERIALS = "_素材"   # 书库根目录下，跨书共用，格式相同，编号前缀 MS
+SHARED_MATERIALS = f"{AUTHOR_DIR}/素材"   # 书库根目录下，跨书共用，格式相同，编号前缀 MS
 MATERIAL_REQUIRED = ("来源", "内容", "可用处")
 MATERIAL_FIELDS = MATERIAL_REQUIRED + ("可信级", "域", "题材")
 MATERIAL_TRUST = ("亲历", "转述", "文献", "传闻", "拆书")
@@ -180,7 +198,8 @@ MATERIAL_HINT = {"转述": "（转述自真人：人名、地名和能认出本�
 STYLE_FP = "03-文风/文风指纹.json"      # 数字指纹：只给审稿与脚本看，不进写手包（铁律 9）
 STYLE_ANCHOR = "03-文风/文风基准.md"    # 语感、校准段、负面清单：进写手包
 STYLE_MIN = 10000                       # 旧文样本至少 1 万汉字（约 3 章）
-PREFS = "_preferences.json"
+PREFS = f"{AUTHOR_DIR}/偏好.json"
+OLD_ROOT_PATHS = (("_preferences.json", PREFS), ("_素材", SHARED_MATERIALS), ("_craft-library", CRAFT_LIBRARY))
 PREF_HALF_LIFE = 180
 PREF_V1 = {"favoriteGenres": "题材", "preferredProtagonist": "主角", "preferredPerspective": "视角",
            "preferredTone": "基调", "styleReferences": "风格参考"}
@@ -346,12 +365,6 @@ def promise_summary(book_dir: Path, d: dict) -> dict:
         "motifs": live("母题"),
         "pending_decisions": live("暂定决策"),
     }
-
-
-def refresh_summary(book_dir: Path):
-    d = load(book_dir)
-    d["promises"] = promise_summary(book_dir, d)
-    save(book_dir, d)
 
 
 def chapter_touches(items, seq: int):
@@ -862,9 +875,7 @@ def cmd_pack(a):
                 out.append(f"- {r[0]}：读者目前知道「{known or '（未登记）'}」（设定词典；完整真相不进写手包）")
     out.append("")
 
-    focus = book_dir / "current-focus.md"
-    if focus.exists() and focus.read_text("utf-8").strip():
-        out += ["## 前情与当前焦点", "", plain(focus.read_text("utf-8")).strip(), ""]
+    out += ["## 前情", ""] + focus_core(book_dir, d, a.seq) + [""]
     prev = next((x for x in d.get("chapters", []) if x["seq"] == a.seq - 1), None)
     if prev and (book_dir / prev.get("file", "")).is_file():
         tail = plain((book_dir / prev["file"]).read_text("utf-8")).strip()[-800:]
@@ -880,7 +891,7 @@ def cmd_pack(a):
     if leaks:
         die("写手包里出现了书魂原文（多半写进了场景卡）：" + "；".join(leaks) + "。书魂不进写手提示，请改场景卡后重审。")
     size = len(re.findall(r"[\u4e00-\u9fff]", text))
-    dest = book_dir / "04-正文" / "_packs" / f"ch-{a.seq:04d}.md"
+    dest = book_dir / PACK_DIR / f"ch-{a.seq:04d}.md"
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(text + "\n", "utf-8")
     c["pack"] = str(dest.relative_to(book_dir))
@@ -980,10 +991,14 @@ def open_volume(d):
 
 
 def has_sections(p: Path, needed) -> list:
+    """复盘与收束文件：只看生成区块之外（作者与角色写的判断），区块里的数据不算回答。"""
     if not p.exists() or not p.read_text("utf-8").strip():
         return [f"缺文件或为空: {p.name}"]
-    text = p.read_text("utf-8")
-    return [f"{p.name} 缺「{x}」一节" for x in needed if x not in text]
+    text = outside_block(p.read_text("utf-8"))
+    problems = [f"{p.name} 缺「{x}」一节" for x in needed if x not in text]
+    if "（待填）" in text:
+        problems.append(f"{p.name} 还有「（待填）」没写")
+    return problems
 
 
 def cmd_unit(a):
@@ -1122,15 +1137,21 @@ def cmd_report(a):
         if not u:
             die("没有进行中的单元（unit open）")
         lo, hi, title = u["start"], cur, f"单元 {u['id']} 复盘（第{u['start']}–{cur}章）"
+        target = f"{REVIEW_DIR}/单元-{u['id']}.md"
+        human = ("暂定决策", "故事审", "下一单元")
     elif a.kind == "volume":
         v = open_volume(d)
         if not v:
             die("没有进行中的卷")
         lo, hi, title = v["start"], v.get("end") or cur, f"第{v['n']}卷 卷复盘（第{v['start']}–{v.get('end') or cur}章）"
+        target = f"{REVIEW_DIR}/卷{v['n']}.md"
+        human = VOLUME_REVIEW_REQUIRED
     else:
         lo, hi, title = 1, cur, "收束清单"
+        target, human = FINALE_LIST, FINALE_REQUIRED
     chs = range_chapters(d, lo, hi)
-    out = [f"# {title}", "", f"> 由 ncc_state.py report {a.kind} 生成的底稿：数据部分已填，带「（待填）」的由对应角色与作者补写。", ""]
+    out = [f"# {title}", "", f"> 由 `ncc_state.py report {a.kind}` 从台账生成的数据与要回答的问题；"
+           "回答与决定写在本区块外对应的小节里（区块会随数据刷新）。", ""]
 
     def plist(ps, empty="（无）"):
         return [f"- {p['id']} [{p['type']}] 强度{p.get('strength')} {p['status']}：{p['content']}" for p in ps] or [f"- {empty}"]
@@ -1228,6 +1249,11 @@ def cmd_report(a):
         out += ["", "## 书魂回答", "", f"- 主题之问：{d.get('soul', {}).get('question') or '（未填）'}",
                 "- 终局给出的回答：主角答案的胜利、修正，还是胜利的代价？（待填）",
                 "- 收束方案候选 2–3 个，标推荐（outliner 填）（待填）"]
+    if a.write:
+        skeleton = "\n\n".join(f"## {h}\n\n（待填）" for h in human) + "\n"
+        write_block(book_dir / target, "\n".join(out), skeleton)
+        print(f"OK 底稿已写进 {target} 的生成区块；回答与决定写在区块外的「{'」「'.join(human)}」各节")
+        return
     print("\n".join(out))
 
 
@@ -1388,7 +1414,7 @@ def pref_load(path: Path) -> dict:
 
 
 def pref_half_life(path: Path) -> int:
-    for cfg in (path.parent / "ncc.config.yaml", path.parent.parent / "ncc.config.yaml"):
+    for cfg in (path.parent.parent / "ncc.config.yaml", path.parent.parent.parent / "ncc.config.yaml"):
         if cfg.exists():
             m = re.search(r"half_life_days:\s*(\d+)", cfg.read_text("utf-8"))
             if m:
@@ -1742,6 +1768,276 @@ def cmd_export(a):
           + (f"；未定稿未导出：第 {'、'.join(map(str, skipped))} 章" if skipped else ""))
 
 
+# ---------- 七律：视图只生成，历史只追加 ----------
+
+GEN_BEGIN = "<!-- ncc:生成区块 开始（render 与 report --write 会整块重写；判断写在区块外） -->"
+GEN_END = "<!-- ncc:生成区块 结束 -->"
+GEN_RE = re.compile(re.escape(GEN_BEGIN) + r".*?" + re.escape(GEN_END), re.S)
+
+
+def view_head(sources: str, how: str) -> str:
+    return f"> 本文件由 `ncc_state.py render` 从 {sources} 生成，勿手改；要改就改源头：{how}。"
+
+
+def outside_block(text: str) -> str:
+    return GEN_RE.sub("", text)
+
+
+def write_block(path: Path, body: str, skeleton: str = ""):
+    """把生成内容写进文件里的生成区块；区块外作者与角色写的内容原样保留。"""
+    block = f"{GEN_BEGIN}\n{body.rstrip()}\n{GEN_END}"
+    if path.exists():
+        old = path.read_text("utf-8")
+        new = GEN_RE.sub(lambda m: block, old, count=1) if GEN_RE.search(old) else block + "\n\n" + old
+    else:
+        new = block + "\n\n" + skeleton
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(new.rstrip() + "\n", "utf-8")
+
+
+def focus_core(book_dir: Path, d: dict, seq: int) -> list:
+    """前情：上一章结束在何时何地、下一章要接什么、近三章的翻转。全部取自源头（book.json、场景卡）。"""
+    done = [c for c in d.get("chapters", []) if c["seq"] < seq and c.get("status") == "done"]
+    out = []
+    if done:
+        last, end = done[-1], done[-1].get("end") or {}
+        where = "，".join(x for x in (end.get("time"), f"在{end['place']}" if end.get("place") else "") if x)
+        out.append(f"- 最近定稿：第{last['seq']}章" + (f"（结束时：{where}）" if where else "（结束时的时间地点还没登记）"))
+        if end.get("next"):
+            out.append(f"- 下一章要接：{end['next']}")
+    else:
+        out.append("- 还没有定稿的章")
+    out += ["", "**近三章发生了什么**（取自场景卡的翻转）"]
+    for c in done[-3:]:
+        card = scene_path(book_dir, c["seq"])
+        turns = [t.strip() for t in re.findall(r"翻转[：:]\s*([^\n]+)", card.read_text("utf-8"))] if card.exists() else []
+        hook = c.get("hook") or {}
+        out.append(f"- 第{c['seq']}章：" + ("；".join(turns) or "（场景卡缺失）") + (f"｜章尾钩子：{hook['type']}" if hook.get("type") else ""))
+    if not done:
+        out.append("- （无）")
+    return out
+
+
+def next_seq(d: dict) -> int:
+    pending = [c["seq"] for c in d.get("chapters", []) if c.get("status") != "done"]
+    return min(pending) if pending else current_chapter(d) + 1
+
+
+def intent_view(book_dir: Path, d: dict) -> str:
+    soul, ct = d.get("soul", {}), d.get("contract", {})
+    v = lambda x: x or "（未填）"
+    st = soul.get("status") or "未填"
+    when = f"，最晚 {soul['deadline']} 定下" if st == "暂定" and soul.get("deadline") else ""
+    dislikes = pref_load(pref_file(book_dir)).get("dislikes", [])
+    signing = ct.get("signing", {})
+    lines = [f"# 创作意图：{d.get('title')}", "",
+             view_head("`book.json` 与 `_作者/偏好.json`", "书魂用 soul，类型契约与目标读者用 contract，签约点用 sign，雷点用 pref dislike"), "",
+             f"## 书魂（{st}{when}）", "",
+             f"- 主题之问：{v(soul.get('question'))}", f"- 主角的答案：{v(soul.get('answer'))}",
+             f"- 世界的不公：{v(soul.get('injustice'))}", f"- 终局的回答：{v(soul.get('ending'))}",
+             f"- 主角弧光：{v(soul.get('arc'))}", "",
+             "## 类型契约", "", f"- 主契约：{v(ct.get('main'))}", f"- 附加契约：{'、'.join(ct.get('extras', [])) or '（无）'}",
+             f"- 毒点：{'、'.join(ct.get('poison', [])) or '（未填）'}", f"- 目标读者：{v(ct.get('audience'))}", "",
+             "### 签约点（黄金三章内必须落地）", "", "| 签约点 | 落在 |", "|---|---|"]
+    lines += [f"| {pt} | {'第' + str(signing[pt]) + '章' if pt in signing else '（未落地）'} |" for pt in SIGNING_POINTS]
+    lines += ["", "## 作者雷点（来自偏好，硬约束）", ""] + ([f"- {x}" for x in dislikes] or ["- （无）"])
+    return "\n".join(lines) + "\n"
+
+
+def focus_view(book_dir: Path, d: dict) -> str:
+    seq = next_seq(d)
+    lines = [f"# 续写状态卡（写第 {seq} 章前）", "",
+             view_head("`book.json`、场景卡与三本账", "结束时的时间地点与下一章要接的事用 chapter end，其余改场景卡和台账"), "",
+             "## 当前位置", ""] + focus_core(book_dir, d, seq) + [""] + reader_now_lines(book_dir, d, seq, top=3)
+    return "\n".join(lines) + "\n"
+
+
+def ledger_view(book_dir: Path, d: dict, kind: str) -> str:
+    if kind == "promise":
+        items, cur = ledger(book_dir, PROMISES)["items"], current_chapter(d)
+        s = promise_summary(book_dir, d)
+        row = lambda p: (f"| {p['id']} | {p['type']} | {p['content']} | {p.get('strength')} | {p.get('created_ch')} | "
+                         + (f"{p['window'][0]}–{p['window'][1]}" if p.get("window") else (p.get("deadline") or "—"))
+                         + f" | {p['status']}{'（逾期）' if promise_overdue(p, cur) else ''} |")
+        head = ["| 编号 | 类型 | 内容 | 强度 | 建立 | 兑现窗口／最晚 | 状态 |", "|---|---|---|---|---|---|---|"]
+        order = {t: i for i, t in enumerate(PROMISE_TYPES)}
+        open_ = sorted((p for p in items if p.get("status") in OPEN_STATES),
+                       key=lambda p: (order.get(p["type"], 99), -(p.get("strength") or 0)))
+        lines = ["# 承诺台账", "", view_head("`06-台账/承诺台账.json`", "promise add/touch/resolve/reschedule/drop"), "",
+                 f"开放 {s['open']}、已兑现 {s['resolved']}、作废 {s['dropped']}、逾期 {s['overdue']}；"
+                 f"期权 {s['options']}、母题 {s['motifs']}、暂定决策 {s['pending_decisions']}", "",
+                 "## 开放中", ""] + (head + [row(p) for p in open_] if open_ else ["（无）"])
+        for title, t in (("名场面清单", "名场面"), ("核心意象（母题）", "母题")):
+            ps = [p for p in items if p.get("type") == t]
+            lines += ["", f"## {title}", ""] + (head + [row(p) for p in ps] if ps else ["（无）"])
+        closed = [p for p in items if p.get("status") not in OPEN_STATES]
+        lines += ["", "## 已兑现与作废", ""] + (head + [row(p) for p in closed] if closed else ["（无）"])
+    elif kind == "know":
+        items = ledger(book_dir, KNOWLEDGE)["items"]
+        lines = ["# 知情台账", "", view_head("`06-台账/知情台账.json`", "know add/learn"), "",
+                 "| 编号 | 事实 | 自第几章 | 知道 | 还不知道 |", "|---|---|---|---|---|"]
+        lines += [f"| {k['id']} | {k['fact']} | {k.get('since_ch')} | {'、'.join(k.get('known_by', [])) or '—'} | "
+                  f"{'、'.join(k.get('unknown_to', [])) or '—'} |" for k in items] or ["| — | （无） | | | |"]
+    else:
+        facts = read_json(book_dir / FACTS, {"facts": {}}).get("facts", {})
+        lines = ["# 知识台账", "", view_head("`06-台账/知识台账.json`", "fact set"), "",
+                 "| 键 | 值 | 类别 | 第几章 | 来源 |", "|---|---|---|---|---|"]
+        lines += [f"| {k} | {f['value']} | {f.get('category') or '—'} | {f.get('ch')} | {f.get('source') or '未注'} |"
+                  for k, f in facts.items()] or ["| — | （无） | | | |"]
+    return "\n".join(lines) + "\n"
+
+
+def views(book_dir: Path, d: dict) -> dict:
+    out = {INTENT_VIEW: intent_view(book_dir, d), FOCUS_VIEW: focus_view(book_dir, d)}
+    out.update({rel: ledger_view(book_dir, d, kind) for rel, kind in LEDGER_VIEWS.items()})
+    return out
+
+
+def render(book_dir: Path) -> list:
+    d = read_json(book_dir / "book.json", {})
+    changed = []
+    for rel, text in views(book_dir, d).items():
+        p = book_dir / rel
+        if not p.exists() or p.read_text("utf-8") != text:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(text, "utf-8")
+            changed.append(rel)
+    return changed
+
+
+def cmd_render(a):
+    book_dir = Path(a.book_dir)
+    load(book_dir)
+    changed = render(book_dir)
+    print("OK 视图已是最新" if not changed else "OK 重新生成：" + "、".join(changed))
+
+
+def events_sha(events) -> str:
+    return hashlib.sha256(json.dumps(events, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()[:16]
+
+
+def history_problem(book_dir: Path, d: dict):
+    mark = (d.get("history") or {}).get("events")
+    if not mark:
+        return None
+    ev = read_json(book_dir / EVENTS, {"events": []}).get("events", [])
+    if len(ev) < mark["count"] or events_sha(ev[:mark["count"]]) != mark["sha"]:
+        return f"状态事件被改写或删除过（历史只允许追加）：登记时有 {mark['count']} 条，现在前 {mark['count']} 条对不上"
+    return None
+
+
+def cmd_event(a):
+    """状态事件（世界账的历史）只经这里追加，不手改 JSON（七律三、六）。"""
+    book_dir = Path(a.book_dir)
+    d = load(book_dir)
+    data = read_json(book_dir / EVENTS, {"events": []})
+    ev = data.setdefault("events", [])
+    if a.action == "list":
+        for e in ev:
+            if a.entity and e.get("entity") != a.entity:
+                continue
+            print(f"第{e.get('chapter')}章 {e.get('entity')}·{e.get('attribute')}：{e.get('old')} → {e.get('new')}  {e.get('reason', '')}")
+        return
+    bad = history_problem(book_dir, d)
+    if bad:
+        die(bad + "；先用 check 查清楚，再决定怎么修")
+    ev.append({"entity": a.entity, "chapter": a.ch, "attribute": a.attr, "old": a.old or "", "new": a.new or "",
+               "reason": a.reason or "", "evidence": a.evidence or ""})
+    write_json(book_dir / EVENTS, data)
+    d.setdefault("history", {})["events"] = {"count": len(ev), "sha": events_sha(ev)}
+    save(book_dir, d)
+    print(f"OK 第{a.ch}章 {a.entity}·{a.attr}：{a.old or '—'} → {a.new or '—'}")
+
+
+DATA_IN_PROSE = re.compile(r"\d+(?:\.\d+)?\s*(?:里|公里|千米|日|天|时辰|两|文|贯|钱|斤|丈|尺|米|元|块)")
+
+
+def cmd_check(a):
+    """七律自查：视图与源头逐字一致、历史只追加、没有旧布局残留、数据不散在设定正文里。"""
+    book_dir = Path(a.book_dir)
+    d = load(book_dir)
+    problems, warns = [], []
+    for rel, text in views(book_dir, d).items():
+        p = book_dir / rel
+        if not p.exists():
+            problems.append(f"缺视图：{rel}（render 生成）")
+        elif p.read_text("utf-8") != text:
+            problems.append(f"视图与源头不一致：{rel}（被手改了，或源头改了还没 render；手改的内容先改到源头，再 render）")
+    bad = history_problem(book_dir, d)
+    if bad:
+        problems.append(bad)
+    for old, new in OLD_BOOK_PATHS:
+        if (book_dir / old).exists() and old not in (INTENT_VIEW, FOCUS_VIEW):
+            problems.append(f"旧布局残留：{old}（应在 {new}；运行 migrate）")
+    for old, new in OLD_ROOT_PATHS:
+        if (book_dir.parent / old).exists():
+            problems.append(f"书库根目录有旧布局残留：{old}（应在 {new}；运行 migrate）")
+    bible = book_dir / "01-设定" / "世界观圣经.md"
+    if bible.exists():
+        hits = DATA_IN_PROSE.findall(bible.read_text("utf-8"))
+        if hits:
+            warns.append(f"世界观圣经里有具体数据（{'、'.join(dict.fromkeys(hits[:5]))}）：数据只放知识台账（fact set），圣经里写台账的键")
+    for line in problems:
+        print(f"CHECK FAIL  {line}")
+    for line in warns:
+        print(f"CHECK WARN  {line}")
+    if not problems and not warns:
+        print("CHECK OK  视图都是最新的，历史没被改写，没有旧布局残留")
+    sys.exit(1 if problems else 0)
+
+
+def migrate_layout(book_dir: Path, d: dict) -> list:
+    """schema 2 → 3：机器工作件进 .ncc/，读者反馈进 05-审稿/，作者资产进书库根目录 _作者/，派生数据移出 book.json。"""
+    import shutil
+    moved = []
+    for base, pairs in ((book_dir, OLD_BOOK_PATHS), (book_dir.parent, OLD_ROOT_PATHS)):
+        for old, new in pairs:
+            src, dst = base / old, base / new
+            if not src.exists():
+                continue
+            if src.is_dir() and dst.is_dir():          # 目标目录已建好（init 会建）：逐个搬进去，不覆盖
+                for child in sorted(src.iterdir()):
+                    if not (dst / child.name).exists():
+                        shutil.move(str(child), str(dst / child.name))
+                if not any(src.iterdir()):
+                    src.rmdir()
+                moved.append(f"{old} → {new}")
+            elif not dst.exists():
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(src), str(dst))
+                moved.append(f"{old} → {new}")
+    d.pop("promises", None)
+    d.setdefault("contract", {}).setdefault("audience", "")
+    for c in d.get("chapters", []):
+        pack = str(c.get("pack") or "")
+        if pack.startswith("04-正文/_packs/") and pack.endswith(".md"):
+            c["pack"] = pack.replace("04-正文/_packs/", f"{PACK_DIR}/")
+        elif pack.endswith(".json"):
+            c["pack"] = None
+    return moved
+
+
+RENDER_SKIP = {"render", "check", "sha", "dashboard", "export", "words"}
+
+
+def auto_render(a):
+    """写操作之后重新生成视图，保证副本永远来自源头（七律二）。"""
+    if a.cmd in RENDER_SKIP or (a.cmd, getattr(a, "action", None)) in READ_ONLY or (a.cmd, None) in READ_ONLY:
+        return
+    if a.cmd == "gate" and getattr(a, "action", "") == "check":
+        return
+    if getattr(a, "book_dir", None):
+        targets = [Path(a.book_dir)]
+    elif a.cmd == "pref":
+        p = Path(a.path)
+        targets = [p] if (p / "book.json").exists() else [x.parent for x in p.glob("*/book.json")]
+    else:
+        return
+    for b in targets:
+        if (b / "book.json").exists() and read_json(b / "book.json", {}).get("schema_version", 1) >= SCHEMA:
+            render(b)
+
+
 # ---------- 书与闸门 ----------
 
 def new_book(title, genre, chapters, level, mode):
@@ -1759,7 +2055,7 @@ def new_book(title, genre, chapters, level, mode):
         "experience_level": level,
         "soul": {"question": "", "answer": "", "injustice": "", "ending": "",
                  "status": "未填", "deadline": "", "arc": ""},
-        "contract": {"main": "", "extras": [], "poison": [], "signing": {}},
+        "contract": {"main": "", "extras": [], "poison": [], "signing": {}, "audience": ""},
         "gates": {k: {"status": "waiting"} for k in
                   ("soul", "settings_frozen", "outline_frozen", "opening_accepted")},
         "chapters": [],
@@ -1767,7 +2063,6 @@ def new_book(title, genre, chapters, level, mode):
         "volumes": [{"n": 1, "start": 1, "end": None, "status": "open"}],
         "published_upto": 0,
         "team": {},
-        "promises": {},
         "host_spawn": False,
         "updated_at": now(),
     }
@@ -1788,11 +2083,7 @@ def init_ledgers(book_dir: Path):
             write_json(p, empty)
     (book_dir / SCENE_DIR).mkdir(parents=True, exist_ok=True)
     (book_dir / REVIEW_DIR).mkdir(parents=True, exist_ok=True)
-    copy_template("author-intent.md", book_dir / "author-intent.md")
     copy_template("author-seeds.md", book_dir / SEEDS)
-    cf = book_dir / "current-focus.md"
-    if not cf.exists():
-        cf.write_text("# 当前焦点（近 1–3 章）\n\n", "utf-8")
 
 
 def cmd_init(a):
@@ -1808,7 +2099,6 @@ def cmd_init(a):
     genre = [g.strip() for g in (a.genre or "").split(",") if g.strip()]
     save(book_dir, new_book(a.title, genre, a.chapters, a.level, a.mode))
     init_ledgers(book_dir)
-    refresh_summary(book_dir)
     pref_note_book(book_dir, a.title, genre)
     print(f"OK init {book_dir} stage=founding level={a.level} mode={a.mode}")
 
@@ -1819,8 +2109,18 @@ def cmd_migrate(a):
     if not p.exists():
         die(f"book.json 不存在: {p}")
     d = read_json(p, {})
-    if d.get("schema_version", 1) >= SCHEMA:
+    ver = d.get("schema_version", 1)
+    if ver >= SCHEMA:
         print(f"已是 schema {SCHEMA}，无需迁移")
+        return
+    if ver >= 2:
+        moved = migrate_layout(book_dir, d)
+        d["schema_version"] = SCHEMA
+        ensure_m3_fields(d)
+        save(book_dir, d)
+        init_ledgers(book_dir)
+        print(f"OK migrate schema {ver} → {SCHEMA}；按七律归位 {len(moved)} 处" + ("：" + "；".join(moved) if moved else "")
+              + "。旧的 author-intent.md、current-focus.md 若是手写的，已移到 .ncc/迁移备份/，现在由 render 生成")
         return
     stage_map = {"ideation": "founding", "golden": "opening"}
     d["stage"] = stage_map.get(d.get("stage"), d.get("stage"))
@@ -1836,6 +2136,7 @@ def cmd_migrate(a):
     d.setdefault("mode", "建筑师")           # v0.1 的流程就是建筑师模式
     d.setdefault("soul", fresh["soul"])
     d.setdefault("contract", fresh["contract"])
+    moved = migrate_layout(book_dir, d)
     d["schema_version"] = SCHEMA
     ensure_m3_fields(d)
     save(book_dir, d)
@@ -1860,9 +2161,8 @@ def cmd_migrate(a):
         write_json(book_dir / PROMISES, {"items": items})
         migrated = len(items)
     init_ledgers(book_dir)
-    refresh_summary(book_dir)
     print(f"OK migrate → schema {SCHEMA}；stage={d['stage']}；mode={d['mode']}；伏笔迁入承诺台账 {migrated} 条"
-          + ("（原伏笔台账.json 保留未删）" if migrated else ""))
+          + ("（原伏笔台账.json 保留未删）" if migrated else "") + (f"；按七律归位 {len(moved)} 处" if moved else ""))
 
 
 def cmd_status(a):
@@ -1982,9 +2282,6 @@ def gate_check(book_dir: Path, name: str, d: dict) -> list:
             problems.append("类型契约缺毒点清单")
         if d.get("experience_level") not in LEVELS:
             problems.append("未设引导档位（新手/熟手/老手）")
-        ai = book_dir / "author-intent.md"
-        if not ai.exists() or "书魂" not in ai.read_text("utf-8"):
-            problems.append("author-intent.md 缺书魂一节")
         n = craft_pending(book_dir, d)
         if n and not (book_dir / CRAFT_EXCERPT).exists():
             problems.append(f"技艺库里有别的书的 {n} 条经验，开书前先读（ncc_state.py craft read，M6-4）")
@@ -2185,8 +2482,11 @@ def cmd_contract(a):
         ct["extras"] = list(dict.fromkeys(ct.get("extras", []) + a.extra))
     if a.poison is not None:
         ct["poison"] = split_names(a.poison)
+    if a.audience is not None:
+        ct["audience"] = a.audience
     save(book_dir, d)
-    print(f"OK 主契约={ct['main'] or '未填'} 附加={len(ct['extras'])} 毒点={len(ct['poison'])}")
+    print(f"OK 主契约={ct['main'] or '未填'} 附加={len(ct['extras'])} 毒点={len(ct['poison'])}"
+          + f" 目标读者={ct.get('audience') or '未填'}")
 
 
 def cmd_sign(a):
@@ -2217,7 +2517,7 @@ def cmd_chapter(a):
             "seq": a.seq, "file": a.file, "status": "pending", "key": key, "word_count": 0,
             "hook": None, "mood": None, "retry": 0, "sha": "", "review": None,
             "scenes": {"count": 0, "review": "pending"}, "selection": None,
-            "pack": f"04-正文/_packs/ch-{a.seq:04d}.json"})
+            "pack": None})
         d["chapters"].sort(key=lambda c: c["seq"])
         msg = f"OK chapter add ch{a.seq} → {a.file}" + ("（关键章）" if key else "")
     else:
@@ -2256,6 +2556,9 @@ def cmd_chapter(a):
                 die(f"第 {a.seq} 章不是关键章；常规章不走比选")
             c["selection"] = {"version": a.version, "note": a.note or "", "by": "author", "at": now()}
             msg = f"OK ch{a.seq} 作者选定版本 {a.version}"
+        elif a.action == "end":
+            c["end"] = {k: v for k, v in (("time", a.time), ("place", a.place), ("next", a.next)) if v}
+            msg = f"OK ch{a.seq} 结束于：" + "，".join(c["end"].values())
         elif a.action == "length":
             p = chapter_file(book_dir, c)
             n = han_words(p.read_text("utf-8"))
@@ -2306,7 +2609,6 @@ def cmd_complete(a):
     c["sha"] = sha16(book_dir / c.get("file", ""))
     c["review"] = {"hard": a.hard, "decidable": a.decidable,
                    "report": a.report or (c.get("review") or {}).get("report", ""), "sha": c["sha"]}
-    d["promises"] = promise_summary(book_dir, d)
     save(book_dir, d)
     print(f"OK complete ch{a.seq} words={a.words} sha={c['sha']}")
 
@@ -2389,7 +2691,6 @@ def cmd_promise(a):
             p["compensation"] = a.compensation
             msg = f"OK {a.id} 第{a.ch}章作废，补偿：{a.compensation}"
     write_json(book_dir / PROMISES, data)
-    refresh_summary(book_dir)
     print(msg)
 
 
@@ -2502,7 +2803,7 @@ def main():
         p.add_argument(f"--{k}")
     p.set_defaults(fn=cmd_soul)
     p = sub.add_parser("contract"); p.add_argument("book_dir"); p.add_argument("--main")
-    p.add_argument("--extra", action="append"); p.add_argument("--poison"); p.set_defaults(fn=cmd_contract)
+    p.add_argument("--extra", action="append"); p.add_argument("--poison"); p.add_argument("--audience"); p.set_defaults(fn=cmd_contract)
     p = sub.add_parser("sign"); p.add_argument("book_dir"); p.add_argument("point")
     p.add_argument("--ch", type=int, required=True); p.set_defaults(fn=cmd_sign)
 
@@ -2525,6 +2826,8 @@ def main():
     q.add_argument("--colors")
     q = cs.add_parser("pick"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
     q.add_argument("--version", required=True); q.add_argument("--note")
+    q = cs.add_parser("end"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
+    q.add_argument("--time"); q.add_argument("--place"); q.add_argument("--next")
     q = cs.add_parser("length"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
     q.add_argument("--accept", action="store_true"); q.add_argument("--compressed", action="store_true")
     q.add_argument("--force", action="store_true"); q.add_argument("--note"); q.add_argument("--tentative", action="store_true")
@@ -2544,6 +2847,7 @@ def main():
     q = fns.add_parser("begin"); q.add_argument("book_dir")
     p.set_defaults(fn=cmd_finale)
     p = sub.add_parser("report"); p.add_argument("book_dir"); p.add_argument("kind", choices=["unit", "volume", "finale"])
+    p.add_argument("--write", action="store_true")
     p.set_defaults(fn=cmd_report)
     p = sub.add_parser("feedback"); fbs = p.add_subparsers(dest="action", required=True)
     q = fbs.add_parser("add"); q.add_argument("book_dir"); q.add_argument("--ch", type=int, required=True)
@@ -2632,6 +2936,14 @@ def main():
     p.set_defaults(fn=cmd_review)
     p = sub.add_parser("words"); p.add_argument("book_dir"); p.add_argument("seq", type=int); p.add_argument("--file")
     p.set_defaults(fn=cmd_words)
+    p = sub.add_parser("render"); p.add_argument("book_dir"); p.set_defaults(fn=cmd_render)
+    p = sub.add_parser("check"); p.add_argument("book_dir"); p.set_defaults(fn=cmd_check)
+    p = sub.add_parser("event"); evs = p.add_subparsers(dest="action", required=True)
+    q = evs.add_parser("add"); q.add_argument("book_dir"); q.add_argument("--entity", required=True)
+    q.add_argument("--ch", type=int, required=True); q.add_argument("--attr", required=True)
+    q.add_argument("--old"); q.add_argument("--new"); q.add_argument("--reason"); q.add_argument("--evidence")
+    q = evs.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--entity")
+    p.set_defaults(fn=cmd_event)
     p = sub.add_parser("reader-now"); p.add_argument("book_dir"); p.add_argument("seq", type=int)
     p.add_argument("--top", type=int, default=5); p.set_defaults(fn=cmd_reader_now)
     p = sub.add_parser("sha"); p.add_argument("file"); p.set_defaults(fn=cmd_sha)
@@ -2639,17 +2951,18 @@ def main():
     a = ap.parse_args()
     a.fn(a)
     log_op(a)
+    auto_render(a)
 
 
 READ_ONLY = {("status", None), ("next", None), ("report", None), ("sha", None), ("water", None),
              ("reader-now", None), ("scene", "check"), ("scene", "next"), ("knowledge", "plan"), ("knowledge", "check"), ("promise", "list"), ("know", "list"),
              ("fact", "get"), ("fact", "list"), ("feedback", "list"), ("team", "list"), ("unit", "list"),
              ("material", "list"), ("material", "check"), ("heat", None), ("pref", "show"), ("dashboard", None),
-             ("export", None), ("words", None)}
+             ("export", None), ("words", None), ("event", "list")}
 
 
 def log_op(a):
-    """团队交接用：每个成功的写操作追加一行到 06-台账/操作日志.jsonl。"""
+    """团队交接用：每个成功的写操作追加一行到 .ncc/操作日志.jsonl。"""
     key = (a.cmd, getattr(a, "action", None))
     if key in READ_ONLY or (a.cmd, None) in READ_ONLY or a.cmd == "gate" and getattr(a, "action", "") == "check":
         return

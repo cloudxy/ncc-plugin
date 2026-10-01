@@ -11,7 +11,7 @@ S0 立书 ─G0书魂闸─▶ S1 立骨(设定 ─G1─▶ 大纲 ─G2─) ─
 
 | 阶段 | 层 | 主责角色 | 参与角色 | 产物 | 闸门 |
 |---|---|---|---|---|---|
-| S0 立书 | L0 | 经理（按 guidance 引导，先问作者种子） | scout（从种子出整本方向候选）、worldbuilder（有旧文时写文风基准） | 作者种子.md、技艺库摘录.md（写过书的作者）、briefing.md、文风指纹与文风基准（有旧文时）、author-intent.md（书魂、类型契约）、book.json soul/contract | **G0** 书魂闸，作者签字 |
+| S0 立书 | L0 | 经理（按 guidance 引导，先问作者种子） | scout（从种子出整本方向候选）、worldbuilder（有旧文时写文风基准） | 作者种子.md、技艺库摘录.md（写过书的作者）、briefing.md、文风指纹与文风基准（有旧文时）、book.json 的书魂与类型契约（author-intent.md 由脚本生成） | **G0** 书魂闸，作者签字 |
 | S1 立骨·设定 | L1 | worldbuilder | deconstructor（喂料） | 写作模式；世界观圣经（含社会洞察）、力量体系（可用小说底盘做底料）、设定词典、规则表、人物卡与采访、主角弧光；素材卡起头 | **G1** 设定冻结 |
 | S1 立骨·大纲 | L1 | outliner | worldbuilder（答疑） | 总纲、卷纲/、章纲/（深浅随模式）、名场面与母题、承诺台账 | **G2** 大纲冻结 |
 | S2 开篇 | L2 | writer | outliner、story-editor、editor、continuity、pulse、reader | 第 1–3 章（关键章：场景卡作者过目、多版比选）、审稿报告、至少 2 个画像的盲评与记忆测试、弃读热力、文风基准回填与文风指纹、签约点登记 | **G3** 开篇闸 |

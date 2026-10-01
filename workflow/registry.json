@@ -110,15 +110,15 @@
         "01-设定/"
       ],
       "answers": "世界此刻是什么样",
-      "tool": "ncc_state.py fact（知识台账）；状态事件由写手按 book-state.md 格式回写，主角失去的东西记 attribute: 失去"
+      "tool": "ncc_state.py fact（知识台账，数据的唯一源）、event add（状态事件，只追加）；主角失去的东西 --attr 失去"
     },
     "reader_data": {
-      "file": "06-台账/读者数据.json",
+      "file": "05-审稿/读者数据.json",
       "answers": "读者实际怎么反应（真实）与模拟读者怎么判断（模拟）",
       "tool": "ncc_state.py feedback"
     },
     "oplog": {
-      "file": "06-台账/操作日志.jsonl",
+      "file": ".ncc/操作日志.jsonl",
       "answers": "谁在什么时候做了什么写操作（团队交接）",
       "tool": "ncc_state.py 自动追加；操作者取环境变量 NCC_ACTOR"
     }
@@ -234,7 +234,7 @@
       "outputs": [
         "00-策划/作者种子.md",
         "00-策划/briefing.md",
-        "author-intent.md",
+        "book.json 的 soul 与 contract（author-intent.md 由 render 生成）",
         "00-策划/技艺库摘录.md",
         "03-文风/文风指纹.json",
         "03-文风/文风基准.md"
@@ -358,7 +358,7 @@
       "outputs": [
         "00-策划/收束清单.md",
         "00-策划/复盘/全书.md",
-        "{book_root}/_craft-library/<书名>.md"
+        "{book_root}/_作者/技艺库/<书名>.md"
       ],
       "steps": [
         "finale begin",
@@ -376,7 +376,6 @@
         "书魂四问齐全（可暂定，暂定须写最晚决定点）",
         "类型契约含主契约与毒点清单",
         "已设引导档位",
-        "author-intent.md 含书魂一节",
         "技艺库里有别的书的条目时，已读并写出技艺库摘录（M6-4）"
       ],
       "source": "scripts/ncc_state.py gate <书目录> soul"
@@ -506,7 +505,7 @@
     "writer_gets": "知识点清单的\"写成什么\"一栏，不带卡、不带来源"
   },
   "materials": {
-    "dir": "素材/<八域>/M-NNNN-短名.md；跨书共用 {book_root}/_素材/（MS-NNNN）",
+    "dir": "素材/<八域>/M-NNNN-短名.md；跨书共用 {book_root}/_作者/素材/（MS-NNNN）",
     "required": [
       "来源",
       "内容",
@@ -550,14 +549,14 @@
     "method": "skills/ncc-review/references/reader-personas.md"
   },
   "preferences": {
-    "file": "{book_root}/_preferences.json（version 2）",
+    "file": "{book_root}/_作者/偏好.json（version 2）",
     "tool": "ncc_state.py pref show|like|confirm|reject|dislike",
     "decay": "权重按半衰期衰减（默认 180 天，half_life_days）；confirm 重新计时",
     "rejected": "否决降权并记原因，同类问题不首推；后来又选了则撤销否决",
     "dislikes": "雷点：硬约束，不衰减"
   },
   "craft_library": {
-    "dir": "{book_root}/_craft-library/<书名>.md",
+    "dir": "{book_root}/_作者/技艺库/<书名>.md",
     "write": "完本后 craft init 生成模板，条目表：一句话｜证据｜适用条件｜标签（G5 查不为空）",
     "read": "下一本书开书时 craft read：按题材、主契约、弧光、写作模式挑相关条目（适用条件\"通用\"的总挑出），写 00-策划/技艺库摘录.md（G0 查）",
     "priority": "推荐理由：作者种子 > 技艺库 > 题材常规"
@@ -578,5 +577,27 @@
     "under": "needs_decision：不少于下限一半按推荐先收（--tentative），不到一半当场问作者",
     "over": "editor 一次只删不加的压缩（--compressed），仍超按推荐先收",
     "source": "借鉴 oh-story v0.8.4：欠字不补、超字只删一次、分组写作与中途字数检查"
+  },
+  "principles": {
+    "doc": "workflow/principles.md",
+    "laws": [
+      "一事一源",
+      "副本只能生成",
+      "一处一主",
+      "按变化内聚",
+      "只经接口耦合",
+      "现状与历史分开",
+      "按需可见"
+    ],
+    "constraint": "规则有成本：新增规则先说证据与它取代了什么",
+    "information_map": "skills/ncc/references/book-state.md「信息地图」",
+    "views": [
+      "author-intent.md",
+      "current-focus.md",
+      "06-台账/承诺台账.md",
+      "06-台账/知情台账.md",
+      "06-台账/知识台账.md"
+    ],
+    "tools": "ncc_state.py render（生成视图）、check（视图一致、历史只追加、旧布局残留）、event add、chapter end、report --write"
   }
 }
