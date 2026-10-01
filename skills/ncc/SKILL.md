@@ -18,6 +18,7 @@ when_to_use: "User asks to start a book, continue writing, review chapters, deco
 
 ## 铁律（来自 registry，冲突时以 registry 为准）
 
+<!-- ncc:gen iron-rules 开始（scripts/build_docs.py 由 workflow/registry.json 生成，勿手改） -->
 1. 写这章的帽不审这章；审稿帽只产带证据的 observation，不改稿。
 2. book.json 与 06-台账 是状态权威；markdown 投影与正文永不回写状态。
 3. 修订是显式独立动作；正文 SHA 一变，旧评审即作废，必须复评。
@@ -27,6 +28,7 @@ when_to_use: "User asks to start a book, continue writing, review chapters, deco
 7. 审稿三层：硬伤层只判通过／不通过，每条带正文引用；故事层在正文之前审场景卡；品质层只在关键章做成对比较与读者记忆测试，不打绝对分。
 8. 每个要作者决定的地方，都给推荐、理由和备选；作者可以先用推荐、以后再改。
 9. 写作简报与质检清单分离：写手的上下文里不放审稿清单、分数阈值与书魂原文。
+<!-- ncc:gen iron-rules 结束 -->
 
 ## Step 0 — 定位书项目
 
@@ -46,12 +48,12 @@ when_to_use: "User asks to start a book, continue writing, review chapters, deco
 | `deconstruct` | 拆某本书 / 喂设定库 | 走 ncc-deconstruct |
 | `resume` | continue / 接着来 | 读 book.json 与三本账，从断点恢复到最近的未完成动作 |
 | `status` | 写到哪了 / 状态 | 汇报脚本输出：阶段、章数、承诺（开放/逾期/暂定决策）、闸门 |
-| `change` | 改设定 / 改大纲 / 改书魂（已冻结后） | 按 `workflow/architecture.md` §一 写变更提议，路由到对应层的决定人；不悄悄改 |
-| `guide` | 一句模糊的话（"这章卡住了""感觉不对""数据掉了"），或作者不知道该用哪个功能 | 按 guidance.md §六 给推荐的下一步和 1–2 个备选；卡文走 sustain.md §四 |
+| `change` | 改设定 / 改大纲 / 改书魂（已冻结后） | 按 `workflow/architecture.md` 的"五层决策"写变更提议，路由到对应层的决定人；不悄悄改 |
+| `guide` | 一句模糊的话（"这章卡住了""感觉不对""数据掉了"），或作者不知道该用哪个功能 | 按 guidance.md 的"一句话入口"给推荐的下一步和 1–2 个备选；卡文走 sustain.md 的"卡文协议" |
 | `loop` | 单元写完了 / 这卷写完了 / 复盘 | 按 [references/loops.md](references/loops.md) 做单元或卷复盘 |
 | `finale` | 准备收尾 / 完本 | 按 [references/finale.md](references/finale.md) 进入收束 |
 | `material` | 记素材 / "今天看到一件事……" / 想起一段经历 | 整理成来源、内容、可用处三项，`material add` 记卡（跨书通用的加 `--shared`），原话尽量留在内容里；见 `skills/ncc-new/references/material.md` |
-| `feedback` | 贴来追读数据、评论 | 汇总成信号后 `feedback add` 登记（噪音隔离，sustain.md §三），复盘时呈给作者 |
+| `feedback` | 贴来追读数据、评论 | 汇总成信号后 `feedback add` 登记（sustain.md 的"噪音隔离"），复盘时呈给作者 |
 | `team` | 多人协作、分工 | 按 [references/team.md](references/team.md) 认领位置 |
 | `dashboard` | 几本书一起看 / 总览 / 哪本书欠账多 | `ncc_state.py dashboard <书库根目录> [--html 文件]`：各书阶段、进度、存稿、承诺健康度与承诺热力图 |
 | `export` | 导出 / 合稿 / 做个 epub | `ncc_state.py export <书目录> --format md\|txt\|epub [--from N --to M]`：只收已定稿的章，产物在 `07-导出/` |
@@ -80,7 +82,7 @@ authority: 只产出草稿，不审稿，不改 book.json
 规则：
 - 包里给绝对路径，不硬编码 home；先解析符号链接。
 - 写手包由脚本组装：`ncc_state.py pack <书目录> <章号> [--note …]`（[references/context-pack.md](references/context-pack.md)，D18），派单包只给它的路径；没包先生成。
-- **写手包里不放**审稿清单、分数阈值、书魂原文、author-intent.md、mind-frame.md（写作简报与质检清单分离）。
+- 写手包里不放什么，见 `skills/ncc-write/references/writing-brief.md` 的"不进写手上下文的东西"（铁律 9）。
 - "最容易想到的写法"由 outliner 写进场景卡的"默认写法"一栏；你可以用 `--note` 追加特别提醒，只写意图与材料。
 - 审稿派谁由 `ncc_state.py review plan` 决定（常规章只派 continuity，D17）；复审用 `review delta` 只看改动。
 - continuity / reader 是 fresh 上下文：包里**不给**大纲、设定圣经、写手记忆，只给正文与必要台账产物。

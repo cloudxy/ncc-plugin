@@ -82,45 +82,33 @@
   },
   "ledgers": {
     "promises": {
-      "file": "06-台账/承诺台账.json",
       "answers": "我们欠读者什么",
-      "types": [
-        "伏笔",
-        "悬念",
-        "爽点欠账",
-        "人物弧",
-        "感情线",
-        "卷目标",
-        "名场面",
-        "母题",
-        "期权",
-        "暂定决策"
-      ],
-      "tool": "ncc_state.py promise"
+      "tool": "ncc_state.py promise",
+      "layout": "promises"
     },
     "knowledge_states": {
-      "file": "06-台账/知情台账.json",
       "answers": "谁知道什么",
-      "tool": "ncc_state.py know"
+      "tool": "ncc_state.py know",
+      "layout": "knowledge"
     },
     "world": {
-      "files": [
-        "06-台账/状态事件.json",
-        "06-台账/知识台账.json",
-        "01-设定/"
-      ],
       "answers": "世界此刻是什么样",
-      "tool": "ncc_state.py fact（知识台账，数据的唯一源）、event add（状态事件，只追加）；主角失去的东西 --attr 失去"
+      "tool": "ncc_state.py fact（知识台账，数据的唯一源）、event add（状态事件，只追加）；主角失去的东西 --attr 失去",
+      "layout": [
+        "events",
+        "facts",
+        "bible"
+      ]
     },
     "reader_data": {
-      "file": "05-审稿/读者数据.json",
       "answers": "读者实际怎么反应（真实）与模拟读者怎么判断（模拟）",
-      "tool": "ncc_state.py feedback"
+      "tool": "ncc_state.py feedback",
+      "layout": "reader_data"
     },
     "oplog": {
-      "file": ".ncc/操作日志.jsonl",
       "answers": "谁在什么时候做了什么写操作（团队交接）",
-      "tool": "ncc_state.py 自动追加；操作者取环境变量 NCC_ACTOR"
+      "tool": "ncc_state.py 自动追加；操作者取环境变量 NCC_ACTOR",
+      "layout": "oplog"
     }
   },
   "roles": {
@@ -130,7 +118,9 @@
       "description": "Use this agent when picking a genre, scanning bestseller boards, or generating 2–3 whole-book direction candidates grown from the author's seeds before a book starts. Produces briefing, benchmark list and direction options, each citing which author seed it grows from, with a recommendation and at least one unconventional option; never writes settings. At volume review, attributes changes in real reader data to chapters and writing patterns. Do NOT use while /ncc runs in the parent window.",
       "color": "cyan",
       "fresh": false,
-      "function": "策划"
+      "function": "策划",
+      "duty": "扫榜、对标、briefing、从作者种子出 2–3 套整本方向候选",
+      "never": "写设定"
     },
     "worldbuilder": {
       "skill": "ncc-new",
@@ -138,7 +128,9 @@
       "description": "Use this agent for the world bible, power system, setting lexicon, per-book rule/dimension tables, the fact ledger's initial values, and the character engine: full character cards (desire, need, fear, wound, the lie, inner contradiction, secret, voice, relationships) with in-character interviews. Writes the social-insight list (rules that seem unreasonable yet persist, tied to the book soul's injustice), may use the author's setting base (小说底盘) as raw material, and turns author seeds #3/#6 into material cards. Also drafts the style anchor (task: style) from the author's old writing or chapter 1: voice in a sentence, 2–3 calibration passages, a negative list — no numbers. Owns G1 freeze evidence; never outlines plots. Do NOT use while /ncc runs in the parent window.",
       "color": "purple",
       "fresh": false,
-      "function": "创作"
+      "function": "创作",
+      "duty": "世界观圣经、力量体系、设定词典、人物引擎与角色采访、知识台账初值；文风基准（task: style）",
+      "never": "编情节"
     },
     "outliner": {
       "skill": "ncc-new",
@@ -146,7 +138,9 @@
       "description": "Use this agent for the outline scaled to the writing mode (master → volume → chapter), signature scenes and core motifs, the emotion curve, registering promises, and drafting scene cards in small batches (task: scene; 3 chapters in hybrid mode), including the default move the writer should avoid a knowledge line when a scene needs specialist knowledge, and a material line when one of the author's material cards fits the scene. Owns G2 freeze evidence. Do NOT use while /ncc runs in the parent window.",
       "color": "blue",
       "fresh": false,
-      "function": "创作"
+      "function": "创作",
+      "duty": "大纲（深浅随模式）、名场面与母题、承诺登记；连载期即写即做场景卡（按需挂知识与素材）",
+      "never": "写正文"
     },
     "story-editor": {
       "skill": "ncc-write",
@@ -154,7 +148,9 @@
       "description": "Use this agent as the developmental (structural) editor: story review of a batch of scene cards before any prose is written (task: story-review), also reading across the batch for escalation and repetition, and structural questions at unit and volume review (task: unit-questions) — turns, real dilemmas, target emotion, escalation, character desire and need, human agency within structural constraints, what the protagonist lost. Asks questions and recommends directions; never scores and never writes prose. Do NOT use while /ncc runs in the parent window.",
       "color": "teal",
       "fresh": false,
-      "function": "质量"
+      "function": "质量",
+      "duty": "发展编辑：场景卡故事审；单元与卷层面提结构问题、给方向",
+      "never": "打分、写正文"
     },
     "scholar": {
       "skill": "ncc-write",
@@ -162,7 +158,9 @@
       "description": "Use this agent as the knowledge adviser (D1): when a batch of scene cards lists knowledge points, write each chapter's knowledge list — concrete facts and how to put them on the page, each with a source or marked unverified — from the domain cards, the fact ledger and reliable references; also check how fictional settings operate against real-world rules. Never invents facts; never writes prose. Called on demand, not in every loop. Do NOT use while /ncc runs in the parent window.",
       "color": "brown",
       "fresh": false,
-      "function": "创作"
+      "function": "创作",
+      "duty": "按需：本章知识点清单（有来源或标待核）、设定运转规律核对",
+      "never": "编造事实、写正文"
     },
     "writer": {
       "skill": "ncc-write",
@@ -170,7 +168,9 @@
       "description": "Use this agent to draft chapters from the writing brief and context pack (reader-now, character voices, materials, previous chapter's ending): opening and serialized chapters. Never sees review checklists or the book-soul text; dramatizes the scene's dilemma instead of explaining it, avoids the listed default moves, writes 2–3 versions of key beats when asked, writes in two halves with one word-count check and never pads to reach length, lands emotion on choices and consequences rather than stock body tics, then writes back the three ledgers. Never reviews its own text. Do NOT use while /ncc runs in the parent window.",
       "color": "green",
       "fresh": false,
-      "function": "创作"
+      "function": "创作",
+      "duty": "按写作简报写章；关键节拍写多版；回写三本账",
+      "never": "审自己的稿、读审稿清单"
     },
     "editor": {
       "skill": "ncc-review",
@@ -178,7 +178,9 @@
       "description": "Use this agent to execute explicit revisions from review observations: line-level fixes, de-AI-flavor passes, style anchor alignment, and the one delete-only compression of an over-length chapter. Revision is a separate act from review; must trigger re-review when body text changes. Do NOT use while /ncc runs in the parent window.",
       "color": "yellow",
       "fresh": false,
-      "function": "质量"
+      "function": "质量",
+      "duty": "执行修订、去AI味、对齐文风锚点",
+      "never": "产审稿结论"
     },
     "continuity": {
       "skill": "ncc-review",
@@ -186,7 +188,9 @@
       "description": "Use this agent for the hard-defect layer of review: setting conflicts, timeline, promise-ledger obligations, whether the scene card's turn and dilemma actually happen on the page, knowledge-state leaks (POV discipline), state-event replay, fact-ledger consistency, and the knowledge layer (did the prose follow the chapter's knowledge list, unsourced specifics, anachronisms, honorific misuse). On regular chapters it is the only hard-defect reviewer and also checks the poison list; re-reviews only the changed paragraphs from review delta. Pass/fail with evidence-cited observations only — never edits manuscripts, never scores quality. Fresh context, no producer memory. Do NOT use while /ncc runs in the parent window.",
       "color": "red",
       "fresh": true,
-      "function": "质量"
+      "function": "质量",
+      "duty": "硬伤层主审（常规章唯一审稿人，含毒点）：设定冲突/时间线/承诺义务/场景卡是否落地/知情越权/知识台账，只产 observation；复审只看改动",
+      "never": "改稿、评好坏"
     },
     "pulse": {
       "skill": "ncc-review",
@@ -194,7 +198,9 @@
       "description": "Use this agent only on chapters that pay off a satisfaction debt or signature scene, key chapters, and the opening (review plan decides): genre-contract checks (poison list, signing points, missing debt/earn/exceed/witness in payoffs) and, on key chapters, pairwise comparison of versions (which is better and why, order-swapped to check bias). Never gives absolute quality scores. Do NOT use while /ncc runs in the parent window.",
       "color": "orange",
       "fresh": true,
-      "function": "质量"
+      "function": "质量",
+      "duty": "只在兑现章、关键章、开篇：契约与欠·挣·超·证；关键章的版本成对比较",
+      "never": "改稿、打绝对分"
     },
     "reader": {
       "skill": "ncc-review",
@@ -202,7 +208,9 @@
       "description": "Use this agent as a simulated fresh reader for the opening chapters and key chapters, reading as one persona per dispatch (target reader, veteran, newcomer, or an insider of the book's trade): would they keep reading, where do they skim, where do they drop, a memory test — what they remember and the one line they would screenshot — and, in their own words, what they are waiting for and who knows what (checked against reader-now); insiders also flag lines that break immersion. Reads its calibration notes from past real-reader data when provided. Blind — no outlines, no settings, no producer context. Do NOT use while /ncc runs in the parent window.",
       "color": "magenta",
       "fresh": true,
-      "function": "质量"
+      "function": "质量",
+      "duty": "按画像盲评（不给大纲设定）：追读意愿、弃读与略读点、记忆测试、在等什么；懂行读者报出戏点",
+      "never": "看任何生产材料"
     },
     "deconstructor": {
       "skill": "ncc-deconstruct",
@@ -210,7 +218,9 @@
       "description": "Use this agent to deconstruct benchmark novels per the 5.0 framework: chapter index as the single slicing source, evidence-and-confidence-tagged extraction, event-sourced state ledger. Feeds the setting vault and lexicon, plus texture-detail and social-mechanism samples and the benchmark's inferred book soul and genre contract. Do NOT use while /ncc runs in the parent window.",
       "color": "gray",
       "fresh": false,
-      "function": "策划"
+      "function": "策划",
+      "duty": "按总纲5.0拆对标书，喂设定库；质感细节与机制样本、对标书的书魂与契约",
+      "never": "写本书正文"
     }
   },
   "stages": {
@@ -230,15 +240,7 @@
         "类型契约与毒点"
       ],
       "book_stage": "founding",
-      "gate": "G0-soul",
-      "outputs": [
-        "00-策划/作者种子.md",
-        "00-策划/briefing.md",
-        "book.json 的 soul 与 contract（author-intent.md 由 render 生成）",
-        "00-策划/技艺库摘录.md",
-        "03-文风/文风指纹.json",
-        "03-文风/文风基准.md"
-      ]
+      "gate": "G0-soul"
     },
     "S1-skeleton": {
       "name": "立骨",
@@ -260,17 +262,6 @@
       "gate": [
         "G1-settings-frozen",
         "G2-outline-frozen"
-      ],
-      "outputs": [
-        "01-设定/世界观圣经.md",
-        "01-设定/力量体系.md",
-        "01-设定/设定词典.md",
-        "01-设定/人物卡/",
-        "02-大纲/总纲.md",
-        "02-大纲/卷纲/",
-        "02-大纲/章纲/",
-        "06-台账/承诺台账.json",
-        "素材/"
       ]
     },
     "S2-opening": {
@@ -287,13 +278,7 @@
         "reader"
       ],
       "book_stage": "opening",
-      "gate": "G3-opening-accepted",
-      "outputs": [
-        "04-正文/第0001-0003章",
-        "05-审稿/（盲评至少 2 个画像）",
-        "03-文风/文风基准.md",
-        "03-文风/文风指纹.json"
-      ]
+      "gate": "G3-opening-accepted"
     },
     "S3-serial": {
       "name": "连载",
@@ -310,13 +295,6 @@
       ],
       "book_stage": "serial",
       "gate": "G-chapter",
-      "outputs": [
-        "02-大纲/场景卡/",
-        "02-大纲/知识点/",
-        "04-正文/",
-        "05-审稿/",
-        "06-台账/"
-      ],
       "steps": [
         "unit open",
         "章循环",
@@ -335,9 +313,6 @@
       ],
       "book_stage": "volume",
       "gate": "G4-volume",
-      "outputs": [
-        "00-策划/复盘/卷N.md"
-      ],
       "steps": [
         "volume end",
         "report volume：承诺盘点、书魂检验、数据归因、变更提议",
@@ -355,11 +330,6 @@
       ],
       "book_stage": "finale",
       "gate": "G5-finale",
-      "outputs": [
-        "00-策划/收束清单.md",
-        "00-策划/复盘/全书.md",
-        "{book_root}/_作者/技艺库/<书名>.md"
-      ],
       "steps": [
         "finale begin",
         "report finale：承诺清算、暗线收拢、书魂回答",
@@ -469,15 +439,11 @@
     "写作简报与质检清单分离：写手的上下文里不放审稿清单、分数阈值与书魂原文。"
   ],
   "scene_cards": {
-    "dir": "02-大纲/场景卡/",
     "per_chapter": "1–3",
     "tool": "ncc_state.py scene next|check|review（可一次审一批）",
     "rule": "场景卡过故事审之后才能标 drafting 与 complete；审后改动须重审；关键章须作者过目",
-    "per_batch": {
-      "混合": 3,
-      "建筑师": 5,
-      "园丁": "1–2"
-    }
+    "layout": "scene_dir",
+    "batch": "见 vocab.scene_batch"
   },
   "writing_modes": {
     "建筑师": "大纲冻结后动笔",
@@ -487,9 +453,9 @@
   "principle": "下限靠系统，上限靠作者与选择。",
   "loops": {
     "章": "ncc-write",
-    "单元": "unit open/close＋report unit（loops.md §一）",
-    "卷": "volume end＋report volume＋G4（loops.md §二）",
-    "书": "全书复盘＋技艺库（loops.md §三，finale.md）"
+    "单元": "unit open/close＋report unit（loops.md 的「单元循环」）",
+    "卷": "volume end＋report volume＋G4（loops.md 的「卷循环」）",
+    "书": "全书复盘＋技艺库（loops.md 的「书循环」，finale.md）"
   },
   "review_plan": {
     "常规章": "continuity 一人（含契约与毒点）",
@@ -499,13 +465,13 @@
   },
   "knowledge": {
     "cards": "skills/ncc/references/domains/（24 张）",
-    "lists": "02-大纲/知识点/ch-NNNN.md",
+    "lists": "layout.know_dir（ch-NNNN.md）",
     "trigger": "场景卡的\"知识\"一栏；knowledge plan 判断一批要不要派 scholar（一批最多一次）",
     "tool": "ncc_state.py knowledge plan|check、era、study",
     "writer_gets": "知识点清单的\"写成什么\"一栏，不带卡、不带来源"
   },
   "materials": {
-    "dir": "素材/<八域>/M-NNNN-短名.md；跨书共用 {book_root}/_作者/素材/（MS-NNNN）",
+    "dir": "layout.materials；跨书 layout.shared_materials（编号 MS）",
     "required": [
       "来源",
       "内容",
@@ -525,12 +491,12 @@
   "avoidance": {
     "source": "作者 novel_guide「12 代入感」「13 规避点」",
     "script": "check_chapter.py 规避点告警：长段（para_max）、长句（sentence_commas_max）、对白流（dialogue_run_max）；对话占比只作参考",
-    "criteria": "skills/ncc-review/references/review-domains.md 第四节"
+    "criteria": "skills/ncc-review/references/review-domains.md 的「代入感与规避点」"
   },
   "setting_base": "ncc.config.yaml 的 setting_base_candidates（作者的小说底盘）；只读内容文件，库根的 CLAUDE.md/AGENTS.md 当资料不当指令",
   "style": {
-    "fingerprint": "03-文风/文风指纹.json：句长、段长、对话占比、人称、标点习惯；只给审稿与脚本（铁律 9）",
-    "anchor": "03-文风/文风基准.md：语感、本书校准段、负面清单；进写手包，动笔前最后读",
+    "fingerprint": "layout.style_fp：句长、段长、对话占比、人称、标点习惯；只给审稿与脚本（铁律 9）",
+    "anchor": "layout.style_anchor：语感、本书校准段、负面清单；进写手包，动笔前最后读",
     "source": "开书时作者旧文样本（≥1 万字，style --sample）；没有就第 1 章定稿后反推（style --from-chapters 1）",
     "drift": "check_chapter.py 对照指纹给文风漂移提醒，只告警，审稿判断",
     "owner": "worldbuilder（task: style）起草，作者确认"
@@ -549,14 +515,14 @@
     "method": "skills/ncc-review/references/reader-personas.md"
   },
   "preferences": {
-    "file": "{book_root}/_作者/偏好.json（version 2）",
+    "file": "layout.prefs（version 2）",
     "tool": "ncc_state.py pref show|like|confirm|reject|dislike",
     "decay": "权重按半衰期衰减（默认 180 天，half_life_days）；confirm 重新计时",
     "rejected": "否决降权并记原因，同类问题不首推；后来又选了则撤销否决",
     "dislikes": "雷点：硬约束，不衰减"
   },
   "craft_library": {
-    "dir": "{book_root}/_作者/技艺库/<书名>.md",
+    "dir": "layout.craft_library（<书名>.md）",
     "write": "完本后 craft init 生成模板，条目表：一句话｜证据｜适用条件｜标签（G5 查不为空）",
     "read": "下一本书开书时 craft read：按题材、主契约、弧光、写作模式挑相关条目（适用条件\"通用\"的总挑出），写 00-策划/技艺库摘录.md（G0 查）",
     "priority": "推荐理由：作者种子 > 技艺库 > 题材常规"
@@ -590,14 +556,937 @@
       "按需可见"
     ],
     "constraint": "规则有成本：新增规则先说证据与它取代了什么",
-    "information_map": "skills/ncc/references/book-state.md「信息地图」",
-    "views": [
-      "author-intent.md",
-      "current-focus.md",
-      "06-台账/承诺台账.md",
-      "06-台账/知情台账.md",
-      "06-台账/知识台账.md"
-    ],
+    "information_map": "由 layout 生成：skills/ncc/references/book-state.md「信息地图」",
     "tools": "ncc_state.py render（生成视图）、check（视图一致、历史只追加、旧布局残留）、event add、chapter end、report --write"
+  },
+  "stage_table": [
+    {
+      "stage": "S0 立书",
+      "layer": "L0",
+      "lead": "经理（按 guidance 引导，先问作者种子）",
+      "support": "scout（从种子出整本方向候选）、worldbuilder（有旧文时写文风基准）",
+      "products": "作者种子.md、技艺库摘录.md（写过书的作者）、briefing.md、文风指纹与文风基准（有旧文时）、book.json 的书魂与类型契约（author-intent.md 由脚本生成）",
+      "gate": "**G0** 书魂闸，作者签字"
+    },
+    {
+      "stage": "S1 立骨·设定",
+      "layer": "L1",
+      "lead": "worldbuilder",
+      "support": "deconstructor（喂料）",
+      "products": "写作模式；世界观圣经（含社会洞察）、力量体系（可用小说底盘做底料）、设定词典、规则表、人物卡与采访、主角弧光；素材卡起头",
+      "gate": "**G1** 设定冻结"
+    },
+    {
+      "stage": "S1 立骨·大纲",
+      "layer": "L1",
+      "lead": "outliner",
+      "support": "worldbuilder（答疑）",
+      "products": "总纲、卷纲/、章纲/（深浅随模式）、名场面与母题、承诺台账",
+      "gate": "**G2** 大纲冻结"
+    },
+    {
+      "stage": "S2 开篇",
+      "layer": "L2",
+      "lead": "writer",
+      "support": "outliner、story-editor、editor、continuity、pulse、reader",
+      "products": "第 1–3 章（关键章：场景卡作者过目、多版比选）、审稿报告、至少 2 个画像的盲评与记忆测试、弃读热力、文风基准回填与文风指纹、签约点登记",
+      "gate": "**G3** 开篇闸"
+    },
+    {
+      "stage": "S3 连载",
+      "layer": "L2–L4",
+      "lead": "writer",
+      "support": "outliner（场景卡）、story-editor（故事审）、editor、continuity、pulse、reader（关键章）",
+      "products": "场景卡＋逐章正文＋三本账回写",
+      "gate": "**G-chapter** 章定稿闸"
+    },
+    {
+      "stage": "S4 卷复盘",
+      "layer": "L1–L2",
+      "lead": "story-editor、pulse、outliner",
+      "support": "scout（数据归因）",
+      "products": "复盘/卷N.md（承诺盘点、书魂检验、数据归因、变更提议）",
+      "gate": "**G4** 卷间闸"
+    },
+    {
+      "stage": "S5 收束",
+      "layer": "L0–L2",
+      "lead": "outliner、continuity",
+      "support": "story-editor、writer",
+      "products": "收束清单（承诺清算、暗线收拢、书魂回答）、全书复盘、技艺库条目；完本后导出全书（export）",
+      "gate": "**G5** 完本闸"
+    }
+  ],
+  "vocab": {
+    "levels": {
+      "label": "引导档位",
+      "used_by": "init --level、level",
+      "values": [
+        "新手",
+        "熟手",
+        "老手"
+      ]
+    },
+    "arcs": {
+      "label": "主角弧光",
+      "used_by": "soul --arc",
+      "values": [
+        "正向",
+        "负向",
+        "平弧"
+      ]
+    },
+    "promise_types": {
+      "label": "承诺类型",
+      "used_by": "promise add --type",
+      "values": [
+        "伏笔",
+        "悬念",
+        "爽点欠账",
+        "人物弧",
+        "感情线",
+        "卷目标",
+        "名场面",
+        "母题",
+        "期权",
+        "暂定决策"
+      ]
+    },
+    "promise_id_prefix": {
+      "label": "承诺编号前缀（* 为其余类型）",
+      "used_by": "promise add 自动编号",
+      "values": {
+        "伏笔": "FS",
+        "暂定决策": "TD",
+        "名场面": "SC",
+        "母题": "MT",
+        "*": "P"
+      }
+    },
+    "non_reader_types": {
+      "label": "不面向读者的承诺类型（不计水章判定、不进\"读者在等什么\"）",
+      "used_by": "water、读者此刻",
+      "values": [
+        "期权",
+        "暂定决策",
+        "母题"
+      ]
+    },
+    "open_states": {
+      "label": "承诺的开放状态",
+      "used_by": "逾期与水章判定",
+      "values": [
+        "开放",
+        "推进中"
+      ]
+    },
+    "chapter_states": {
+      "label": "章节状态（另有 done）",
+      "used_by": "chapter mark",
+      "values": [
+        "pending",
+        "drafting",
+        "drafted",
+        "checking",
+        "reviewing",
+        "revising",
+        "failed"
+      ]
+    },
+    "tension": {
+      "label": "张力",
+      "used_by": "chapter mood",
+      "values": [
+        "压",
+        "放",
+        "平"
+      ]
+    },
+    "legacy_mood": {
+      "label": "旧版张力名的换算",
+      "used_by": "读旧书时自动换算",
+      "values": {
+        "压抑": "压",
+        "释放": "放"
+      }
+    },
+    "colors": {
+      "label": "情绪色",
+      "used_by": "chapter mood --colors",
+      "values": [
+        "爽",
+        "燃",
+        "虐",
+        "甜",
+        "怕",
+        "笑",
+        "悲",
+        "敬",
+        "叹"
+      ]
+    },
+    "signing_points": {
+      "label": "签约点",
+      "used_by": "sign",
+      "values": [
+        "主角与欲望",
+        "世界的不公",
+        "主角的机会",
+        "第一次小兑现",
+        "长线钩子"
+      ]
+    },
+    "scene_required": {
+      "label": "场景卡必填项",
+      "used_by": "scene check",
+      "values": [
+        "视角",
+        "目标",
+        "翻转",
+        "两难",
+        "情感"
+      ]
+    },
+    "scene_key_required": {
+      "label": "关键章场景卡另须填",
+      "used_by": "scene check",
+      "values": [
+        "盲区",
+        "阻碍",
+        "画面",
+        "风险",
+        "默认写法"
+      ]
+    },
+    "scene_batch": {
+      "label": "每批场景卡的章数（按写作模式）",
+      "used_by": "scene next",
+      "values": {
+        "建筑师": 5,
+        "混合": 3,
+        "园丁": 2
+      }
+    },
+    "character_required": {
+      "label": "完整人物卡必含",
+      "used_by": "gate settings",
+      "values": [
+        "欲望",
+        "需要",
+        "恐惧",
+        "声音"
+      ]
+    },
+    "unit_review_required": {
+      "label": "单元复盘区块外必填节",
+      "used_by": "unit close",
+      "values": [
+        "暂定决策",
+        "故事审",
+        "下一单元"
+      ]
+    },
+    "volume_review_required": {
+      "label": "卷复盘区块外必填节",
+      "used_by": "gate volume",
+      "values": [
+        "承诺盘点",
+        "书魂检验",
+        "数据归因",
+        "变更提议"
+      ]
+    },
+    "finale_required": {
+      "label": "收束清单区块外必填节",
+      "used_by": "gate finale",
+      "values": [
+        "承诺清算",
+        "暗线收拢",
+        "书魂回答"
+      ]
+    },
+    "eras": {
+      "label": "时代背景",
+      "used_by": "era；古代与架空古代启用时代错置词提醒",
+      "values": [
+        "古代",
+        "架空古代",
+        "近代",
+        "现代",
+        "架空现代",
+        "未来"
+      ]
+    },
+    "domains": {
+      "label": "二十四门学科（底蕴卡）",
+      "used_by": "knowledge、material --domain、study",
+      "values": [
+        "爽文",
+        "人情冷暖",
+        "社会",
+        "心理",
+        "历史与朝代更替",
+        "政治",
+        "经济",
+        "军事",
+        "天文",
+        "地理",
+        "生物",
+        "自然",
+        "物理",
+        "化学",
+        "数学",
+        "工程",
+        "建造",
+        "工艺",
+        "语言",
+        "文学",
+        "艺术",
+        "视频",
+        "想象力",
+        "宗教神话民俗"
+      ]
+    },
+    "domain_alias": {
+      "label": "学科别名",
+      "used_by": "--domain 自动归一",
+      "values": {
+        "人情": "人情冷暖",
+        "历史": "历史与朝代更替",
+        "朝代": "历史与朝代更替",
+        "宗教": "宗教神话民俗",
+        "神话": "宗教神话民俗",
+        "民俗": "宗教神话民俗",
+        "影视": "视频",
+        "建筑": "建造",
+        "医学": "生物",
+        "医药": "生物",
+        "气象": "自然",
+        "历法": "天文",
+        "称谓": "语言",
+        "礼仪": "语言",
+        "诗词": "文学",
+        "音乐": "艺术",
+        "书画": "艺术"
+      }
+    },
+    "regions": {
+      "label": "八域（学科分组；素材卡按此分目录）",
+      "used_by": "material add",
+      "values": {
+        "甲-爽感": [
+          "爽文"
+        ],
+        "乙-人间": [
+          "人情冷暖",
+          "社会",
+          "心理"
+        ],
+        "丙-天下": [
+          "历史与朝代更替",
+          "政治",
+          "经济",
+          "军事"
+        ],
+        "丁-天地": [
+          "天文",
+          "地理",
+          "生物",
+          "自然"
+        ],
+        "戊-物数": [
+          "物理",
+          "化学",
+          "数学"
+        ],
+        "己-造物": [
+          "工程",
+          "建造",
+          "工艺"
+        ],
+        "庚-表达": [
+          "语言",
+          "文学",
+          "艺术",
+          "视频"
+        ],
+        "辛-想象": [
+          "想象力",
+          "宗教神话民俗"
+        ]
+      }
+    },
+    "material_required": {
+      "label": "素材卡必填项",
+      "used_by": "material check",
+      "values": [
+        "来源",
+        "内容",
+        "可用处"
+      ]
+    },
+    "material_trust": {
+      "label": "素材可信级",
+      "used_by": "material add --trust",
+      "values": [
+        "亲历",
+        "转述",
+        "文献",
+        "传闻",
+        "拆书"
+      ]
+    },
+    "writer_seeds": {
+      "label": "进写手包的作者种子编号",
+      "used_by": "pack",
+      "values": [
+        "1",
+        "3",
+        "6"
+      ]
+    },
+    "team_positions": {
+      "label": "团队岗位",
+      "used_by": "team set",
+      "values": [
+        "主编",
+        "主笔",
+        "设定",
+        "考据",
+        "发展编辑",
+        "审稿",
+        "试读",
+        "拆书"
+      ]
+    },
+    "feedback_sources": {
+      "label": "读者数据来源",
+      "used_by": "feedback add --source",
+      "values": [
+        "真实",
+        "模拟"
+      ]
+    },
+    "feedback_kinds": {
+      "label": "读者数据种类",
+      "used_by": "feedback add --kind",
+      "values": [
+        "追读",
+        "弃读",
+        "略读",
+        "划线",
+        "评论",
+        "出戏"
+      ]
+    }
+  },
+  "layout": {
+    "book_json": {
+      "path": "book.json",
+      "kind": "源头",
+      "what": "阶段、闸门、章节状态、写作模式、档位、时代背景",
+      "writer": "只经 ncc_state.py（gate、chapter、mode、level、era…）",
+      "view": "status",
+      "fields": [
+        {
+          "field": "soul",
+          "what": "书魂四问、主角弧光",
+          "writer": "作者拍板后 soul",
+          "view": "author-intent.md"
+        },
+        {
+          "field": "contract",
+          "what": "类型契约、毒点、目标读者、签约点",
+          "writer": "作者拍板后 contract（含 --audience）、sign",
+          "view": "author-intent.md"
+        },
+        {
+          "field": "chapters[].end",
+          "what": "每章结束时的时间、地点、下一章要接的事",
+          "writer": "chapter end",
+          "view": "current-focus.md（续写状态卡）"
+        }
+      ]
+    },
+    "intent_view": {
+      "path": "author-intent.md",
+      "kind": "视图",
+      "what": "书魂、类型契约、目标读者、签约点、作者雷点",
+      "writer": "render 生成，勿手改"
+    },
+    "focus_view": {
+      "path": "current-focus.md",
+      "kind": "视图",
+      "what": "续写状态卡：上一章结束在何时何地、下一章要接什么、近三章的翻转、读者此刻",
+      "writer": "render 生成，勿手改"
+    },
+    "seeds": {
+      "path": "00-策划/作者种子.md",
+      "kind": "作者",
+      "what": "作者种子（原话）",
+      "writer": "经理按作者原话记",
+      "view": "写手包带 #1、#3、#6"
+    },
+    "briefing": {
+      "path": "00-策划/briefing.md",
+      "kind": "角色",
+      "what": "选题一页纸：题材、对标、差异点、目标读者、爽点承诺",
+      "writer": "scout"
+    },
+    "benchmark": {
+      "path": "00-策划/对标分析.md",
+      "kind": "角色",
+      "what": "对标书分析",
+      "writer": "scout"
+    },
+    "change_log": {
+      "path": "00-策划/变更提议.md",
+      "kind": "历史",
+      "what": "冻结后的变更提议与作者决定（只追加）",
+      "writer": "经理"
+    },
+    "craft_excerpt": {
+      "path": "00-策划/技艺库摘录.md",
+      "kind": "视图",
+      "what": "别的书里与本书相关的经验",
+      "writer": "craft read 生成"
+    },
+    "review_dir": {
+      "path": "00-策划/复盘",
+      "kind": "角色",
+      "what": "单元、卷、全书复盘：生成区块是台账数据，区块外是作者与角色的判断",
+      "writer": "report --write；作者与角色",
+      "dir": true,
+      "eg": "单元-U1.md、卷1.md、全书.md"
+    },
+    "finale_list": {
+      "path": "00-策划/收束清单.md",
+      "kind": "角色",
+      "what": "收束清单：生成区块是数据，区块外是清算方案",
+      "writer": "report finale --write；outliner 与作者"
+    },
+    "bible": {
+      "path": "01-设定/世界观圣经.md",
+      "kind": "角色",
+      "what": "世界的规则与关系、社会洞察（不写具体数据，写知识台账的键）",
+      "writer": "worldbuilder；冻结后走变更提议"
+    },
+    "power": {
+      "path": "01-设定/力量体系.md",
+      "kind": "角色",
+      "what": "境界阶梯、量纲定义、越级例外",
+      "writer": "worldbuilder；冻结后走变更提议"
+    },
+    "lexicon": {
+      "path": "01-设定/设定词典.md",
+      "kind": "角色",
+      "what": "专名：首现章计划、读者已知、完整真相、计划揭示章",
+      "writer": "worldbuilder；写手修正首现章实值"
+    },
+    "rules_table": {
+      "path": "01-设定/规则表.md",
+      "kind": "角色",
+      "what": "克制链、兑换率（只对本书有效）",
+      "writer": "worldbuilder"
+    },
+    "anachronism": {
+      "path": "01-设定/时代错置词.md",
+      "kind": "角色",
+      "what": "本书特有的时代错置词（可选）",
+      "writer": "worldbuilder"
+    },
+    "characters": {
+      "path": "01-设定/人物卡",
+      "kind": "角色",
+      "what": "人物卡与角色采访；秘密是什么写这里，谁知道记知情台账",
+      "writer": "worldbuilder",
+      "dir": true,
+      "eg": "<名字>.md、<名字>-采访.md"
+    },
+    "master_outline": {
+      "path": "02-大纲/总纲.md",
+      "kind": "角色",
+      "what": "主线、分卷目录、结局方向；名场面与母题只引用编号",
+      "writer": "outliner"
+    },
+    "volume_outlines": {
+      "path": "02-大纲/卷纲",
+      "kind": "角色",
+      "what": "卷纲",
+      "writer": "outliner",
+      "dir": true,
+      "eg": "卷1.md"
+    },
+    "chapter_outlines": {
+      "path": "02-大纲/章纲",
+      "kind": "角色",
+      "what": "章纲（建筑师模式）",
+      "writer": "outliner",
+      "dir": true,
+      "eg": "ch-0001.md"
+    },
+    "scene_dir": {
+      "path": "02-大纲/场景卡",
+      "kind": "源头",
+      "what": "每章要发生的事：视角、目标、翻转、两难、情感（关键章十项）",
+      "writer": "outliner 起草，过故事审",
+      "view": "写手包；current-focus.md 的近三章",
+      "dir": true,
+      "eg": "ch-0001.md"
+    },
+    "know_dir": {
+      "path": "02-大纲/知识点",
+      "kind": "角色",
+      "what": "本章知识点清单：知识点、学科、写成什么、来源、状态",
+      "writer": "scholar",
+      "view": "写手包（只带写成什么）",
+      "dir": true,
+      "eg": "ch-0001.md"
+    },
+    "style_anchor": {
+      "path": "03-文风/文风基准.md",
+      "kind": "角色",
+      "what": "语感、本书校准段、负面清单（进写手包）",
+      "writer": "worldbuilder（task: style），作者确认"
+    },
+    "style_fp": {
+      "path": "03-文风/文风指纹.json",
+      "kind": "源头",
+      "what": "文风的数字指纹（只给审稿与脚本）",
+      "writer": "style 生成"
+    },
+    "waivers": {
+      "path": "03-文风/放行清单.md",
+      "kind": "作者",
+      "what": "作者认定有意为之的原句（附章号与理由）",
+      "writer": "作者"
+    },
+    "chapters": {
+      "path": "04-正文",
+      "kind": "角色",
+      "what": "正文",
+      "writer": "writer；修订由 editor",
+      "dir": true,
+      "eg": "第0001章-标题.md"
+    },
+    "versions": {
+      "path": "04-正文/_versions",
+      "kind": "角色",
+      "what": "关键节拍的多版，作者比选",
+      "writer": "writer",
+      "dir": true,
+      "on_demand": true,
+      "eg": "ch-0001-<节拍>-A.md"
+    },
+    "reviews": {
+      "path": "05-审稿",
+      "kind": "角色",
+      "what": "故事审、审稿报告、盲评",
+      "writer": "经理落盘角色的报告",
+      "dir": true,
+      "eg": "story-ch-0001.md、ch-0001-review.md、blind-ch-0001-0003-<画像>.md"
+    },
+    "reader_data": {
+      "path": "05-审稿/读者数据.json",
+      "kind": "源头",
+      "what": "读者反馈（真实与模拟，标画像）",
+      "writer": "feedback add",
+      "view": "heat；复盘底稿"
+    },
+    "promises": {
+      "path": "06-台账/承诺台账.json",
+      "kind": "源头",
+      "what": "承诺：读者在等的事与作者的待定项（类型见词表）",
+      "writer": "promise add/touch/resolve/reschedule/drop",
+      "view": "06-台账/承诺台账.md"
+    },
+    "knowledge": {
+      "path": "06-台账/知情台账.json",
+      "kind": "源头",
+      "what": "谁知道什么（读者与各角色）",
+      "writer": "know add/learn",
+      "view": "06-台账/知情台账.md"
+    },
+    "facts": {
+      "path": "06-台账/知识台账.json",
+      "kind": "源头",
+      "what": "数据：距离、物价、历法、称谓、数值",
+      "writer": "fact set（同键改值要 --override）",
+      "view": "06-台账/知识台账.md"
+    },
+    "events": {
+      "path": "06-台账/状态事件.json",
+      "kind": "历史",
+      "what": "人物与世界的变化（只追加；指纹记在 book.json）",
+      "writer": "event add",
+      "view": "event list；读者此刻"
+    },
+    "promise_view": {
+      "path": "06-台账/承诺台账.md",
+      "kind": "视图",
+      "what": "承诺台账，含名场面清单、核心意象",
+      "writer": "render 生成，勿手改"
+    },
+    "know_view": {
+      "path": "06-台账/知情台账.md",
+      "kind": "视图",
+      "what": "知情台账",
+      "writer": "render 生成，勿手改"
+    },
+    "fact_view": {
+      "path": "06-台账/知识台账.md",
+      "kind": "视图",
+      "what": "知识台账",
+      "writer": "render 生成，勿手改"
+    },
+    "export_dir": {
+      "path": "07-导出",
+      "kind": "工作件",
+      "what": "合稿与电子书（只收已定稿的章）",
+      "writer": "export",
+      "dir": true,
+      "eg": "<书名>-第M-N章.md|txt|epub"
+    },
+    "materials": {
+      "path": "素材",
+      "kind": "作者",
+      "what": "本书素材卡（按八域分目录）",
+      "writer": "material add",
+      "view": "material list；写手包",
+      "dir": true,
+      "eg": "<八域>/M-0001-短名.md，未分的放 未分/"
+    },
+    "memory": {
+      "path": "memory",
+      "kind": "角色",
+      "what": "各角色的记忆：本书约定、reader 校准备注（不记作者偏好）",
+      "writer": "各角色",
+      "dir": true,
+      "eg": "manager.md、writer.md、editor.md、reader.md…（每个角色一份）"
+    },
+    "work": {
+      "path": ".ncc",
+      "kind": "工作件",
+      "what": "机器工作件：写手包、审稿快照、横评、操作日志、迁移备份",
+      "writer": "只由脚本写",
+      "dir": true
+    },
+    "packs": {
+      "path": ".ncc/写手包",
+      "kind": "工作件",
+      "what": "写手包（脚本组装、留档）",
+      "writer": "pack",
+      "dir": true,
+      "eg": "ch-0001.md"
+    },
+    "snapshots": {
+      "path": ".ncc/快照",
+      "kind": "工作件",
+      "what": "审稿前的正文快照（复审只看改动）",
+      "writer": "review plan/delta",
+      "dir": true,
+      "on_demand": true,
+      "eg": "ch-0001.md"
+    },
+    "bench": {
+      "path": ".ncc/横评",
+      "kind": "工作件",
+      "what": "模型横评：同一写手包的各模型草稿、盲稿与结果",
+      "writer": "ncc_eval.py bench",
+      "dir": true,
+      "on_demand": true,
+      "eg": "ch-0001/"
+    },
+    "oplog": {
+      "path": ".ncc/操作日志.jsonl",
+      "kind": "历史",
+      "what": "写操作日志（团队交接）",
+      "writer": "脚本自动追加"
+    },
+    "migration_backup": {
+      "path": ".ncc/迁移备份",
+      "kind": "工作件",
+      "what": "迁移时移走的旧版手写视图",
+      "writer": "migrate",
+      "dir": true,
+      "on_demand": true,
+      "eg": "author-intent.旧.md"
+    },
+    "author_dir": {
+      "path": "_作者",
+      "kind": "作者",
+      "what": "关于作者本人的跨书资产",
+      "writer": "—",
+      "scope": "root",
+      "dir": true
+    },
+    "prefs": {
+      "path": "_作者/偏好.json",
+      "kind": "源头",
+      "what": "偏好、雷点、否决过的推荐（权重随时间衰减）",
+      "writer": "pref like/confirm/reject/dislike",
+      "view": "pref show；author-intent.md 的雷点",
+      "scope": "root"
+    },
+    "shared_materials": {
+      "path": "_作者/素材",
+      "kind": "作者",
+      "what": "跨书共用的素材卡",
+      "writer": "material add --shared",
+      "scope": "root",
+      "dir": true,
+      "eg": "<八域>/MS-0001-短名.md"
+    },
+    "craft_library": {
+      "path": "_作者/技艺库",
+      "kind": "作者",
+      "what": "跨书技艺库：每本书一份",
+      "writer": "完本后 craft init 再填",
+      "view": "下一本书 craft read",
+      "scope": "root",
+      "dir": true,
+      "eg": "<书名>.md"
+    }
+  },
+  "layout_legacy": {
+    "foreshadow_v01": "06-台账/伏笔台账.json",
+    "book_moves": [
+      [
+        "04-正文/_packs",
+        "packs"
+      ],
+      [
+        "05-审稿/_snapshots",
+        "snapshots"
+      ],
+      [
+        "05-审稿/_bench",
+        "bench"
+      ],
+      [
+        "06-台账/操作日志.jsonl",
+        "oplog"
+      ],
+      [
+        "06-台账/读者数据.json",
+        "reader_data"
+      ],
+      [
+        "author-intent.md",
+        "migration_backup:author-intent.旧.md"
+      ],
+      [
+        "current-focus.md",
+        "migration_backup:current-focus.旧.md"
+      ]
+    ],
+    "root_moves": [
+      [
+        "_preferences.json",
+        "prefs"
+      ],
+      [
+        "_素材",
+        "shared_materials"
+      ],
+      [
+        "_craft-library",
+        "craft_library"
+      ]
+    ]
+  },
+  "load_budget": {
+    "what": "每次调用读进来的规则文件（不含书本身的材料：写手包、正文、台账），按非空白字符计；中文约一字一符。七律七：按需可见。",
+    "ceilings": {
+      "subagent": 20000,
+      "manager": 35000
+    },
+    "reads": {
+      "scout": [
+        "agents/scout.md"
+      ],
+      "worldbuilder": [
+        "agents/worldbuilder.md",
+        "skills/ncc-new/references/worldbuilding.md",
+        "skills/ncc-new/references/character.md",
+        "skills/ncc-new/references/material.md",
+        "skills/ncc/references/guidance.md",
+        "skills/ncc/templates/style-anchor.md"
+      ],
+      "outliner": [
+        "agents/outliner.md",
+        "skills/ncc-new/references/outline.md",
+        "skills/ncc-write/references/scene-card.md",
+        "skills/ncc/references/domains/README.md",
+        "skills/ncc/references/finale.md"
+      ],
+      "story-editor": [
+        "agents/story-editor.md",
+        "skills/ncc-new/references/character.md",
+        "skills/ncc-write/references/scene-card.md",
+        "skills/ncc/references/craft-canon.md",
+        "skills/ncc/references/loops.md",
+        "skills/ncc/references/mind-frame.md"
+      ],
+      "scholar": [
+        "agents/scholar.md",
+        "skills/ncc/references/domains/README.md",
+        "domains:2"
+      ],
+      "writer": [
+        "agents/writer.md",
+        "skills/ncc-write/references/chapter-loop.md",
+        "skills/ncc-write/references/writing-brief.md"
+      ],
+      "editor": [
+        "agents/editor.md"
+      ],
+      "continuity": [
+        "agents/continuity.md",
+        "skills/ncc-review/references/review-domains.md",
+        "skills/ncc/references/finale.md"
+      ],
+      "pulse": [
+        "agents/pulse.md",
+        "skills/ncc-review/references/review-domains.md",
+        "skills/ncc/references/mind-frame.md"
+      ],
+      "reader": [
+        "agents/reader.md",
+        "skills/ncc-review/references/reader-personas.md"
+      ],
+      "deconstructor": [
+        "agents/deconstructor.md",
+        "skills/ncc-deconstruct/SKILL.md"
+      ],
+      "manager:new": [
+        "skills/ncc/SKILL.md",
+        "skills/ncc/references/mind-frame.md",
+        "skills/ncc/references/guidance.md",
+        "skills/ncc/references/stage-map.md",
+        "skills/ncc-new/SKILL.md",
+        "skills/ncc-new/references/book-soul.md",
+        "skills/ncc/references/book-state.md"
+      ],
+      "manager:write": [
+        "skills/ncc/SKILL.md",
+        "skills/ncc/references/mind-frame.md",
+        "skills/ncc/references/guidance.md",
+        "skills/ncc/references/stage-map.md",
+        "skills/ncc-write/SKILL.md",
+        "skills/ncc/references/context-pack.md",
+        "skills/ncc-write/references/scene-card.md"
+      ],
+      "manager:review": [
+        "skills/ncc/SKILL.md",
+        "skills/ncc/references/mind-frame.md",
+        "skills/ncc/references/guidance.md",
+        "skills/ncc/references/stage-map.md",
+        "skills/ncc-review/SKILL.md",
+        "skills/ncc/references/context-pack.md",
+        "skills/ncc-review/references/reader-personas.md"
+      ]
+    },
+    "note": "domains:N 表示按场景读的 N 张底蕴卡，按最长的 N 张计。agents/<角色>.md 里写了全路径要读的规则文件，必须列在这里（自测会查）。"
   }
 }

@@ -51,7 +51,7 @@
 | 《小说拆分总纲 5.0》（~/Documents/word_wx/ai-skills/） | ncc-deconstruct 的字段口径；事件溯源台账；量纲定义；设定词典与底卡分级 |
 | sdlc-workflow 插件 | 目录骨架、经理窗口＋角色帽、registry 唯一事实源、闸门与铁律文体、G-fresh 思想（→ reader/continuity 的 fresh 上下文） |
 | 主流网文工业流（黄金三章/存稿/日更/爽点节奏的大众共识） | 阶段主线、golden-three.md、连载节奏 |
-| novel_guide（~/Documents/Obsidian_files/novel_guide/） | 爽点通用结构（压迫→误判→吃亏→破口→反打→善后→新责任）是欠·挣·超·证的来源；卡文五问进卡文协议；v0.6：「12 代入感」「13 规避点」整理成判据（review-domains.md 第四节、check_chapter.py 规避点告警、故事审的主角在场与章尾落点、人物卡标志细节、新手档推荐偏稳） |
+| novel_guide（~/Documents/Obsidian_files/novel_guide/） | 爽点通用结构（压迫→误判→吃亏→破口→反打→善后→新责任）是欠·挣·超·证的来源；卡文五问进卡文协议；v0.6：「12 代入感」「13 规避点」整理成判据（review-domains.md 的"代入感与规避点"、check_chapter.py 规避点告警、故事审的主角在场与章尾落点、人物卡标志细节、新手档推荐偏稳） |
 | novel_sources/小说底盘（~/Documents/Obsidian_files/novel_sources/） | v0.6：玄幻、仙侠类力量体系与资源设定的底料（`setting_base_candidates`）；底盘自己的铁律（数值可回查、不跳境界上限、突破有代价、称号不冒充境界）与本插件的量纲、越级例外一致 |
 
 ### novel_guide 未采纳的条目（v0.6）
@@ -100,7 +100,7 @@
 | Doshi & Hauser（Science Advances 2024） | AI 创意帮个人变好，但让作品彼此变像 | 作者种子：挖掘在前、推荐在后，推荐标来源 |
 | Nakayashiki & Watanabe（2026 预印本） | 多个模型彼此一致，却不与读者一致 | 品质层用读者记忆测试，真实读者数据回流校准（M3） |
 | oh-story 章纲到正文指南 | 细纲写"本章必须发生什么变化"，过结构验收才写正文 | 场景卡与故事审 |
-| 麦基《故事》；Swain；Maass；Weiland；埃格里；李渔《闲情偶寄》；恩格斯致哈克奈斯 | 价值翻转、场景与续场、情感旅程、人物弧光与"信错的那句话"、前提、立主脑密针线减头绪脱窠臼、典型人物 | mind-frame.md 第二节；scene-card.md；character.md |
+| 麦基《故事》；Swain；Maass；Weiland；埃格里；李渔《闲情偶寄》；恩格斯致哈克奈斯 | 价值翻转、场景与续场、情感旅程、人物弧光与"信错的那句话"、前提、立主脑密针线减头绪脱窠臼、典型人物 | mind-frame.md 的"小说家的生成模型"；scene-card.md；character.md |
 
 ## v0.4 借用的清单
 

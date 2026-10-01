@@ -263,6 +263,7 @@ class TestSlimming(Base):
         self.assertIn("读者目前知道「高三学生」", pack)
         self.assertIn("### 篇幅", pack)
         self.assertIn("本章 3000–5000 字", pack)
+        self.assertIn(f"python3 {STATE} words", pack)   # 写手包里的命令指向能运行的入口
         self.assertIn("不用指尖、指节、喉结", pack)
         for banned in ("不该出现", "谁有资格定义", "硬伤", "审稿清单", "死亡之书的宿主"):
             self.assertNotIn(banned, pack)
@@ -1036,6 +1037,39 @@ class TestSevenLaws(Base):
         self.assertNotIn("promises", d)
         self.ok("render", self.book)
         self.assertIn("CHECK OK", self.ok("check", self.book))
+
+
+class TestPluginArchitecture(unittest.TestCase):
+    """插件本身守七律：词表与布局只在注册表、文档由注册表生成、按名称引用、读取量有上限。"""
+
+    def run_script(self, *args):
+        r = subprocess.run([sys.executable, *map(str, args)], capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    def test_generated_docs_match_registry(self):
+        code, out = self.run_script(HERE / "build_docs.py", "--check")
+        self.assertEqual(code, 0, out)
+
+    def test_plugin_self_check(self):
+        code, out = self.run_script(HERE / "check_plugin.py")
+        self.assertEqual(code, 0, out)
+
+    def test_code_reads_vocab_and_layout_from_registry(self):
+        reg = json.loads((HERE.parent / "workflow" / "registry.json").read_text("utf-8"))
+        v = {k: x["values"] for k, x in reg["vocab"].items()}
+        self.assertEqual(ncc.PROMISE_TYPES, tuple(v["promise_types"]))
+        self.assertEqual(ncc.SCENE_BATCH, v["scene_batch"])
+        self.assertEqual(ncc.MODES, tuple(reg["writing_modes"]))
+        self.assertEqual(ncc.PROMISES, reg["layout"]["promises"]["path"])
+        self.assertEqual(ncc.L("chapters"), "04-正文")
+        self.assertIn("04-正文", ncc.DIRS)
+        self.assertNotIn(".ncc/快照", ncc.DIRS)          # 按需建的目录不在 init 时建
+
+    def test_help_lists_vocab(self):
+        code, out = self.run_script(STATE, "--help")
+        self.assertEqual(code, 0, out)
+        self.assertIn("|".join(ncc.ERAS), out)
+        self.assertNotRegex(out, r"\{[a-z_]+\}")
 
 
 if __name__ == "__main__":

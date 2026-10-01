@@ -9,7 +9,7 @@ when_to_use: "User says /ncc-write, 写下一章, 今更N章, 黄金三章, or r
 **先审故事，后写文字。** 场景卡小批量做、小批量审；每章由脚本组装写手包；常规章一人审硬伤、复审只看改动（D16–D18）：
 
 ```
-每批（混合 3 章 / 建筑师 5 / 园丁 1–2）：
+每批（章数按写作模式，scene next 给出）：
   scene next → chapter add ×N → 场景卡 ×N(outliner 一次写完) → 故事审(story-editor 一次审完；关键章作者过目)
   → knowledge plan：有章标了"知识"才派 scholar（一次），写知识点清单 → knowledge check
 每章：
@@ -21,7 +21,7 @@ when_to_use: "User says /ncc-write, 写下一章, 今更N章, 黄金三章, or r
 
 常规章顺利时约 2.7 次角色调用（写手 1、continuity 1、场景卡批量摊约 0.7），返工一轮约 4.7 次；兑现章多一次 pulse；关键章另走多版比选。
 
-执行阶段**禁停顿**：循环里的决策点（常规章的故事审结论、审稿问题放不放行、字数低于下限、但不少于一半的章收不收）按推荐项执行，登记为暂定，到单元复盘时集中呈给作者（guidance §五）。当场打断作者的只有：关键章的场景卡与版本选定、G3、返工满 3 轮、设定级矛盾、战略分歧。
+执行阶段**禁停顿**（铁律 5）：循环里的决策按推荐项执行、登记为暂定；哪几种情况可以当场打断作者，见 guidance 的"与执行阶段禁停顿的关系"。
 
 ## Step 0 — 定位
 
@@ -46,7 +46,7 @@ when_to_use: "User says /ncc-write, 写下一章, 今更N章, 黄金三章, or r
 ## Step 2.5 — 知识点（按需，M4）
 
 1. `ncc_state.py knowledge plan <书目录> 7 8 9`：列出场景卡"知识"一栏。一章都没有 → 这一批不派 scholar。
-2. 有的话派 scholar（task: knowledge）一次，按 `../ncc/references/domains/README.md` 第三节为这些章写 `02-大纲/知识点/ch-NNNN.md`（知识点｜学科｜写成什么｜来源｜状态），核实过的数据写进知识台账。
+2. 有的话派 scholar（task: knowledge）一次，按 `../ncc/references/domains/README.md` 的"本章知识点清单格式"为这些章写 `02-大纲/知识点/ch-NNNN.md`（知识点｜学科｜写成什么｜来源｜状态），核实过的数据写进知识台账。
 3. `ncc_state.py knowledge check <书目录> <章号>…` 逐章通过。待核项不阻塞写作——写手包会提示按宁缺律写；待核项在单元复盘时交作者。
 
 ## Step 3 — 写手包
@@ -81,7 +81,7 @@ task: draft，派单包只给写手包路径。写手按 [references/chapter-loo
 
 ## Step 7 — 定稿
 
-`ncc_state.py complete <书目录> <章号> --words N --hard pass --decidable 0.9 --report 05-审稿/ch-XXXX-review.md`。脚本会拒绝：场景卡没过故事审（或审后改动过）、场景卡标了知识但知识点清单缺失或不合格、硬伤层未通过、关键章没有作者选定。写手同步更新 `current-focus.md` 与设定词典的「首现章」实值。
+`ncc_state.py complete <书目录> <章号> --words N --hard pass --decidable 0.9 --report 05-审稿/ch-XXXX-review.md`。脚本会拒绝：场景卡没过故事审（或审后改动过）、场景卡标了知识但知识点清单缺失或不合格、硬伤层未通过、关键章没有作者选定。定稿前确认已登记 `chapter end`（续写状态卡由脚本生成，不手改）；设定词典的「首现章」改成实值。
 
 ## 开篇特有（S2 → G3）
 
@@ -96,7 +96,7 @@ task: draft，派单包只给写手包路径。写手按 [references/chapter-loo
 - 每章完成即是一个可发布单元；要合稿或做电子书时 `ncc_state.py export <书目录> --format md|txt|epub [--from N --to M]`，产物在 `07-导出/`（只收已定稿的章，修订注记自动去掉）。
 - 存稿：作者可要求「先攒 N 章再更」——batch 模式即为此设计。
 - 每次发布后 `ncc_state.py chapter publish <书目录> --upto N`，存稿线才有意义。
-- 每个剧情单元结束：按 `../ncc/references/loops.md` §一做单元复盘（`report unit` 生成底稿 → 发展编辑的单元问题 → 下一单元走向 → 作者集中确认暂定决策 → `unit close`）。
-- 每卷收官：按 `loops.md` §二做卷复盘（`volume end` → `report volume` → 承诺盘点、书魂检验、数据归因、变更提议 → G4）。
+- 每个剧情单元结束：按 `../ncc/references/loops.md` 的"单元循环"做单元复盘（`report unit` 生成底稿 → 发展编辑的单元问题 → 下一单元走向 → 作者集中确认暂定决策 → `unit close`）。
+- 每卷收官：按 `loops.md` 的"卷循环"做卷复盘（`volume end` → `report volume` → 承诺盘点、书魂检验、数据归因、变更提议 → G4）。
 - 最后一卷：按 `../ncc/references/finale.md` 进入收束（`finale begin` → 收束清单 → G5）。
 - 读者数据：真实数据与模拟判断都用 `feedback add` 登记，复盘时用来校准模拟读者。

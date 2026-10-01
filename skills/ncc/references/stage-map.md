@@ -1,6 +1,6 @@
 # 阶段图（registry 的人类可读视图）
 
-唯一事实源：`workflow/registry.json`。本文件是派单时查的速览表；两者冲突时以 registry 为准。阶段编号按 D10（完善计划第六稿 §6.1）。
+唯一事实源：`workflow/registry.json`。本文件是派单时查的速览表；表格由 `scripts/build_docs.py` 从 registry 生成，勿手改。阶段编号按决定 D10。
 
 ## 主线
 
@@ -9,6 +9,7 @@ S0 立书 ─G0书魂闸─▶ S1 立骨(设定 ─G1─▶ 大纲 ─G2─) ─
                                     └─ ncc-deconstruct 随时喂设定库 ─┘
 ```
 
+<!-- ncc:gen stages 开始（scripts/build_docs.py 由 workflow/registry.json 生成，勿手改） -->
 | 阶段 | 层 | 主责角色 | 参与角色 | 产物 | 闸门 |
 |---|---|---|---|---|---|
 | S0 立书 | L0 | 经理（按 guidance 引导，先问作者种子） | scout（从种子出整本方向候选）、worldbuilder（有旧文时写文风基准） | 作者种子.md、技艺库摘录.md（写过书的作者）、briefing.md、文风指纹与文风基准（有旧文时）、book.json 的书魂与类型契约（author-intent.md 由脚本生成） | **G0** 书魂闸，作者签字 |
@@ -18,13 +19,14 @@ S0 立书 ─G0书魂闸─▶ S1 立骨(设定 ─G1─▶ 大纲 ─G2─) ─
 | S3 连载 | L2–L4 | writer | outliner（场景卡）、story-editor（故事审）、editor、continuity、pulse、reader（关键章） | 场景卡＋逐章正文＋三本账回写 | **G-chapter** 章定稿闸 |
 | S4 卷复盘 | L1–L2 | story-editor、pulse、outliner | scout（数据归因） | 复盘/卷N.md（承诺盘点、书魂检验、数据归因、变更提议） | **G4** 卷间闸 |
 | S5 收束 | L0–L2 | outliner、continuity | story-editor、writer | 收束清单（承诺清算、暗线收拢、书魂回答）、全书复盘、技艺库条目；完本后导出全书（export） | **G5** 完本闸 |
+<!-- ncc:gen stages 结束 -->
 
 book.json 的 `stage`：`founding → settings → outline → opening → serial ⇄ volume → finale → finished`。
 
 ## 每章循环（S2/S3 共用）：先审故事，后写文字
 
 ```
-每批（混合 3 章 / 建筑师 5 / 园丁 1–2）：
+每批（章数见下）：
   scene next → chapter add ×N → 场景卡(outliner 一次写完) → 故事审(story-editor 一次审完；关键章作者过目)
   → knowledge plan：标了"知识"的章才派 scholar（一次）→ knowledge check
 每章：
@@ -34,10 +36,15 @@ book.json 的 `stage`：`founding → settings → outline → opening → seria
   → ncc_state.py complete --hard pass
 ```
 
+<!-- ncc:gen batch 开始（scripts/build_docs.py 由 workflow/registry.json 生成，勿手改） -->
+每批场景卡的章数：建筑师 5 章、混合 3 章、园丁 2 章。
+<!-- ncc:gen batch 结束 -->
+
 单元（10–40 章）夹在 S3 里：`unit open` → 章循环 → `report unit` 单元复盘 → `unit close`。详见 `loops.md`。
 
 ## 角色分工速查
 
+<!-- ncc:gen roles 开始（scripts/build_docs.py 由 workflow/registry.json 生成，勿手改） -->
 | 角色 | 一句话职责 | 绝不做 |
 |---|---|---|
 | scout | 扫榜、对标、briefing、从作者种子出 2–3 套整本方向候选 | 写设定 |
@@ -53,3 +60,4 @@ book.json 的 `stage`：`founding → settings → outline → opening → seria
 | deconstructor | 按总纲5.0拆对标书，喂设定库；质感细节与机制样本、对标书的书魂与契约 | 写本书正文 |
 
 fresh 标记：continuity、pulse、reader 为无记忆新上下文——派单包不含生产材料。
+<!-- ncc:gen roles 结束 -->

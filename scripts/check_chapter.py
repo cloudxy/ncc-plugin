@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""check_chapter.py — 章节机械检查（确定性脚本，替代 LLM 自评；v1.1）。
+"""check_chapter.py — 章节机械检查（确定性脚本，替代 LLM 自评）。
 
 用法: check_chapter.py <书目录> <章号seq> [章文件路径]
 
@@ -45,7 +45,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from ncc_state import (PROMISES, REV_LINE, chapter_touches, han_words, length_band, scene_path,  # noqa: E402
+from ncc_state import (FACTS, PROMISES, REV_LINE, L, chapter_touches, han_words, length_band, scene_path,  # noqa: E402
                        sha16, style_drift_lines)
 
 # A 级：五星句式，命中一处即须改
@@ -106,7 +106,7 @@ def knowledge_warnings(book_dir: Path, text: str):
             pass
     if era in ("古代", "架空古代"):
         words = list(ANACHRONISM_WORDS)
-        extra = book_dir / "01-设定" / "时代错置词.md"
+        extra = book_dir / L("anachronism")
         if extra.exists():
             words += [w.strip() for w in re.findall(r"^[-*]\s*(\S+)", extra.read_text("utf-8"), flags=re.M)]
         hits = {w: text.count(w) for w in words if text.count(w)}
@@ -122,7 +122,7 @@ def knowledge_warnings(book_dir: Path, text: str):
         elif re.search(MID_DAY, sent) and re.search(CRESCENT, sent):
             warns.append(f"底蕴：月相与日期可能不符（十五前后写了月牙）：「{sent.strip()[:40]}」")
     facts = {}
-    fp = book_dir / "06-台账" / "知识台账.json"
+    fp = book_dir / FACTS
     if fp.exists():
         try:
             facts = json.loads(fp.read_text("utf-8")).get("facts", {})
@@ -188,7 +188,7 @@ def find_chapter(book_dir: Path, seq: int, explicit: str):
         p = Path(explicit)
         return p if p.exists() else None
     for pat in (f"第{seq:04d}章-*.md", f"第{seq}章-*.md"):
-        hits = sorted((book_dir / "04-正文").glob(pat))
+        hits = sorted((book_dir / L("chapters")).glob(pat))
         if hits:
             return hits[0]
     return None
@@ -302,7 +302,7 @@ def stock_reaction_warnings(text: str):
 
 
 def waived_snippets(book_dir: Path):
-    p = book_dir / "03-文风" / "放行清单.md"
+    p = book_dir / L("waivers")
     if not p.exists():
         return []
     return [s for s in re.findall(r"「([^」]+)」", p.read_text("utf-8")) if s.strip()]

@@ -1,6 +1,6 @@
 # ncc-workflow — Novel Create Center
 
-ZCode 插件 · v2.0.0 · 个人本地插件
+ZCode 插件 · v2.1.0 · 个人本地插件
 
 **小说创作中心**：长篇网文从立书到收束的完整工作流。它把长篇网文当作"边写边发、不可撤回、读者每章投票"的活来设计，由两台引擎组成：
 
@@ -81,7 +81,9 @@ flowchart TD
 脚本自检（无书也可跑）：
 
 ```bash
-python3 scripts/test_ncc_state.py                                   # 状态机与机械检查自测
+python3 scripts/test_ncc_state.py                                   # 自测（含下面两项）
+python3 scripts/build_docs.py --check                               # 文档里由注册表生成的部分是否最新
+python3 scripts/check_plugin.py -v                                  # 插件自查：链接、按名称引用、各角色读取量
 python3 scripts/ncc_state.py init /tmp/t/novels/测试 --title 测试 --level 新手
 python3 scripts/ncc_state.py status /tmp/t/novels/测试
 python3 scripts/ncc_state.py reader-now /tmp/t/novels/测试 1
@@ -90,38 +92,42 @@ python3 scripts/ncc_eval.py mech                                     # 锚定章
 python3 scripts/ncc_state.py dashboard /tmp/t/novels --html /tmp/t/dash.html
 ```
 
-v0.1 建的书：`python3 scripts/ncc_state.py migrate <书目录>` 升级到 schema 2（原伏笔台账保留）。
+旧书（schema 1、2）：`python3 scripts/ncc_state.py migrate <书目录>` 升级到 schema 3（原伏笔台账保留）。
 
 ## 目录结构
 
 ```
 ncc-workflow/
   .zcode-plugin/plugin.json     # 插件清单
-  workflow/registry.json        # 层/阶段/角色/闸门/三本账/公理/铁律的唯一事实源
+  workflow/registry.json        # 唯一事实源：层/阶段/角色/闸门/三本账/公理/铁律/词表/书项目目录布局/各角色读取上限
+  workflow/principles.md        # 信息架构七律
   workflow/architecture.md      # 五层决策·三本账·四循环·读者模型·引导层
   commands/                     # /ncc /ncc-new /ncc-write /ncc-review /ncc-deconstruct /ncc-eval
   agents/                       # 11 角色：scout worldbuilder outliner story-editor scholar writer
                                 #          editor continuity pulse reader deconstructor
   skills/
     ncc/                        # 经理：mind-frame / guidance / craft-canon / loops / finale / sustain / team /
-                                #       stage-map / book-state / context-pack；domains/（24 张底蕴卡）；模板含作者种子
+                                #       stage-map / book-state / book-layout（生成）/ context-pack；domains/（24 张底蕴卡）；模板含作者种子
     ncc-new/                    # 立书与立骨：qa-layers / book-soul / character / worldbuilding / outline / material
     ncc-write/                  # 写章：scene-card / writing-brief / chapter-loop / golden-three
     ncc-review/                 # 审稿：review-domains（三层评价细则+报告模板）
     ncc-deconstruct/            # 拆书：对接《小说拆分总纲 5.0》
     ncc-eval/                   # 评测：锚定章回归、模型横评
   scripts/
-    ncc_state.py                # 状态机：书/闸门/写作模式/场景卡/章节与比选/三本账/读者此刻/
-                                #         单元与卷/复盘底稿/收束/读者数据/存稿/团队与操作日志/迁移
+    ncc_state.py                # 状态脚本的命令入口；实现按领域分在 ncclib/
+    ncclib/                     # core（路径与词表，读注册表）→ ledgers 三本账 / materials 素材 / scenes 场景卡与写手包 /
+                                #   learning 文风偏好技艺库 → views 视图与自查 → loops 单元卷收束 / delivery 仪表盘导出 → book 书与章 → cli
     check_chapter.py            # 章节机械检查（钩子/AI味分级与放行/水章/退化与元信息/底蕴与规避点提醒/身体小动作/场景卡照搬；字数交作者定）
     ncc_eval.py                 # 评测：锚定章机械层回归、审稿派单包与打分、模型横评
+    build_docs.py               # 由注册表生成文档里的表格、frontmatter、版本行（--check 只比对）
+    check_plugin.py             # 插件自查
     test_ncc_state.py           # 自测
   eval/anchors/                 # 锚定章：故意埋了错的评测样章＋一章干净对照（答案不进派单包）
   docs/usage.md                 # 使用指南
   ACKNOWLEDGMENTS.md            # 设计出处与许可说明
 ```
 
-书项目结构见 [skills/ncc/references/book-state.md](skills/ncc/references/book-state.md)。
+书项目的信息地图见 [skills/ncc/references/book-state.md](skills/ncc/references/book-state.md)，目录契约与词表见 [book-layout.md](skills/ncc/references/book-layout.md)。
 
 ## 核心机制
 
@@ -162,7 +168,7 @@ ncc-workflow/
 | SHA 新鲜度＋强制复评 | 正文一变旧评审作废；修订是显式动作，写者不审己稿 | Openwrite ＋ InkOS ＋ sdlc 铁律 |
 | 事件溯源台账 | 人物/关系/设定变化记状态事件，当前态=重放 | 拆书总纲 5.0 ＋ InkOS |
 | 开篇盲评＋签约点 | reader 无上下文模拟真实读者；五个签约点须在前三章落地 | 网文共识 ＋ sdlc G-fresh |
-| 信息架构七律 | 每类信息一个源头（书项目的"信息地图"）；author-intent、续写状态卡、台账的 .md 都由脚本生成、勿手改，`check` 逐字比对；状态事件只追加；作者资产收进 `_作者/`，机器工作件收进 `.ncc/` | 本插件（v2.0） |
+| 信息架构七律 | 每类信息一个源头（书项目的"信息地图"）；author-intent、续写状态卡、台账的 .md 都由脚本生成、勿手改，`check` 逐字比对；状态事件只追加；作者资产收进 `_作者/`，机器工作件收进 `.ncc/`。插件自身同样：词表与目录布局只在注册表，文档表格由注册表生成，按标题名称引用，各角色读取量有上限 | 本插件（v2.0–2.1） |
 | 欠字不补 | 字数不够不让写手补写或重写（硬凑会注水）：不少于下限一半按推荐先收、单元复盘确认，不到一半问作者；超长只做一次只删不加的压缩；写手分两段写、中途量一次字数 | oh-story（MIT）＋本插件 |
 | 退化与元信息检查 | 复读、截断、占位与拒绝语、工程词漏进叙述必须修；场景卡原句照搬、身体小动作标注情绪只告警 | oh-story check-degeneration 与对照实验（MIT）＋本插件 |
 | 面向作者的汇报 | 只讲写了什么、要你定什么、下一步；不出现命令、字段名和孤零零的编号 | oh-story（MIT） |
@@ -179,7 +185,8 @@ ncc-workflow/
 - v0.7（M6 学习与嗓音层）：文风指纹与文风基准（旧文采样或第 1 章反推、漂移提醒）、读者画像盲评与弃读热力、读者此刻对照、偏好演化、技艺库回灌。
 - v1.0（M7）：ncc-eval 锚定章回归与模型横评、多书仪表盘与承诺热力图、合稿与 EPUB 导出。计划原定"M1–M6 各跑通一本书"再做，按作者指示提前完成。
 - v1.1（借鉴 oh-story 第一组）：欠字不补与分两段写、超长只删一次、退化与元信息检查、身体小动作提醒、场景卡照搬提醒、面向作者的白话汇报。
-- **v2.0（本版，信息架构七律 A1）**：书项目按七律归位——书魂、契约、目标读者只在 book.json，author-intent.md 改为生成的视图；数据只在知识台账；承诺只在承诺台账（名场面、母题清单由台账生成）；续写状态卡由 chapter end 与场景卡生成；状态事件只经 event add 追加；复盘数据写进可刷新的生成区块；作者资产收进 _作者/，机器工作件收进 .ncc/；render 与 check。书项目 schema 升到 3（migrate 自动搬家）。
+- v2.0（信息架构七律 A1）：书项目按七律归位——书魂、契约、目标读者只在 book.json，author-intent.md 改为生成的视图；数据只在知识台账；承诺只在承诺台账（名场面、母题清单由台账生成）；续写状态卡由 chapter end 与场景卡生成；状态事件只经 event add 追加；复盘数据写进可刷新的生成区块；作者资产收进 _作者/，机器工作件收进 .ncc/；render 与 check。书项目 schema 升到 3（migrate 自动搬家）。
+- **v2.1（本版，信息架构七律 A2：插件内部）**：词表与书项目目录布局只在注册表，脚本读它、文档由它生成（`build_docs.py`，自测比对）；状态脚本按领域拆成 ncclib/ 十个模块、依赖单向；规则只在一处讲全，别处一句话指过去；文档之间按标题名称引用（不写章节序号，自测查引用的标题存在）；版本号只在 plugin.json；每个角色每次调用读的规则有上限（自测统计）。顺带修正：园丁模式每批章数文档写成 1–2、脚本是 2，统一为 2；"何时可以打断作者"两处写法不一，合成一处；写章定稿一步还让写手手改续写状态卡，改为登记 chapter end。
 - 之后：用第一本真书跑通全流程，按评测结果校准判据与阈值；oh-story 的其余借鉴项（读者契约四问、新增物三级、题材卡、按需一致性审查、原子台账事务等）按试书暴露的问题挑着做。
 
 ## 边界

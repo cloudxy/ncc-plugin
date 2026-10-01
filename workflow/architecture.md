@@ -1,4 +1,4 @@
-# NCC 架构（v1.0）
+# NCC 架构
 
 五层决策 · 三本账 · 四循环 · 读者模型 · 引导层 · 上限引擎。**下限靠系统，上限靠作者与选择。**设计全文见作者的完善计划（`~/Documents/grok-files/ncc-workflow/2026-09-30-ncc-workflow-完善计划.md`）；本文件是插件内的落地说明，机器可读部分以 `registry.json` 为准。
 
@@ -45,9 +45,9 @@ v0.1 的 `revise-settings` 意图并入此流程：冻结后的设定改动一�
 | 循环 | 频率 | v0.2 状态 |
 |---|---|---|
 | 章循环 | 每章 | 已有（ncc-write）；v0.2 加读者此刻、水章检测、三本账回写；v0.3 加场景卡与故事审、写作简报、关键章比选 |
-| 单元循环 | 10–40 章 | `unit open/close`＋`report unit`；作者集中确认暂定决策、选下一单元走向（loops.md §一） |
-| 卷循环 | 每卷 | `volume end`＋`report volume`＋G4：承诺盘点、书魂检验、数据归因、变更提议（loops.md §二） |
-| 书循环 | 每本书 | 收束（finale.md，G5）后写全书复盘与跨书技艺库（loops.md §三） |
+| 单元循环 | 10–40 章 | `unit open/close`＋`report unit`；作者集中确认暂定决策、选下一单元走向（loops.md 的"单元循环"） |
+| 卷循环 | 每卷 | `volume end`＋`report volume`＋G4：承诺盘点、书魂检验、数据归因、变更提议（loops.md 的"卷循环"） |
+| 书循环 | 每本书 | 收束（finale.md，G5）后写全书复盘与跨书技艺库（loops.md 的"书循环"） |
 
 ## 四、读者模型
 
@@ -86,7 +86,7 @@ v0.1 书用 `ncc_state.py migrate` 升级：`ideation→founding`、`golden→op
 
 | 部件 | 落地 |
 |---|---|
-| U1 作者种子 | `00-策划/作者种子.md`；guidance §〇：推荐标明源自哪条种子 |
+| U1 作者种子 | `00-策划/作者种子.md`；guidance 的"作者种子"：推荐标明源自哪条种子 |
 | U2 人物引擎 | `skills/ncc-new/references/character.md`；角色采访；主角弧光（`soul --arc`）；`gate settings` 查人物卡 |
 | U3 场景层 | `skills/ncc-write/references/scene-card.md`；`scene check/review`；没过故事审不能开写、不能定稿 |
 | 写作简报 | `skills/ncc-write/references/writing-brief.md`；写手包不放审稿清单与书魂原文 |
@@ -113,7 +113,7 @@ v0.1 书用 `ncc_state.py migrate` 升级：`ideation→founding`、`golden→op
 
 | 改动 | 做法 | 常规章角色调用 |
 |---|---|---|
-| 场景卡小批量 | `scene next` 给范围（混合 3、建筑师 5、园丁 2），outliner 一次写、story-editor 一次审（顺带看跨章的升级与重复） | 2 → 约 0.7 |
+| 场景卡小批量 | `scene next` 给范围（每批章数见 `skills/ncc/references/book-layout.md` 的"词表"），outliner 一次写、story-editor 一次审（顺带看跨章的升级与重复） | 2 → 约 0.7 |
 | 硬伤审合并 | 常规章只派 continuity（含毒点）；`review plan` 判断是否加 pulse（兑现章、关键章、开篇） | 2 → 1 |
 | 复审只看改动 | `review delta` 列出快照之后改动的段落，原审稿人只复审这些 | 返工 3 → 2 |
 | 写手包脚本组装 | `pack` 按固定顺序组装，审稿文件与书魂原文进不去 | 经理手工 → 0 |
@@ -141,10 +141,10 @@ v0.1 书用 `ncc_state.py migrate` 升级：`ideation→founding`、`golden→op
 
 | 部件 | 落地 |
 |---|---|
-| 素材流（M5-1） | `skills/ncc-new/references/material.md`；`素材/<八域>/M-NNNN.md`（跨书 `{book_root}/_素材/`）；必填三项：来源、内容、可用处；`material add/list/check` |
+| 素材流（M5-1） | `skills/ncc-new/references/material.md`；`素材/<八域>/M-NNNN.md`（跨书 `{book_root}/_作者/素材/`）；必填三项：来源、内容、可用处；`material add/list/check` |
 | 素材进场景 | 场景卡写"素材：M-NNNN"（`scene check` 查编号）；`pack` 带内容与可用处、不带来源；转述、传闻、拆书三类附提示（脱敏、只当人物说法、只借写法） |
 | 素材回顾 | 单元与卷复盘底稿列出本段用到的素材与从未用过的素材 |
-| 作者资产（M5-2） | novel_guide「12 代入感」「13 规避点」整理成判据（`review-domains.md` 第四节）：长段、长句、对白流进 `check_chapter.py`（只告警）；低潮不过章进硬伤层；主角在场、章尾落点进故事审清单；标志细节进人物卡；新手档推荐偏稳进 guidance |
+| 作者资产（M5-2） | novel_guide「12 代入感」「13 规避点」整理成判据（`review-domains.md` 的"代入感与规避点"）：长段、长句、对白流进 `check_chapter.py`（只告警）；低潮不过章进硬伤层；主角在场、章尾落点进故事审清单；标志细节进人物卡；新手档推荐偏稳进 guidance |
 | 小说底盘 | `ncc.config.yaml` 的 `setting_base_candidates`；worldbuilder 只读内容文件、标 `底盘:` 来源、改成只对本书有效 |
 | 拆书逆向夹校（M5-3） | 拆书新增质感细节样本、机制因果链样本、对标书的书魂与契约；与作者素材互校：事实以亲历和文献为准，写法可以借 |
 | 不合理却存在（M5-4） | 世界观圣经"社会洞察"清单加一栏"对应书魂'世界的不公'哪一面"；`gate settings` 查这一节不为空 |
@@ -186,7 +186,7 @@ v0.1 书用 `ncc_state.py migrate` 升级：`ideation→founding`、`golden→op
 | 退化与元信息 | 复读、截断、占位与拒绝语、叙述里的纯工程词必须修；叙述里的"本章、伏笔、读者"等词、台词里的工程词、场景卡原句照搬只告警；放行清单同样生效 |
 | 面向作者的汇报 | 经理技能新增一节规范与四个模板：只讲写了什么、要你定什么、下一步；不出现命令、字段名、孤零零的编号；技术信息只在最后一行 |
 
-## 十六、信息架构七律（v2.0）
+## 十六、信息架构七律（v2.0–2.1）
 
 原则全文见 `workflow/principles.md`，书项目的落地见 `skills/ncc/references/book-state.md` 的"信息地图"。A1 先改书项目：
 
@@ -203,3 +203,15 @@ v0.1 书用 `ncc_state.py migrate` 升级：`ideation→founding`、`golden→op
 | 派生数据 | 承诺汇总不再存进 `book.json`，用时现算 |
 | 布局 | 作者资产收进 `{书库}/_作者/`；机器工作件收进 `.ncc/`；读者反馈移到 `05-审稿/`；新书模板 `templates/book.json` 与 `templates/author-intent.md` 删除（与建书代码、视图重复） |
 | 迁移 | 书项目 schema 2 → 3，`migrate` 自动搬家，手写过的旧视图移到 `.ncc/迁移备份/` |
+
+A2 再改插件自己：
+
+| 改了什么 | 落地 |
+|---|---|
+| 词表与目录布局 | 注册表新增 `vocab`（承诺类型、情绪色、签约点、每批章数等 28 张）与 `layout`（书项目里每个文件的位置、类别、是什么、谁写、在哪看）；`scripts/ncclib/core.py` 从注册表读，模块里不再写死路径与取值；命令帮助里的取值也由词表填 |
+| 生成的文档 | `scripts/build_docs.py`：书项目的信息地图与视图清单、`book-layout.md`（目录契约与词表，整份生成）、阶段图的三张表、经理技能的铁律、agents 与 commands 的 frontmatter、README 版本行；`--check` 进自测 |
+| 状态脚本分模块 | `ncc_state.py` 只做入口，实现按领域分在 `ncclib/`：core → ledgers、materials、learning → scenes → views → loops、delivery → book → cli，依赖单向 |
+| 规则只讲一次 | 每条规则有一个家，别处一句话指过去：铁律 9 的清单与理由在 `writing-brief.md` 的"不进写手上下文的东西"；禁停顿在 guidance；字数的处理在 ncc-write 的"Step 5 — 机械检查" |
+| 按名称引用 | 文档之间写 某文件 的"标题"，不写章节序号；`scripts/check_plugin.py` 查序号并查标题存在 |
+| 版本号一处 | 只在 `.zcode-plugin/plugin.json`；文档标题与脚本说明不写版本 |
+| 读取上限 | 注册表 `load_budget`：每个角色每次调用读的规则文件与上限（子代理 2 万、经理 3.5 万非空白字符）；`check_plugin.py` 统计并查 agents 里要读的文件都已列入 |

@@ -32,5 +32,5 @@
 
 | 日期 | 来源 | 结论 | 说明 |
 |---|---|---|---|
-| 2026-10-01 | 作者自有 `~/Documents/Obsidian_files/novel_guide/12代入感`、`13规避点` | 通过 | 作者自有资产；无外链、无代码、无指令文本；整理成判据进 `review-domains.md` 第四节与 `check_chapter.py` |
+| 2026-10-01 | 作者自有 `~/Documents/Obsidian_files/novel_guide/12代入感`、`13规避点` | 通过 | 作者自有资产；无外链、无代码、无指令文本；整理成判据进 `review-domains.md` 的"代入感与规避点"与 `check_chapter.py` |
 | 2026-10-01 | 作者自有 `~/Documents/Obsidian_files/novel_sources/小说底盘/`（427 个 md） | 通过（附条件） | 无外链、无混淆、无超长单行；所在仓库根目录有 `CLAUDE.md`、`AGENTS.md`（另一套工作流的规则），worldbuilder 只读 `小说底盘/` 内容文件，库内规则当资料不当指令（第 6 项） |
