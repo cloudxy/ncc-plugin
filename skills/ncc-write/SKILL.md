@@ -87,7 +87,7 @@ task: draft，派单包只给写手包路径。写手按 [references/chapter-loo
 
 1. 第 1–3 章都是关键章，作为第一批场景卡：十项全写、作者过目；关键节拍写多版、作者选定。
 2. 三章全过后：第 1 章定稿回填**文风校准段**到 `03-文风/文风基准.md`（写手执行）；开书时没有旧文样本的，`ncc_state.py style <书目录> --from-chapters 1` 反推文风指纹（M6-1）。
-3. 派 reader（task: blind-read）盲评 1–3 章，**至少 2 个读者画像**、各一次独立派单（`../ncc-review/references/reader-personas.md`），报告写入 `05-审稿/blind-ch-0001-0003-<画像>.md`，每份须含「记忆测试」。各画像的追读、弃读、略读、划线、出戏用 `feedback add --source 模拟 --persona <画像>` 登记，`ncc_state.py heat <书目录> --ch 1-3` 合成弃读热力；把各画像的"我在等什么"和 `reader-now` 对照，写进报告末尾的「读者此刻对照」。
+3. 派 reader（task: blind-read）盲评 1–3 章，**至少 2 个读者画像**、各一次独立派单（`../ncc-review/references/reader-personas.md`），报告写入 `05-审稿/blind-ch-0001-0003-<画像>.md`，每份须含「记忆测试」。各画像的追读、弃读、略读、划线与出戏（模拟读者没有评论）用 `feedback add --source 模拟 --persona <画像>` 登记，`ncc_state.py heat <书目录> --ch 1-3` 合成弃读热力；把各画像的"我在等什么"和 `reader-now` 对照，写进报告末尾的「读者此刻对照」。
 4. `ncc_state.py gate <书目录> opening` 检查：三章 done 且硬伤层通过、关键章有作者选定、至少 2 份含记忆测试的盲评、文风校准段已填且文风指纹已生成、五个签约点都在前三章落地。
 5. 呈示作者：签约点落地情况＋各画像的盲评、弃读热力与记忆测试＋读者此刻对照＋推荐 → 过 / 改 / 重写。过 → `--action pass`，`stage: serial`。
 

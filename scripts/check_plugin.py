@@ -8,6 +8,8 @@
   5. 版本只在 .zcode-plugin/plugin.json：文档标题行与脚本说明首行不写版本号。
   6. 按需可见（七律七）：每个角色每次调用读的规则文件不超过 registry 的 load_budget 上限；
      agents/<角色>.md 里写了全路径要读的规则文件，必须列进该角色的读取清单。
+  7. 词表不走样（七律一）：文档里一口气列出某张词表（五个值以上）的几乎全部取值时，必须一个不差；
+     注册表增删一个取值，所有手写的完整列举都会被这里拦下。
 
 生成的文档是否与注册表一致，由 build_docs.py --check 查。只依赖标准库。
 """
@@ -121,6 +123,23 @@ def check_versions(files, bad):
             bad.append(f"标题行写了版本号（版本只在 plugin.json）：{rel(p)}：{title.strip()}")
 
 
+def check_vocab_copies(md, bad):
+    gen = re.compile(r"<!-- ncc:gen (\S+) 开始.*?<!-- ncc:gen \1 结束 -->", re.S)
+    texts = {p: gen.sub("", p.read_text(encoding="utf-8")) for p in md if p.name != "book-layout.md"}
+    for k, v in REG["vocab"].items():
+        vals = list(v["values"])
+        if len(vals) < 5:
+            continue
+        alt = "|".join(sorted(map(re.escape, vals), key=len, reverse=True))
+        run = re.compile(rf"(?:{alt})(?:\s*[、／|,，/]\s*(?:{alt}))+")
+        for p, s in texts.items():
+            for i, line in enumerate(s.splitlines(), 1):
+                for m in run.finditer(line):
+                    got = set(re.findall(alt, m.group(0)))
+                    if len(vals) - 1 <= len(got) < len(vals):
+                        bad.append(f"词表 {k} 的列举少了 {'、'.join(sorted(set(vals) - got))}：{rel(p)}:{i}")
+
+
 def check_budget(bad, report):
     lb = REG["load_budget"]
     cards = sorted((nws(p) for p in (ROOT / "skills/ncc/references/domains").glob("A*.md")), reverse=True)
@@ -152,6 +171,7 @@ def main():
     check_registry(bad)
     check_references(files, md, bad)
     check_versions(files, bad)
+    check_vocab_copies(md, bad)
     check_budget(bad, report)
     if "-v" in sys.argv[1:]:
         for role, total, cap in report:
