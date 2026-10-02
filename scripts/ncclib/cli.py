@@ -1,4 +1,4 @@
-"""ncc_state.py — 书项目状态的确定性读写工具（书项目 schema 3；信息架构见 workflow/principles.md）。
+"""ncc_state.py — 书项目状态的确定性读写工具（书项目 schema 4；信息架构见 workflow/principles.md）。
 
 状态只从这里（和经理派单回收）写入；视图（author-intent.md、current-focus.md、台账的 .md）由 render 生成，
 脚本从不读视图当输入；正文永不回写状态。每次写操作后自动重新生成视图。
@@ -8,7 +8,7 @@
   init <book> --title T [--genre a,b] [--chapters N] [--level {levels}] [--mode {modes}]
   status <book>                          状态摘要（退出码恒 0）
   next <book>                            第一个非 done 章（无则退出 1）
-  migrate <book>                         旧书（schema 1、2）→ schema 3：按七律归位（.ncc/、_作者/、05-审稿/读者数据）
+  migrate <book>                         旧书 → schema 4：按七律归位（.ncc/、_作者/、05-审稿/读者数据）；手写的角色记忆转成条目
   render <book>                          重新生成全部视图
   check <book>                           七律自查：视图与源头逐字一致、状态事件只追加、旧布局残留、圣经里的数据
   gate <book> soul|settings|outline|opening|volume|finale [--action check|pass|reject] [--quote Q] [--force]
@@ -101,6 +101,60 @@
   event list <book> [--entity E]
   reader-now <book> <seq> [--top N]      生成上下文包的"读者此刻"块
 
+记忆与交接（M8：角色各有记忆；子代理按可见范围继承会话）
+  memory add <book> --role R --kind {memory_kinds} --text T [--evidence E]... [--ch N]
+                                         记一条角色记忆；同类证据不到两处先记为候选（约定除外）；和已有条目相近则记为再次出现；
+                                         写手与 editor 的记忆里不许有审稿判据词与书魂原文；作者偏好改用 pref
+  memory reinforce <book> --role R <id> [--evidence E]... [--ch N]
+  memory merge <book> --role R --into ID <id>... [--text 合并后的说法]
+  memory archive|restore <book> --role R <id> [--note N]
+  memory promote <book> --role R [<id>...] [--genre a,b]   进跨书记忆（不写编号则晋升够格的：命中 ≥3 次、不是本书约定）
+  memory list <book> [--role R] [--all] [--shared]
+  memory consolidate <book> [--role R] [--apply]
+                                         单元整理底稿：候选、可合并、久未出现、超上限、够格进跨书；--apply 自动归档久未出现的
+  handoff add <book> --kind {handoff_kinds} --text T [--layer {handoff_layers}] [--ch N 或 A-B]
+                                         会话交接卡：作者在会话里的原话、决定、情绪、待办（原话与决定要写作用层）
+  handoff list <book> [--open] [--role R] [--ch N]     --role 时只列切给该角色的
+  handoff close <book> <id> --to 去处 [--note N]        决定落进台账、场景卡、偏好或记忆后关掉
+  recall <book> <词>... [--role R] [--from N] [--to M] [--top 10]
+                                         在记忆、交接、场景卡、审稿报告、台账里全文检索；--role 按该角色的可见范围过滤
+  brief <book> --role R [--seq N...] [--task T] [--persona 画像] [--note N]
+                                         其余角色的派单头 .ncc/派单/：本角色记忆、作者刚说的、技法参考（写手用 pack）
+
+设定类目（M10：门派、种族、血脉、企业……按题材研判）
+  setting catalog <book>                 类目表：别名、必填字段；标出与本书题材相关的
+  setting use <book> <类目>... --why 它会怎么进剧情
+  setting new <book> <名称> --required a,b,c [--optional x,y] [--alias 别名] --why W --gap 为什么现有类目装不下
+  setting none <book> --why W            一个类目都不用（如纯日常）
+  setting drop <book> <类目>
+  setting add <book> <类目> <名字>         按字段建卡 01-设定/类目/<类目>/<名字>.md
+  setting list|check <book>              check：研判做了没有、选用的类目有没有卡、必填字段、进没进词典、卡里的数字
+
+拆书与技法（M9：拆完一段学写法）
+  decon index <拆书库/书名> [--source 原文/文件] [--force]   章节索引（唯一真源）；跳号、重号、空章先停下
+  decon mark <拆书库/书名> --done A-B | --skip N --why W     进度
+  decon coverage <拆书库/书名>                               覆盖率闸门：索引章数 = 已拆 + 显式跳过
+  decon stats <拆书库/书名> [--range A-B] [--write]          对标基线：伏笔等待、爽点密度、压抑与释放、钩子、实体类目
+  decon link <book> <对标书名>                               本书的对标书（单元复盘拿它的基线作参照）
+  technique add <书库或书目录> --kind {technique_kinds} --method 手法 --how 怎么做 --evidence "拆:书名 第N章「定位词」"...
+                --applies "题材=a,b；阶段={technique_stages}；契约=…；承诺=…" --cost 代价与失效 --confidence {confidence}
+                --source 来源书 [--data D] [--title T]
+                                         写一张技法卡（只用自己的话；和原文连续重合超过 15 字就拒绝）
+  technique check|list <书库或书目录> [--kind K]
+  technique match <book> --role R [--seq N...]   给该角色挑卡（按题材、阶段、契约、承诺类型；同一本对标书最多两张）
+  technique result <书库或书目录> <id> --outcome good|bad --note N [--ch N] [--book 书名]
+  technique retire|restore <书库或书目录> <id> [--note N]
+
+进化（M11：记忆自动、规则设闸）
+  evolve propose <书库或书目录> --key K --value=V --why W --evidence E...
+                                         词表增删写 --value=+词,-词（带等号，免得 -词 被当成选项）
+  evolve eval <书库或书目录> <id>         评测＋作者确认档：锚定章回归，改动前后对比，变差就拒绝
+  evolve apply <书库或书目录> <id> --quote 作者原话      写进作者覆盖层 _作者/进化/覆盖.json
+  evolve reject|revert <书库或书目录> <id> [--note N]
+  evolve list <书库或书目录> [--open]
+  evolve rules <书库或书目录>            各项的生效值与来源（插件默认、作者覆盖）
+  evolve scan <书库或书目录> [--propose]  从各书的证据里找规则级改动的苗头
+
 书库与导出（M7）
   dashboard <书库根目录> [--bucket 10] [--html 文件]
                                          多书仪表盘：每本书的阶段、进度、存稿、承诺健康度，以及承诺热力图（每格 N 章里建立、推进、兑现的次数）
@@ -121,11 +175,16 @@ from pathlib import Path
 from .core import GATES, MODES, OPLOG, SCHEMA, V, cmd_sha, now, read_json
 from .ledgers import cmd_event, cmd_fact, cmd_know, cmd_promise, cmd_reader_now, cmd_water
 from .materials import cmd_material
-from .scenes import cmd_era, cmd_knowledge, cmd_pack, cmd_review, cmd_scene, cmd_study, cmd_words
+from .scenes import cmd_brief, cmd_era, cmd_knowledge, cmd_pack, cmd_review, cmd_scene, cmd_study, cmd_words
 from .learning import cmd_craft, cmd_heat, cmd_pref, cmd_style
+from .memory import cmd_handoff, cmd_memory, cmd_recall
+from .settings import cmd_setting
+from .decon import cmd_decon
+from .techniques import cmd_technique
 from .views import cmd_check, cmd_render, render
 from .loops import cmd_feedback, cmd_finale, cmd_report, cmd_team, cmd_unit, cmd_volume
 from .delivery import cmd_dashboard, cmd_export
+from .evolve import cmd_evolve
 from .book import (cmd_chapter, cmd_complete, cmd_contract, cmd_gate, cmd_init, cmd_level, cmd_migrate, cmd_mode, cmd_next, cmd_sign, cmd_soul, cmd_status)
 
 
@@ -294,6 +353,77 @@ def main():
     q = crs.add_parser("init"); q.add_argument("book_dir")
     q = crs.add_parser("read"); q.add_argument("book_dir"); q.add_argument("--top", type=int, default=12)
     p.set_defaults(fn=cmd_craft)
+    p = sub.add_parser("memory"); mms = p.add_subparsers(dest="action", required=True)
+    q = mms.add_parser("add"); q.add_argument("book_dir"); q.add_argument("--role", required=True)
+    q.add_argument("--kind", required=True); q.add_argument("--text", required=True)
+    q.add_argument("--evidence", action="append"); q.add_argument("--ch", type=int)
+    q = mms.add_parser("reinforce"); q.add_argument("book_dir"); q.add_argument("--role", required=True); q.add_argument("id")
+    q.add_argument("--evidence", action="append"); q.add_argument("--ch", type=int)
+    q = mms.add_parser("merge"); q.add_argument("book_dir"); q.add_argument("--role", required=True)
+    q.add_argument("--into", required=True); q.add_argument("ids", nargs="+"); q.add_argument("--text")
+    for act in ("archive", "restore"):
+        q = mms.add_parser(act); q.add_argument("book_dir"); q.add_argument("--role", required=True); q.add_argument("id")
+        q.add_argument("--note")
+    q = mms.add_parser("promote"); q.add_argument("book_dir"); q.add_argument("--role", required=True)
+    q.add_argument("ids", nargs="*"); q.add_argument("--genre")
+    q = mms.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--role"); q.add_argument("--all", action="store_true")
+    q.add_argument("--shared", action="store_true")
+    q = mms.add_parser("consolidate"); q.add_argument("book_dir"); q.add_argument("--role"); q.add_argument("--apply", action="store_true")
+    p.set_defaults(fn=cmd_memory)
+    p = sub.add_parser("handoff"); hs = p.add_subparsers(dest="action", required=True)
+    q = hs.add_parser("add"); q.add_argument("book_dir"); q.add_argument("--kind", required=True); q.add_argument("--text", required=True)
+    q.add_argument("--layer"); q.add_argument("--ch")
+    q = hs.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--open", action="store_true"); q.add_argument("--role")
+    q.add_argument("--ch", type=int)
+    q = hs.add_parser("close"); q.add_argument("book_dir"); q.add_argument("id"); q.add_argument("--to", required=True); q.add_argument("--note")
+    p.set_defaults(fn=cmd_handoff)
+    p = sub.add_parser("recall"); p.add_argument("book_dir"); p.add_argument("words", nargs="+"); p.add_argument("--role")
+    p.add_argument("--from", dest="from_ch", type=int); p.add_argument("--to", dest="to_ch", type=int)
+    p.add_argument("--top", type=int, default=10); p.set_defaults(fn=cmd_recall)
+    p = sub.add_parser("brief"); p.add_argument("book_dir"); p.add_argument("--role", required=True)
+    p.add_argument("--seq", type=int, nargs="*"); p.add_argument("--task"); p.add_argument("--persona"); p.add_argument("--note")
+    p.set_defaults(fn=cmd_brief)
+
+    p = sub.add_parser("setting"); sts = p.add_subparsers(dest="action", required=True)
+    for act in ("catalog", "list", "check"):
+        q = sts.add_parser(act); q.add_argument("book_dir")
+    q = sts.add_parser("use"); q.add_argument("book_dir"); q.add_argument("names", nargs="+"); q.add_argument("--why", required=True)
+    q = sts.add_parser("new"); q.add_argument("book_dir"); q.add_argument("name"); q.add_argument("--required", required=True)
+    q.add_argument("--optional"); q.add_argument("--alias"); q.add_argument("--why", required=True); q.add_argument("--gap", required=True)
+    q = sts.add_parser("none"); q.add_argument("book_dir"); q.add_argument("--why", required=True)
+    q = sts.add_parser("drop"); q.add_argument("book_dir"); q.add_argument("name")
+    q = sts.add_parser("add"); q.add_argument("book_dir"); q.add_argument("cat"); q.add_argument("name")
+    p.set_defaults(fn=cmd_setting)
+
+    p = sub.add_parser("decon"); dcs = p.add_subparsers(dest="action", required=True)
+    q = dcs.add_parser("index"); q.add_argument("lib"); q.add_argument("--source"); q.add_argument("--force", action="store_true")
+    q = dcs.add_parser("mark"); q.add_argument("lib"); q.add_argument("--done"); q.add_argument("--skip", type=int); q.add_argument("--why")
+    q = dcs.add_parser("coverage"); q.add_argument("lib")
+    q = dcs.add_parser("stats"); q.add_argument("lib"); q.add_argument("--range"); q.add_argument("--write", action="store_true")
+    q = dcs.add_parser("link"); q.add_argument("book_dir"); q.add_argument("name")
+    p.set_defaults(fn=cmd_decon)
+    p = sub.add_parser("technique"); tcs = p.add_subparsers(dest="action", required=True)
+    q = tcs.add_parser("add"); q.add_argument("path"); q.add_argument("--kind", required=True); q.add_argument("--method", required=True)
+    q.add_argument("--how", required=True); q.add_argument("--evidence", action="append", required=True)
+    q.add_argument("--applies", required=True); q.add_argument("--cost", required=True); q.add_argument("--confidence", required=True)
+    q.add_argument("--source", required=True); q.add_argument("--data"); q.add_argument("--title")
+    q = tcs.add_parser("check"); q.add_argument("path")
+    q = tcs.add_parser("list"); q.add_argument("path"); q.add_argument("--kind")
+    q = tcs.add_parser("match"); q.add_argument("path"); q.add_argument("--role", required=True); q.add_argument("--seq", type=int, nargs="*")
+    q = tcs.add_parser("result"); q.add_argument("path"); q.add_argument("id"); q.add_argument("--outcome", choices=["good", "bad"], required=True)
+    q.add_argument("--note"); q.add_argument("--ch", type=int); q.add_argument("--book")
+    for act in ("retire", "restore"):
+        q = tcs.add_parser(act); q.add_argument("path"); q.add_argument("id"); q.add_argument("--note")
+    p.set_defaults(fn=cmd_technique)
+    p = sub.add_parser("evolve"); evs_ = p.add_subparsers(dest="action", required=True)
+    q = evs_.add_parser("propose"); q.add_argument("path"); q.add_argument("--key", required=True); q.add_argument("--value", required=True)
+    q.add_argument("--why", required=True); q.add_argument("--evidence", action="append")
+    for act in ("eval", "apply", "reject", "revert"):
+        q = evs_.add_parser(act); q.add_argument("path"); q.add_argument("id"); q.add_argument("--quote"); q.add_argument("--note")
+    q = evs_.add_parser("list"); q.add_argument("path"); q.add_argument("--open", action="store_true")
+    q = evs_.add_parser("rules"); q.add_argument("path")
+    q = evs_.add_parser("scan"); q.add_argument("path"); q.add_argument("--propose", action="store_true")
+    p.set_defaults(fn=cmd_evolve)
     p = sub.add_parser("dashboard"); p.add_argument("book_root"); p.add_argument("--bucket", type=int, default=10)
     p.add_argument("--html"); p.set_defaults(fn=cmd_dashboard)
     p = sub.add_parser("export"); p.add_argument("book_dir"); p.add_argument("--format", choices=["md", "txt", "epub"], default="md")
@@ -329,7 +459,9 @@ READ_ONLY = {("status", None), ("next", None), ("report", None), ("sha", None), 
              ("reader-now", None), ("scene", "check"), ("scene", "next"), ("knowledge", "plan"), ("knowledge", "check"), ("promise", "list"), ("know", "list"),
              ("fact", "get"), ("fact", "list"), ("feedback", "list"), ("team", "list"), ("unit", "list"),
              ("material", "list"), ("material", "check"), ("heat", None), ("pref", "show"), ("dashboard", None),
-             ("export", None), ("words", None), ("event", "list")}
+             ("export", None), ("words", None), ("event", "list"), ("memory", "list"), ("handoff", "list"), ("recall", None),
+             ("setting", "catalog"), ("setting", "list"), ("setting", "check"), ("decon", "coverage"),
+             ("technique", "check"), ("technique", "list"), ("technique", "match"), ("evolve", "list"), ("evolve", "rules")}
 
 
 def log_op(a):

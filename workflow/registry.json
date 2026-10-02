@@ -4,7 +4,7 @@
     "ncc": {
       "skill": "ncc",
       "mode": "auto",
-      "description": "Novel Create Center 主入口：一句话入口（识别意图并推荐下一步）、书项目状态（含存稿与倦怠信号）、续写恢复、单元与卷复盘、收束、读者数据登记、素材记录、团队认领、多书仪表盘、合稿导出、派单与闸门记账。本窗口始终是经理。",
+      "description": "Novel Create Center 主入口：一句话入口（识别意图并推荐下一步）、书项目状态（含存稿与倦怠信号）、续写恢复、单元与卷复盘、收束、读者数据登记、素材记录、团队认领、多书仪表盘、合稿导出、角色记忆与会话交接、派单与闸门记账。本窗口始终是经理。",
       "argument_hint": "[一句话 | 开新书 | 续写 | 审稿 | 拆书 | 复盘 | 收尾 | 记素材 | 仪表盘 | 导出 | continue | status]"
     },
     "ncc-new": {
@@ -28,7 +28,7 @@
     "ncc-deconstruct": {
       "skill": "ncc-deconstruct",
       "mode": "deconstruct",
-      "description": "按《小说拆分总纲 5.0》拆对标书：章节索引唯一真源、逐章抽取带证据与置信级、事件溯源状态台账，产出喂给设定库与设定词典。",
+      "description": "按《小说拆分总纲 5.0》拆对标书：章节索引唯一真源、逐章抽取带证据与置信级、事件溯源状态台账，产出喂给设定库与设定词典；拆完一段学写法，技法卡进跨书技法库；脚本建索引、查覆盖率、算对标基线。",
       "argument_hint": "[原著路径或拆书库目录 | continue]"
     },
     "ncc-eval": {
@@ -125,11 +125,11 @@
     "worldbuilder": {
       "skill": "ncc-new",
       "task": "settings",
-      "description": "Use this agent for the world bible, power system, setting lexicon, per-book rule/dimension tables, the fact ledger's initial values, and the character engine: full character cards (desire, need, fear, wound, the lie, inner contradiction, secret, voice, relationships) with in-character interviews. Writes the social-insight list (rules that seem unreasonable yet persist, tied to the book soul's injustice), may use the author's setting base (小说底盘) as raw material, and turns author seeds #3/#6 into material cards. Also drafts the style anchor (task: style) from the author's old writing or chapter 1: voice in a sentence, 2–3 calibration passages, a negative list — no numbers. Owns G1 freeze evidence; never outlines plots. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent for the world bible, power system, setting lexicon, per-book rule/dimension tables, the fact ledger's initial values, and the character engine: full character cards (desire, need, fear, wound, the lie, inner contradiction, secret, voice, relationships) with in-character interviews. Writes the social-insight list (rules that seem unreasonable yet persist, tied to the book soul's injustice), may use the author's setting base (小说底盘) as raw material, and turns author seeds #3/#6 into material cards. Also drafts the style anchor (task: style) from the author's old writing or chapter 1: voice in a sentence, 2–3 calibration passages, a negative list — no numbers. Decides which setting categories the book needs (sects, races, bloodlines, companies…), proposes new ones when none fits, and fills category cards. Owns G1 freeze evidence; never outlines plots. Do NOT use while /ncc runs in the parent window.",
       "color": "purple",
       "fresh": false,
       "function": "创作",
-      "duty": "世界观圣经、力量体系、设定词典、人物引擎与角色采访、知识台账初值；文风基准（task: style）",
+      "duty": "世界观圣经、力量体系、设定词典、人物引擎与角色采访、知识台账初值；文风基准（task: style）；研判本书的设定类目",
       "never": "编情节"
     },
     "outliner": {
@@ -215,11 +215,11 @@
     "deconstructor": {
       "skill": "ncc-deconstruct",
       "task": "deconstruct",
-      "description": "Use this agent to deconstruct benchmark novels per the 5.0 framework: chapter index as the single slicing source, evidence-and-confidence-tagged extraction, event-sourced state ledger. Feeds the setting vault and lexicon, plus texture-detail and social-mechanism samples and the benchmark's inferred book soul and genre contract. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent to deconstruct benchmark novels per the 5.0 framework: chapter index as the single slicing source, evidence-and-confidence-tagged extraction, event-sourced state ledger, entities tagged with the setting categories. Feeds the setting vault and lexicon, plus texture-detail and social-mechanism samples and the benchmark's inferred book soul and genre contract. After each segment it runs the learning pass: technique cards on overall design, plot and payoff planning, hidden lines and foreshadowing, emotion, character, setting construction and prose, each with evidence, applicability and cost, in its own words. Do NOT use while /ncc runs in the parent window.",
       "color": "gray",
       "fresh": false,
       "function": "策划",
-      "duty": "按总纲5.0拆对标书，喂设定库；质感细节与机制样本、对标书的书魂与契约",
+      "duty": "按总纲5.0拆对标书，喂设定库；质感细节与机制样本、对标书的书魂与契约；拆完一段学写法，写技法卡",
       "never": "写本书正文"
     }
   },
@@ -978,6 +978,81 @@
         "评论",
         "出戏"
       ]
+    },
+    "memory_kinds": {
+      "label": "记忆种类",
+      "used_by": "memory add --kind",
+      "values": [
+        "约定",
+        "教训",
+        "手感",
+        "校准"
+      ]
+    },
+    "handoff_kinds": {
+      "label": "会话交接种类",
+      "used_by": "handoff add --kind",
+      "values": [
+        "原话",
+        "决定",
+        "情绪",
+        "待办"
+      ]
+    },
+    "handoff_layers": {
+      "label": "交接作用层",
+      "used_by": "handoff add --layer（L0 书魂 … L4 文字；拆书单列）",
+      "values": [
+        "L0",
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "拆书"
+      ]
+    },
+    "technique_kinds": {
+      "label": "技法类别",
+      "used_by": "technique add --kind；场景卡「技法：」",
+      "values": [
+        "大局设计",
+        "剧情规划",
+        "爽点规划",
+        "暗线伏笔",
+        "情绪调用",
+        "人物塑造",
+        "设定构造",
+        "文笔参考"
+      ]
+    },
+    "technique_states": {
+      "label": "技法卡状态（由证据与使用结果推出）",
+      "used_by": "technique list",
+      "values": [
+        "样本",
+        "手法",
+        "已验证",
+        "停用"
+      ]
+    },
+    "technique_stages": {
+      "label": "技法适用阶段",
+      "used_by": "technique add --applies 阶段=…",
+      "values": [
+        "开篇",
+        "连载",
+        "卷末",
+        "收束"
+      ]
+    },
+    "confidence": {
+      "label": "置信级",
+      "used_by": "technique add --confidence；拆书抽取",
+      "values": [
+        "原文明说",
+        "强推断",
+        "弱推断"
+      ]
     }
   },
   "layout": {
@@ -1005,6 +1080,18 @@
           "what": "每章结束时的时间、地点、下一章要接的事",
           "writer": "chapter end",
           "view": "current-focus.md（续写状态卡）"
+        },
+        {
+          "field": "setting_categories",
+          "what": "本书用哪些设定类目、本书新提的类目与字段、为什么",
+          "writer": "作者在 G1 确认后 setting use/new/none",
+          "view": "setting list"
+        },
+        {
+          "field": "benchmarks",
+          "what": "本书的对标书（拆书库里的书名），单元复盘拿它的基线作参照",
+          "writer": "decon link",
+          "view": "单元复盘底稿"
         }
       ]
     },
@@ -1088,6 +1175,16 @@
       "kind": "角色",
       "what": "克制链、兑换率（只对本书有效）",
       "writer": "worldbuilder"
+    },
+    "categories": {
+      "path": "01-设定/类目",
+      "kind": "角色",
+      "what": "设定类目卡：门派、种族、血脉、企业……本书用哪些类目由 worldbuilder 研判、作者在 G1 确认（类目表在注册表，本书的选择在 book.json）",
+      "writer": "setting add 建卡，worldbuilder 填",
+      "view": "setting list；派单头",
+      "dir": true,
+      "on_demand": true,
+      "eg": "门派/青云宗.md"
     },
     "anachronism": {
       "path": "01-设定/时代错置词.md",
@@ -1258,11 +1355,12 @@
     },
     "memory": {
       "path": "memory",
-      "kind": "角色",
-      "what": "各角色的记忆：本书约定、reader 校准备注（不记作者偏好）",
-      "writer": "各角色",
+      "kind": "源头",
+      "what": "各角色的本书记忆：约定、教训、手感、校准（<角色>.json 是源头，<角色>.md 是生成的视图；不记作者偏好）",
+      "writer": "memory add/reinforce/merge/archive/restore/promote（经理按角色交回的记忆提议执行）",
+      "view": "memory/<角色>.md；派单头（brief）与写手包",
       "dir": true,
-      "eg": "manager.md、writer.md、editor.md、reader.md…（每个角色一份）"
+      "eg": "writer.json、writer.md、reader.json…（每个角色一份）"
     },
     "work": {
       "path": ".ncc",
@@ -1302,6 +1400,29 @@
       "kind": "历史",
       "what": "写操作日志（团队交接）",
       "writer": "脚本自动追加"
+    },
+    "memory_log": {
+      "path": ".ncc/记忆日志.jsonl",
+      "kind": "历史",
+      "what": "记忆的每次新增、强化、合并、归档、晋升、撤回",
+      "writer": "memory 命令自动追加",
+      "view": "recall；单元复盘底稿"
+    },
+    "handoff": {
+      "path": ".ncc/交接/会话.jsonl",
+      "kind": "历史",
+      "what": "会话交接卡：作者在会话里的原话、决定、情绪、待办（只追加，关掉也是追加一条）",
+      "writer": "handoff add/close",
+      "view": "handoff list；按角色切进派单头与写手包"
+    },
+    "briefs": {
+      "path": ".ncc/派单",
+      "kind": "工作件",
+      "what": "派单头（脚本组装、留档）：本角色记忆、作者刚说的话、技法参考",
+      "writer": "brief",
+      "dir": true,
+      "on_demand": true,
+      "eg": "outliner-ch-0012.md"
     },
     "migration_backup": {
       "path": ".ncc/迁移备份",
@@ -1346,6 +1467,60 @@
       "scope": "root",
       "dir": true,
       "eg": "<书名>.md"
+    },
+    "shared_memory": {
+      "path": "_作者/记忆",
+      "kind": "源头",
+      "what": "跨书记忆：换一本书也成立的角色经验（<角色>.json 源头＋.md 视图）",
+      "writer": "memory promote",
+      "view": "_作者/记忆/<角色>.md；派单头",
+      "scope": "root",
+      "dir": true,
+      "eg": "writer.json、writer.md"
+    },
+    "technique_library": {
+      "path": "_作者/技法库",
+      "kind": "作者",
+      "what": "跨书技法库：拆书学来的写法卡，每张带证据、适用条件、代价",
+      "writer": "technique add（deconstructor 学法时）",
+      "view": "technique list/match；派单头；写手包只带场景卡引用的文笔参考",
+      "scope": "root",
+      "dir": true,
+      "eg": "<类别>/T-0001-短名.md"
+    },
+    "technique_usage": {
+      "path": "_作者/技法库/使用记录.jsonl",
+      "kind": "历史",
+      "what": "技法卡用在哪本书哪一章、结果如何；停用与恢复",
+      "writer": "unit close 自动结算；technique result/retire/restore",
+      "view": "technique list",
+      "scope": "root"
+    },
+    "evolution_overlay": {
+      "path": "_作者/进化/覆盖.json",
+      "kind": "源头",
+      "what": "作者覆盖层：通过闸门的规则改动（阈值、词表增删、新类目、新技法类别）；插件默认 < 作者覆盖 < 本书设置",
+      "writer": "evolve apply/revert",
+      "view": "evolve rules",
+      "scope": "root"
+    },
+    "evolution_log": {
+      "path": "_作者/进化/提议.jsonl",
+      "kind": "历史",
+      "what": "进化提议：提出、评测、作者确认、生效、撤回",
+      "writer": "evolve propose/eval/apply/reject/revert",
+      "view": "evolve list；卷复盘底稿",
+      "scope": "root"
+    },
+    "decon_lib": {
+      "path": "_拆书库",
+      "kind": "角色",
+      "what": "拆书库：每本对标书一个目录（原文、索引、实体、台账、报告，进度在 _progress.json）",
+      "writer": "deconstructor；decon index/mark/stats",
+      "view": "decon coverage；报告/基线.md",
+      "scope": "root",
+      "dir": true,
+      "eg": "<书名>/索引/chapter_index.json、<书名>/台账/伏笔.jsonl、<书名>/报告/基线.json"
     }
   },
   "layout_legacy": {
@@ -1485,8 +1660,1013 @@
         "skills/ncc-review/SKILL.md",
         "skills/ncc/references/context-pack.md",
         "skills/ncc-review/references/reader-personas.md"
+      ],
+      "manager:loop": [
+        "skills/ncc/SKILL.md",
+        "skills/ncc/references/mind-frame.md",
+        "skills/ncc/references/guidance.md",
+        "skills/ncc/references/loops.md",
+        "skills/ncc/references/memory.md"
       ]
     },
     "note": "domains:N 表示按场景读的 N 张底蕴卡，按最长的 N 张计。agents/<角色>.md 里写了全路径要读的规则文件，必须列在这里（自测会查）。"
+  },
+  "memory": {
+    "method": "skills/ncc/references/memory.md",
+    "caps": {
+      "book_chars": 600,
+      "book_items": 20,
+      "shared_chars": 300
+    },
+    "min_evidence": 2,
+    "once_ok": [
+      "约定"
+    ],
+    "stale_units": 2,
+    "promote_hits": 3,
+    "similar": 0.5,
+    "roles": {
+      "manager": {
+        "kinds": [
+          "约定",
+          "教训",
+          "手感"
+        ],
+        "keeps": "本书约定、作者的工作节奏（什么时候可以打扰）",
+        "never": "作者偏好（在 pref）"
+      },
+      "scout": {
+        "kinds": [
+          "约定",
+          "教训",
+          "手感"
+        ],
+        "keeps": "本书约定、选题与归因上反复出的问题",
+        "never": "正文细节"
+      },
+      "worldbuilder": {
+        "kinds": [
+          "约定",
+          "教训",
+          "手感"
+        ],
+        "keeps": "本书约定、设定上反复出的问题、作者选定的设定手感",
+        "never": "正文细节"
+      },
+      "outliner": {
+        "kinds": [
+          "约定",
+          "教训",
+          "手感"
+        ],
+        "keeps": "本书约定、场景卡与大纲上反复出的问题、作者选定的规划手感",
+        "never": "正文细节"
+      },
+      "story-editor": {
+        "kinds": [
+          "约定",
+          "教训",
+          "手感"
+        ],
+        "keeps": "本书约定、故事审里反复出的问题",
+        "never": "正文细节"
+      },
+      "scholar": {
+        "kinds": [
+          "约定",
+          "教训",
+          "手感"
+        ],
+        "keeps": "本书已核实的口径、常错的知识点",
+        "never": "—"
+      },
+      "writer": {
+        "kinds": [
+          "约定",
+          "教训",
+          "手感"
+        ],
+        "keeps": "写成什么：教训和手感都转成写法",
+        "never": "审稿判据、书魂原文、评分",
+        "guard": true
+      },
+      "editor": {
+        "kinds": [
+          "约定",
+          "教训",
+          "手感"
+        ],
+        "keeps": "本书常用的修法、放行过的写法",
+        "never": "—",
+        "guard": true
+      },
+      "continuity": {
+        "kinds": [
+          "约定",
+          "教训"
+        ],
+        "keeps": "本书约定（避免误报）、自己的误报与漏检",
+        "never": "生产方的讨论、写手记忆"
+      },
+      "pulse": {
+        "kinds": [
+          "约定",
+          "教训"
+        ],
+        "keeps": "本书约定（避免误报）、自己的误报与漏检",
+        "never": "生产方的讨论、写手记忆"
+      },
+      "reader": {
+        "kinds": [
+          "校准"
+        ],
+        "keeps": "画像校准：模拟追读与真实追读的偏差规律",
+        "never": "其他一切"
+      },
+      "deconstructor": {
+        "kinds": [
+          "约定",
+          "教训",
+          "手感"
+        ],
+        "keeps": "拆书口径约定（别名归一的规矩等）",
+        "never": "—"
+      }
+    },
+    "recall": {
+      "*": [
+        "memory",
+        "memory_log",
+        "handoff",
+        "scenes",
+        "reviews",
+        "ledgers"
+      ],
+      "writer": [
+        "memory",
+        "handoff",
+        "scenes",
+        "ledgers"
+      ],
+      "editor": [
+        "memory",
+        "handoff",
+        "scenes",
+        "ledgers"
+      ],
+      "continuity": [
+        "memory",
+        "scenes",
+        "reviews",
+        "ledgers"
+      ],
+      "pulse": [
+        "memory",
+        "scenes",
+        "reviews",
+        "ledgers"
+      ],
+      "reader": [
+        "memory"
+      ]
+    }
+  },
+  "handoff": {
+    "method": "skills/ncc/references/memory.md",
+    "writer_chars": 300,
+    "brief_chars": 800,
+    "visibility": {
+      "manager": {
+        "kinds": "*",
+        "layers": "*"
+      },
+      "scout": {
+        "kinds": [
+          "原话",
+          "决定"
+        ],
+        "layers": [
+          "L0",
+          "L1",
+          "L2"
+        ]
+      },
+      "worldbuilder": {
+        "kinds": [
+          "原话",
+          "决定"
+        ],
+        "layers": [
+          "L0",
+          "L1"
+        ]
+      },
+      "outliner": {
+        "kinds": [
+          "原话",
+          "决定"
+        ],
+        "layers": [
+          "L1",
+          "L2",
+          "L3"
+        ]
+      },
+      "story-editor": {
+        "kinds": [
+          "原话",
+          "决定"
+        ],
+        "layers": [
+          "L0",
+          "L1",
+          "L2",
+          "L3"
+        ]
+      },
+      "scholar": {
+        "kinds": [
+          "决定"
+        ],
+        "layers": [
+          "L1",
+          "L3"
+        ]
+      },
+      "writer": {
+        "kinds": [
+          "原话",
+          "决定"
+        ],
+        "layers": [
+          "L3",
+          "L4"
+        ],
+        "chapter": true
+      },
+      "editor": {
+        "kinds": [
+          "决定"
+        ],
+        "layers": [
+          "L4"
+        ],
+        "chapter": true
+      },
+      "deconstructor": {
+        "kinds": [
+          "决定"
+        ],
+        "layers": [
+          "拆书"
+        ]
+      },
+      "continuity": null,
+      "pulse": null,
+      "reader": null
+    },
+    "why_none": "审稿角色与 reader 不拿交接卡：作者的决定只要影响审稿，必然已经落进台账、场景卡或放行清单，审稿看源头；reader 盲读。"
+  },
+  "review_words": {
+    "what": "审稿判据词：写手能读的插件文件里不许出现（check_plugin.py 查），写手与 editor 的记忆里也不许出现（memory add 查，另加 memory_extra）",
+    "values": [
+      "可判定率",
+      "critical",
+      "典型硬伤",
+      "诊断问句",
+      "para_max"
+    ],
+    "memory_extra": [
+      "硬伤",
+      "判据",
+      "阈值",
+      "评分",
+      "打分",
+      "扣分",
+      "审稿清单"
+    ]
+  },
+  "setting_categories": {
+    "method": "skills/ncc-new/references/worldbuilding.md",
+    "common": [
+      "和主角的关系"
+    ],
+    "catalog": {
+      "门派": {
+        "alias": [
+          "宗门",
+          "宗派",
+          "帮派"
+        ],
+        "genres": [
+          "仙侠",
+          "玄幻",
+          "武侠",
+          "高武"
+        ],
+        "required": [
+          "定位",
+          "地盘",
+          "传承与功法",
+          "门规（含一条不合理却存在的）",
+          "晋升路径",
+          "资源来源",
+          "和主角的关系",
+          "秘密"
+        ],
+        "optional": [
+          "历史",
+          "对外关系",
+          "代表人物"
+        ],
+        "numbers": [
+          "弟子数"
+        ]
+      },
+      "种族": {
+        "alias": [
+          "族群",
+          "异族"
+        ],
+        "genres": [
+          "玄幻",
+          "奇幻",
+          "科幻",
+          "仙侠"
+        ],
+        "required": [
+          "外形与感官",
+          "寿命与繁衍",
+          "天赋与短板",
+          "禁忌",
+          "和其他种族的关系",
+          "和力量体系的接口",
+          "和主角的关系",
+          "秘密"
+        ],
+        "optional": [
+          "聚居地",
+          "语言",
+          "历史"
+        ],
+        "numbers": [
+          "寿命"
+        ]
+      },
+      "血脉": {
+        "alias": [
+          "血统",
+          "体质"
+        ],
+        "genres": [
+          "玄幻",
+          "仙侠",
+          "奇幻",
+          "都市异能"
+        ],
+        "required": [
+          "来源",
+          "觉醒条件",
+          "表现",
+          "代价",
+          "传承规则（遗传、稀释、返祖）",
+          "稀有度",
+          "和力量体系的关系",
+          "谁想要它",
+          "和主角的关系"
+        ],
+        "optional": [
+          "历史上的持有者",
+          "克制"
+        ],
+        "numbers": []
+      },
+      "家族": {
+        "alias": [
+          "世家",
+          "豪门",
+          "氏族"
+        ],
+        "genres": [
+          "仙侠",
+          "玄幻",
+          "都市",
+          "历史",
+          "宅斗"
+        ],
+        "required": [
+          "定位",
+          "家主与继承",
+          "家规",
+          "产业与资源",
+          "内部派系",
+          "姻亲与仇家",
+          "和主角的关系",
+          "秘密"
+        ],
+        "optional": [],
+        "numbers": []
+      },
+      "企业": {
+        "alias": [
+          "公司",
+          "商会",
+          "集团",
+          "商号"
+        ],
+        "genres": [
+          "都市",
+          "商战",
+          "科幻",
+          "近代",
+          "年代"
+        ],
+        "required": [
+          "主营",
+          "实际控制人",
+          "钱从哪来",
+          "灰色地带",
+          "和权力的关系",
+          "内部派系",
+          "和主角的关系",
+          "秘密"
+        ],
+        "optional": [
+          "规模",
+          "竞争对手"
+        ],
+        "numbers": [
+          "员工数",
+          "营收"
+        ]
+      },
+      "王朝": {
+        "alias": [
+          "国家",
+          "帝国",
+          "朝廷",
+          "政权"
+        ],
+        "genres": [
+          "历史",
+          "架空",
+          "玄幻",
+          "仙侠",
+          "争霸"
+        ],
+        "required": [
+          "统治者与继承",
+          "权力结构",
+          "疆域与边患",
+          "财政与兵源",
+          "律法里不合理却存在的一条",
+          "正在发生的危机",
+          "和主角的关系",
+          "秘密"
+        ],
+        "optional": [
+          "都城",
+          "历法"
+        ],
+        "numbers": [
+          "人口",
+          "兵力"
+        ]
+      },
+      "宗教": {
+        "alias": [
+          "教派",
+          "信仰",
+          "教会"
+        ],
+        "genres": [
+          "奇幻",
+          "玄幻",
+          "历史",
+          "诡异"
+        ],
+        "required": [
+          "信什么",
+          "组织与等级",
+          "仪式与禁忌",
+          "和世俗权力的关系",
+          "神迹是真是假",
+          "和主角的关系",
+          "秘密"
+        ],
+        "optional": [],
+        "numbers": []
+      },
+      "职业": {
+        "alias": [
+          "行当",
+          "职阶",
+          "行会"
+        ],
+        "genres": [
+          "都市",
+          "年代",
+          "历史",
+          "玄幻",
+          "网游"
+        ],
+        "required": [
+          "干什么",
+          "入行门槛",
+          "行规与黑话",
+          "收入与地位",
+          "行里不合理却存在的规矩",
+          "和主角的关系",
+          "代价"
+        ],
+        "optional": [],
+        "numbers": [
+          "收入"
+        ]
+      },
+      "妖兽": {
+        "alias": [
+          "物种",
+          "灵兽",
+          "魔兽",
+          "怪物"
+        ],
+        "genres": [
+          "玄幻",
+          "仙侠",
+          "奇幻",
+          "末世",
+          "诡异"
+        ],
+        "required": [
+          "外形与习性",
+          "栖息地",
+          "等级与威胁",
+          "价值",
+          "弱点",
+          "和主角的关系",
+          "代价"
+        ],
+        "optional": [],
+        "numbers": []
+      },
+      "功法": {
+        "alias": [
+          "技艺",
+          "秘籍",
+          "法术",
+          "异能"
+        ],
+        "genres": [
+          "仙侠",
+          "玄幻",
+          "武侠",
+          "高武",
+          "都市异能"
+        ],
+        "required": [
+          "来源",
+          "修炼条件",
+          "效果",
+          "代价与反噬",
+          "层级",
+          "克制关系",
+          "和主角的关系"
+        ],
+        "optional": [],
+        "numbers": []
+      },
+      "法宝": {
+        "alias": [
+          "道具",
+          "神器",
+          "装备"
+        ],
+        "genres": [
+          "仙侠",
+          "玄幻",
+          "奇幻",
+          "网游"
+        ],
+        "required": [
+          "来源",
+          "能力",
+          "使用条件",
+          "代价或限制",
+          "现在在谁手里",
+          "和主角的关系",
+          "秘密"
+        ],
+        "optional": [],
+        "numbers": []
+      },
+      "丹药": {
+        "alias": [
+          "资源",
+          "灵药",
+          "天材地宝",
+          "材料"
+        ],
+        "genres": [
+          "仙侠",
+          "玄幻"
+        ],
+        "required": [
+          "效果",
+          "产地或炼法",
+          "稀缺度",
+          "副作用",
+          "流通",
+          "和主角的关系"
+        ],
+        "optional": [],
+        "numbers": [
+          "价格"
+        ]
+      },
+      "阵法": {
+        "alias": [
+          "符箓",
+          "禁制",
+          "结界"
+        ],
+        "genres": [
+          "仙侠",
+          "玄幻"
+        ],
+        "required": [
+          "原理",
+          "布置条件",
+          "效果",
+          "破解方法",
+          "代价",
+          "和主角的关系"
+        ],
+        "optional": [],
+        "numbers": []
+      },
+      "科技": {
+        "alias": [
+          "装置",
+          "技术"
+        ],
+        "genres": [
+          "科幻",
+          "末世",
+          "赛博"
+        ],
+        "required": [
+          "原理（借哪门真实学科）",
+          "能做什么",
+          "不能做什么",
+          "代价与副作用",
+          "谁掌握",
+          "对社会的改变",
+          "和主角的关系"
+        ],
+        "optional": [],
+        "numbers": []
+      },
+      "组织": {
+        "alias": [
+          "机构",
+          "势力",
+          "学院",
+          "军队",
+          "帮会"
+        ],
+        "genres": [
+          "都市",
+          "科幻",
+          "诡异",
+          "玄幻",
+          "历史"
+        ],
+        "required": [
+          "定位",
+          "首领与结构",
+          "规矩",
+          "资源来源",
+          "敌友",
+          "和主角的关系",
+          "秘密"
+        ],
+        "optional": [],
+        "numbers": []
+      },
+      "秘境": {
+        "alias": [
+          "副本",
+          "遗迹",
+          "禁地"
+        ],
+        "genres": [
+          "仙侠",
+          "玄幻",
+          "网游",
+          "诡异"
+        ],
+        "required": [
+          "位置",
+          "开启条件",
+          "规则",
+          "危险",
+          "收获",
+          "和主角的关系",
+          "秘密"
+        ],
+        "optional": [],
+        "numbers": []
+      }
+    }
+  },
+  "decon": {
+    "method": "skills/ncc-deconstruct/SKILL.md",
+    "chapter_heading": "^\\s*第[〇零一二两三四五六七八九十百千万0-9]+[章回]",
+    "index": "索引/chapter_index.json",
+    "progress": "_progress.json",
+    "ledgers": {
+      "伏笔": "台账/伏笔.jsonl",
+      "爽点": "台账/爽点.jsonl",
+      "情绪": "台账/情绪点.jsonl",
+      "钩子": "台账/钩子.jsonl",
+      "实体": "实体/实体.jsonl",
+      "单元": "台账/单元.jsonl"
+    },
+    "baseline": "报告/基线.json",
+    "baseline_view": "报告/基线.md",
+    "forgotten_after": 60,
+    "payoff_parts": [
+      "欠账",
+      "兑现",
+      "超额",
+      "见证"
+    ]
+  },
+  "techniques": {
+    "method": "skills/ncc-deconstruct/SKILL.md",
+    "required": [
+      "类别",
+      "手法",
+      "怎么做",
+      "证据",
+      "适用条件",
+      "代价与失效",
+      "置信级",
+      "来源书"
+    ],
+    "optional": [
+      "数据"
+    ],
+    "locator": [
+      5,
+      15
+    ],
+    "overlap_max": 15,
+    "per_source_max": 2,
+    "method_evidence": 2,
+    "general_books": 2,
+    "retire_after_bad": 2,
+    "status_weight": {
+      "已验证": 1.5,
+      "手法": 1.0,
+      "样本": 0.6
+    },
+    "stage_of": {
+      "founding": "开篇",
+      "settings": "开篇",
+      "outline": "开篇",
+      "opening": "开篇",
+      "serial": "连载",
+      "volume": "卷末",
+      "finale": "收束",
+      "finished": "收束"
+    },
+    "per_role": {
+      "scout": {
+        "kinds": [
+          "大局设计"
+        ],
+        "max": 3,
+        "chars": 900
+      },
+      "worldbuilder": {
+        "kinds": [
+          "设定构造",
+          "人物塑造"
+        ],
+        "max": 3,
+        "chars": 900
+      },
+      "outliner": {
+        "kinds": [
+          "大局设计",
+          "剧情规划",
+          "爽点规划",
+          "暗线伏笔",
+          "情绪调用"
+        ],
+        "max": 5,
+        "chars": 1500
+      },
+      "story-editor": {
+        "kinds": [
+          "大局设计",
+          "剧情规划",
+          "爽点规划",
+          "暗线伏笔",
+          "情绪调用",
+          "人物塑造"
+        ],
+        "max": 5,
+        "chars": 1500
+      },
+      "writer": {
+        "kinds": [
+          "文笔参考"
+        ],
+        "max": 2,
+        "chars": 300,
+        "only_referenced": true
+      }
+    },
+    "never": [
+      "continuity",
+      "pulse",
+      "reader"
+    ],
+    "why_never": "技法一进审稿就成了判据；reader 盲读。"
+  },
+  "evolution": {
+    "method": "skills/ncc/references/loops.md",
+    "tiers": [
+      {
+        "tier": "自动",
+        "what": "记忆的新增、强化、合并、归档；技法卡的状态与权重；技法使用结果的结算",
+        "how": "脚本直接执行并留日志，单元复盘用白话列出；可撤回（memory restore、technique restore）"
+      },
+      {
+        "tier": "作者确认",
+        "what": "本书新类目、新技法类别、跨书记忆晋升；插件类目表与技法类别表的增补",
+        "how": "复盘或闸门时呈给作者；表的增补走 evolve propose → apply --quote"
+      },
+      {
+        "tier": "评测＋作者确认",
+        "what": "章节机械检查的阈值与词表",
+        "how": "evolve propose → evolve eval（锚定章回归，改动前后对比，变差就拒绝）→ 作者确认 → evolve apply；evolve revert 回到上一版"
+      },
+      {
+        "tier": "永不自动",
+        "what": "铁律、公理、七律、谁能看到什么、角色身份",
+        "how": "只有作者主动要求，在开发会话里改插件本体"
+      }
+    ],
+    "keys": {
+      "check.ai_level1_max": {
+        "type": "int",
+        "tier": "评测＋作者确认",
+        "what": "A 级高危句式与一级词合计上限",
+        "default": 3
+      },
+      "check.para_max": {
+        "type": "int",
+        "tier": "评测＋作者确认",
+        "what": "长段告警阈值（汉字）",
+        "default": 200
+      },
+      "check.sentence_commas_max": {
+        "type": "int",
+        "tier": "评测＋作者确认",
+        "what": "长句告警阈值（逗号数）",
+        "default": 10
+      },
+      "check.dialogue_run_max": {
+        "type": "int",
+        "tier": "评测＋作者确认",
+        "what": "对白流告警阈值（段数）",
+        "default": 10
+      },
+      "check.level1_words": {
+        "type": "words",
+        "tier": "评测＋作者确认",
+        "what": "一级禁用词增删（+词 加，-词 删）",
+        "base": "check_words.level1"
+      },
+      "check.anachronism_words": {
+        "type": "words",
+        "tier": "评测＋作者确认",
+        "what": "时代错置词增删（+词 加，-词 删）",
+        "base": "check_words.anachronism"
+      },
+      "setting.categories": {
+        "type": "category",
+        "tier": "作者确认",
+        "what": "类目表增补（名称＋必填字段）"
+      },
+      "technique.kinds": {
+        "type": "words",
+        "tier": "作者确认",
+        "what": "技法类别增补（+类别）"
+      }
+    },
+    "never": [
+      "铁律",
+      "公理",
+      "七律",
+      "可见范围（handoff.visibility、techniques.never、review_words）",
+      "角色身份（agents/*.md）"
+    ],
+    "scan": {
+      "category_books": 2,
+      "waiver_books": 2,
+      "waiver_hits": 3
+    }
+  },
+  "check_words": {
+    "what": "章节机械检查的词表（check_chapter.py 读；作者覆盖层可增删，见 evolution.keys）",
+    "level1": [
+      "仿佛",
+      "犹如",
+      "宛若",
+      "一丝",
+      "一抹",
+      "些许",
+      "几不可闻",
+      "微不可察",
+      "毫无征兆",
+      "深吸一口气",
+      "不禁",
+      "眉头微皱",
+      "瞳孔微缩",
+      "瞳孔一缩",
+      "指节泛白",
+      "心中一动",
+      "心头一震",
+      "心下了然",
+      "心中暗道",
+      "心中一凛",
+      "不由得",
+      "不容置疑",
+      "不容置喙",
+      "不易察觉",
+      "显而易见",
+      "毫无疑问",
+      "不可否认",
+      "不由自主",
+      "情不自禁",
+      "话锋一转",
+      "取而代之的是"
+    ],
+    "anachronism": [
+      "手机",
+      "电话",
+      "电脑",
+      "电视",
+      "网络",
+      "上网",
+      "汽车",
+      "火车",
+      "飞机",
+      "地铁",
+      "公交",
+      "OK",
+      "拜拜",
+      "哈喽",
+      "沙发",
+      "咖啡",
+      "巧克力",
+      "冰箱",
+      "空调",
+      "手表",
+      "分钟",
+      "秒钟",
+      "公里",
+      "厘米",
+      "星期",
+      "周末",
+      "上班",
+      "下班",
+      "加班",
+      "打卡",
+      "效率",
+      "经理",
+      "员工",
+      "拍照",
+      "照片",
+      "信号",
+      "细胞",
+      "基因",
+      "病毒",
+      "维生素",
+      "卡路里",
+      "概率",
+      "智商",
+      "情商",
+      "颜值",
+      "吐槽",
+      "内卷",
+      "躺平",
+      "靠谱"
+    ]
   }
 }

@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 
 
-SCHEMA = 3
+SCHEMA = 4
 
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -243,6 +243,84 @@ FEEDBACK_SOURCES = tuple(V["feedback_sources"])
 FEEDBACK_KINDS = tuple(V["feedback_kinds"])
 
 
+ROLES = tuple(REGISTRY["roles"])
+
+
+MEMORY_ROLES = ("manager",) + ROLES
+
+
+MEMORY_DIR = L("memory")
+
+
+SHARED_MEMORY = L("shared_memory")
+
+
+MEMORY_LOG = L("memory_log")
+
+
+HANDOFF = L("handoff")
+
+
+BRIEF_DIR = L("briefs")
+
+
+CATEGORY_DIR = L("categories")
+
+
+DECON_LIB = L("decon_lib")
+
+
+TECHNIQUE_LIB = L("technique_library")
+
+
+TECHNIQUE_USAGE = L("technique_usage")
+
+
+OVERLAY = L("evolution_overlay")
+
+
+EVOLUTION_LOG = L("evolution_log")
+
+
+MEMORY_KINDS = tuple(V["memory_kinds"])
+
+
+HANDOFF_KINDS = tuple(V["handoff_kinds"])
+
+
+HANDOFF_LAYERS = tuple(V["handoff_layers"])
+
+
+TECHNIQUE_STATES = tuple(V["technique_states"])
+
+
+TECHNIQUE_STAGES = tuple(V["technique_stages"])
+
+
+CONFIDENCE = tuple(V["confidence"])
+
+
+MEMORY_CFG = REGISTRY["memory"]
+
+
+HANDOFF_CFG = REGISTRY["handoff"]
+
+
+TECH_CFG = REGISTRY["techniques"]
+
+
+DECON_CFG = REGISTRY["decon"]
+
+
+EVOLUTION = REGISTRY["evolution"]
+
+
+REVIEW_WORDS = tuple(REGISTRY["review_words"]["values"])
+
+
+WRITER_GUARD = REVIEW_WORDS + tuple(REGISTRY["review_words"]["memory_extra"])
+
+
 # 阶段（D10）：founding → settings → outline → opening → serial ⇄ volume → finale → finished
 GATES = {
     "soul": ("soul", "settings"),
@@ -418,6 +496,8 @@ def ensure_m3_fields(d: dict):
     d.setdefault("team", {})
     d.setdefault("era", "")
     d.setdefault("study", [])
+    d.setdefault("setting_categories", {"used": {}, "none": ""})
+    d.setdefault("benchmarks", [])
     return d
 
 
@@ -443,6 +523,92 @@ def copy_template(name: str, dest: Path):
     if not dest.exists() and tpl.exists():
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(tpl.read_text("utf-8"), "utf-8")
+
+
+def view_head(sources: str, how: str) -> str:
+    return f"> 本文件由 `ncc_state.py render` 从 {sources} 生成，勿手改；要改就改源头：{how}。"
+
+
+def book_root(p: Path) -> Path:
+    """书目录 → 书库根目录；本身就是书库根目录（或拆书库里的一本书）时按原样或向上找。"""
+    p = Path(p)
+    if (p / "book.json").exists():
+        return p.parent
+    if p.parent.name == DECON_LIB:
+        return p.parent.parent
+    return p
+
+
+def overlay_values(where: Path = None) -> dict:
+    """作者覆盖层（evolve apply 写入）：插件默认 < 作者覆盖 < 本书设置。NCC_OVERLAY 指向别的文件时用它（评测对比用）。"""
+    env = os.environ.get("NCC_OVERLAY")
+    if env:
+        return read_json(Path(env), {}).get("values", {})
+    if where is None:
+        return {}
+    return read_json(book_root(where) / OVERLAY, {}).get("values", {})
+
+
+def with_words(base, change) -> list:
+    """词表增删：change 里 "+词" 加、"-词" 删（不带符号当作加）。"""
+    out = list(base)
+    for w in change or []:
+        if w.startswith("-"):
+            out = [x for x in out if x != w[1:]]
+        elif w.lstrip("+") not in out:
+            out.append(w.lstrip("+"))
+    return out
+
+
+def technique_kinds(where: Path = None) -> tuple:
+    return tuple(with_words(V["technique_kinds"], overlay_values(where).get("technique.kinds")))
+
+
+def category_catalog(where: Path = None) -> dict:
+    """设定类目表：注册表的首批类目＋作者覆盖层增补的类目。"""
+    cat = dict(REGISTRY["setting_categories"]["catalog"])
+    for name, spec in (overlay_values(where).get("setting.categories") or {}).items():
+        cat.setdefault(name, {"alias": [], "genres": [], "optional": [], "numbers": [], **spec})
+    return cat
+
+
+def append_jsonl(path: Path, rec: dict):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+
+
+def read_jsonl(path: Path) -> list:
+    if not path.exists():
+        return []
+    out = []
+    for i, line in enumerate(path.read_text("utf-8").splitlines(), 1):
+        if line.strip():
+            try:
+                out.append(json.loads(line))
+            except json.JSONDecodeError as e:
+                die(f"{path} 第 {i} 行损坏: {e}")
+    return out
+
+
+def bigrams(s: str) -> set:
+    t = re.sub(r"[^\w]", "", s or "")
+    return {t[i:i + 2] for i in range(len(t) - 1)}
+
+
+def similarity(a: str, b: str) -> float:
+    x, y = bigrams(a), bigrams(b)
+    return len(x & y) / len(x | y) if x and y else 0.0
+
+
+def soul_leaks(d: dict, text: str) -> list:
+    soul = d.get("soul", {})
+    return [v for v in (soul.get("question"), soul.get("answer"), soul.get("injustice"), soul.get("ending"))
+            if v and len(v) >= 6 and v in text]
+
+
+def chars(lines) -> int:
+    return sum(len(HAN.findall(x)) for x in lines)
 
 
 def mood_of(c):

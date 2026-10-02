@@ -215,3 +215,19 @@ A2 再改插件自己：
 | 按名称引用 | 文档之间写 某文件 的"标题"，不写章节序号；`scripts/check_plugin.py` 查序号并查标题存在 |
 | 版本号一处 | 只在 `.zcode-plugin/plugin.json`；文档标题与脚本说明不写版本 |
 | 读取上限 | 注册表 `load_budget`：每个角色每次调用读的规则文件与上限（子代理 2 万、经理 3.5 万非空白字符）；`check_plugin.py` 统计并查 agents 里要读的文件都已列入 |
+
+## 十七、记忆、设定类目、拆书学法与自进化（M8–M11，v3.0）
+
+设计与取舍见 `workflow/memory-evolution-design.md`。作者 2026-10-01 定了三条：子代理按角色切片继承会话、不全量继承；记忆自动积累，规则改动设闸门；先审设计稿再实现。状态脚本的模块依赖随之变为：core → ledgers、materials、learning、memory、settings、decon → techniques → scenes → views → loops、delivery、evolve → book → cli。
+
+| 部件 | 落地 |
+|---|---|
+| 角色记忆（M8） | `scripts/ncclib/memory.py`；书目录 `memory/<角色>.json` 是源头、`.md` 是生成的视图；跨书记忆在 `{书库}/_作者/记忆/`；`.ncc/记忆日志.jsonl` 只追加；`memory add/reinforce/merge/archive/restore/promote/list/consolidate`。门槛、上限、各角色记什么在注册表 `memory`；写手与 editor 的记忆写入时查审稿判据词与书魂原文；作者偏好仍只在 `pref` |
+| 会话交接卡（M8） | `.ncc/交接/会话.jsonl` 只追加；`handoff add/list/close`；按注册表 `handoff.visibility` 切给各角色，continuity、pulse、reader 不拿；交接卡是过渡，决定要落进源头后关掉 |
+| 派单头（M8） | `brief`：写手以外的角色由脚本组装派单头到 `.ncc/派单/`（本角色记忆、跨书经验、交接切片、技法参考）；写手包多"本书经验""作者刚说的"两节，组装时再查一遍判据词 |
+| 检索（M8） | `recall`：记忆、记忆日志、交接、场景卡、审稿与复盘报告、台账的全文检索，`--role` 按可见范围过滤来源 |
+| 设定类目（M10） | `scripts/ncclib/settings.py`；注册表 `setting_categories`（首批 16 类，各带字段模板）；`setting catalog/use/new/none/drop/add/list/check`；本书的选择在 `book.json` 的 `setting_categories`，卡在 `01-设定/类目/`；`gate settings` 查研判做了没有、选用的类目有没有卡、必填字段 |
+| 拆书脚本支撑（M9） | `scripts/ncclib/decon.py`：`decon index/mark/coverage/stats/link`；拆书库里统计用的台账统一成 jsonl（伏笔、爽点、情绪点、钩子、单元、实体）；对标基线写 `报告/基线.json`，本书链接对标书后进单元复盘底稿 |
+| 技法库（M9） | `scripts/ncclib/techniques.py`；`{书库}/_作者/技法库/<类别>/T-NNNN.md`；`technique add/check/list/match/result/retire/restore`；状态由证据数与使用结果推出（使用记录只追加）；卡片和原文连续重合超过上限拒绝写入；按角色可见（注册表 `techniques.per_role`），审稿与 reader 不拿；场景卡"技法："引用，`unit close` 自动结算好坏 |
+| 自进化（M11） | `scripts/ncclib/evolve.py`；四档在注册表 `evolution`；规则改动写进作者覆盖层 `{书库}/_作者/进化/覆盖.json`（插件默认 < 作者覆盖 < 本书设置），提议日志只追加；`evolve propose/eval/apply/reject/revert/list/rules/scan`；`ncc_eval.py gate` 当闸门（改动前后各跑一遍锚定章，变差就拒绝），`ncc_eval.py anchor new` 让漏检变锚定章；章节检查的阈值默认值与一级词、时代错置词两份词表挪进注册表 |
+| 迁移 | 书项目 schema 3 → 4：`migrate` 补 `setting_categories`、`benchmarks` 字段，手写的 `memory/<角色>.md` 转成条目（原文件移到迁移备份） |

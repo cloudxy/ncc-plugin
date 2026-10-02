@@ -3,13 +3,15 @@
 import re
 import sys
 from pathlib import Path
-from .core import (ARCS, CHAPTER_STATES, CHARACTER_REQUIRED, COLORS, CRAFT_EXCERPT, CRAFT_LIBRARY, DIRS, EVENTS, FACTS, FINALE_LIST, FINALE_REQUIRED, GATES, HAN, KNOWLEDGE, L, LEGACY_MOOD, LEVELS, MODES, NON_READER_TYPES, OLD_FORESHADOW, OPEN_STATES, PLANNED_GATES, PROMISES, READER_DATA, REVIEW_DIR, SCENE_DIR, SCHEMA, SEEDS, SIGNING_POINTS, STYLE_ANCHOR, STYLE_FP, TENSION, VOLUME_REVIEW_REQUIRED, as_int, chapter_file, copy_template, current_chapter, die, ensure_m3_fields, find_ch, han_words, ledger, length_band, load, load_cfg, next_id, now, open_unit, open_volume, parse_window, read_json, save, section, sha16, split_names, write_json)
+from .core import (MEMORY_DIR, MEMORY_ROLES, ARCS, CHAPTER_STATES, CHARACTER_REQUIRED, COLORS, CRAFT_EXCERPT, CRAFT_LIBRARY, DIRS, EVENTS, FACTS, FINALE_LIST, FINALE_REQUIRED, GATES, HAN, KNOWLEDGE, L, LEGACY_MOOD, LEVELS, MODES, NON_READER_TYPES, OLD_FORESHADOW, OPEN_STATES, PLANNED_GATES, PROMISES, READER_DATA, REVIEW_DIR, SCENE_DIR, SCHEMA, SEEDS, SIGNING_POINTS, STYLE_ANCHOR, STYLE_FP, TENSION, VOLUME_REVIEW_REQUIRED, as_int, chapter_file, copy_template, current_chapter, die, ensure_m3_fields, find_ch, han_words, ledger, length_band, load, load_cfg, next_id, now, open_unit, open_volume, parse_window, read_json, save, section, sha16, split_names, write_json)
 from .ledgers import chapter_touches, promise_due_soon, promise_overdue, promise_summary
 from .materials import material_cards, material_usage
 from .scenes import knowledge_ready, knowledge_rows, scene_ready
 from .learning import craft_entries, craft_pending, pref_note_book
 from .views import migrate_layout
 from .loops import has_sections, sustain_lines
+from .memory import handoff_open, memory_items, memory_roles, memory_save
+from .settings import category_cards, setting_problems
 
 
 def new_book(title, genre, chapters, level, mode):
@@ -35,6 +37,8 @@ def new_book(title, genre, chapters, level, mode):
         "volumes": [{"n": 1, "start": 1, "end": None, "status": "open"}],
         "published_upto": 0,
         "team": {},
+        "setting_categories": {"used": {}, "none": ""},
+        "benchmarks": [],
         "host_spawn": False,
         "updated_at": now(),
     }
@@ -78,14 +82,23 @@ def cmd_migrate(a):
     if ver >= SCHEMA:
         print(f"已是 schema {SCHEMA}，无需迁移")
         return
+    if ver == 3:
+        d["schema_version"] = SCHEMA
+        ensure_m3_fields(d)
+        mem = migrate_memory(book_dir)
+        save(book_dir, d)
+        print(f"OK migrate schema 3 → {SCHEMA}：加了设定类目与对标书字段；手写的角色记忆转成条目 {mem} 条（原文件在 .ncc/迁移备份/）")
+        return
     if ver >= 2:
         moved = migrate_layout(book_dir, d)
         d["schema_version"] = SCHEMA
         ensure_m3_fields(d)
+        mem = migrate_memory(book_dir)
         save(book_dir, d)
         init_ledgers(book_dir)
         print(f"OK migrate schema {ver} → {SCHEMA}；按七律归位 {len(moved)} 处" + ("：" + "；".join(moved) if moved else "")
-              + "。旧的 author-intent.md、current-focus.md 若是手写的，已移到 .ncc/迁移备份/，现在由 render 生成")
+              + "。旧的 author-intent.md、current-focus.md 若是手写的，已移到 .ncc/迁移备份/，现在由 render 生成"
+              + (f"；手写的角色记忆转成条目 {mem} 条" if mem else ""))
         return
     stage_map = {"ideation": "founding", "golden": "opening"}
     d["stage"] = stage_map.get(d.get("stage"), d.get("stage"))
@@ -104,6 +117,7 @@ def cmd_migrate(a):
     moved = migrate_layout(book_dir, d)
     d["schema_version"] = SCHEMA
     ensure_m3_fields(d)
+    migrate_memory(book_dir)
     save(book_dir, d)
 
     migrated = 0
@@ -128,6 +142,30 @@ def cmd_migrate(a):
     init_ledgers(book_dir)
     print(f"OK migrate → schema {SCHEMA}；stage={d['stage']}；mode={d['mode']}；伏笔迁入承诺台账 {migrated} 条"
           + ("（原伏笔台账.json 保留未删）" if migrated else "") + (f"；按七律归位 {len(moved)} 处" if moved else ""))
+
+
+def migrate_memory(book_dir: Path) -> int:
+    """schema 3 → 4：手写的 memory/<角色>.md 转成条目（reader 记为校准，其余记为约定），原文件移到迁移备份。"""
+    import shutil
+    n = 0
+    base = book_dir / MEMORY_DIR
+    for p in sorted(base.glob("*.md")) if base.is_dir() else []:
+        role = p.stem
+        if role not in MEMORY_ROLES or p.with_suffix(".json").exists():
+            continue
+        kind = "校准" if role == "reader" else "约定"
+        items = []
+        for line in p.read_text("utf-8").splitlines():
+            t = re.sub(r"^[-*\d.、\s]+", "", line).strip()
+            if t and not line.lstrip().startswith(("#", ">", "|")):
+                items.append({"id": next_id(items, "MEM"), "kind": kind, "text": t, "evidence": [f"迁移自 {MEMORY_DIR}/{p.name}"],
+                              "since": 0, "last": 0, "hits": 1, "status": "active", "at": now()})
+        dest = book_dir / L("migration_backup") / f"memory-{p.stem}.旧.md"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(p), str(dest))
+        memory_save(book_dir, role, items)
+        n += len(items)
+    return n
 
 
 def cmd_status(a):
@@ -191,6 +229,21 @@ def cmd_status(a):
         own = sum(1 for k in mats if k.startswith("M-"))
         print(f"素材: {len(mats)} 张（本书 {own}、跨书 {len(mats) - own}），场景卡已引用 "
               f"{len([k for k in mats if k in material_usage(book_dir)])} 张")
+    mem = []
+    for role in memory_roles(book_dir):
+        items = memory_items(book_dir, role)
+        act = sum(1 for i in items if i.get("status") == "active")
+        cand = sum(1 for i in items if i.get("status") == "candidate")
+        mem.append(f"{role} {act}" + (f"（候选 {cand}）" if cand else ""))
+    ho = handoff_open(book_dir)
+    if mem or ho:
+        print("记忆: " + ("、".join(mem) or "无") + f"  交接: 开放 {len(ho)} 条（决定 {sum(1 for e in ho if e['kind'] == '决定')}）")
+    sc = d.get("setting_categories") or {}
+    if sc.get("used") or sc.get("none"):
+        cards = category_cards(book_dir)
+        print("设定类目: " + ("、".join(f"{k} {len(cards.get(k, []))} 张" for k in sc["used"]) or f"不用（{sc['none']}）"))
+    if d.get("benchmarks"):
+        print("对标书: " + "、".join(d["benchmarks"]))
     print(f"更新于: {d.get('updated_at')}")
 
 
@@ -270,6 +323,7 @@ def gate_check(book_dir: Path, name: str, d: dict) -> list:
             problems.append(f"没有一张完整的人物卡（须含 {'、'.join(CHARACTER_REQUIRED)}，见 character.md）")
         if d.get("soul", {}).get("arc") not in ARCS:
             problems.append("未选主角弧光类型（正向/负向/平弧，soul --arc）")
+        problems += setting_problems(book_dir, d)[0]
     elif name == "outline":
         if not nonempty(book_dir, L("master_outline")):
             problems.append(f"缺大纲文件或为空: {L('master_outline')}")

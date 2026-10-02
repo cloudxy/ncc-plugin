@@ -45,8 +45,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from ncc_state import (FACTS, PROMISES, REV_LINE, L, chapter_touches, han_words, length_band, scene_path,  # noqa: E402
-                       sha16, style_drift_lines)
+from ncc_state import (EVOLUTION, FACTS, PROMISES, REGISTRY, REV_LINE, L, chapter_touches, han_words, length_band,  # noqa: E402
+                       overlay_values, scene_path, sha16, style_drift_lines, with_words)
 
 # A 级：五星句式，命中一处即须改
 BLOCK_PATTERNS = {
@@ -61,14 +61,8 @@ HIGH_RISK_PATTERNS = {
     "命运的齿轮／棋局／獠牙": r"(?:命运|宿命)[^。！？\n]{0,6}(?:齿轮|棋局|獠牙)",
     "这一刻终于明白": r"这一刻[，,]?[他她]?终于(?:明白|意识到)",
 }
-# A 级：一级禁用词（真人语料里几乎不出现的 AI 特有词）
-LEVEL1_WORDS = [
-    "仿佛", "犹如", "宛若", "一丝", "一抹", "些许", "几不可闻", "微不可察", "毫无征兆",
-    "深吸一口气", "不禁", "眉头微皱", "瞳孔微缩", "瞳孔一缩", "指节泛白",
-    "心中一动", "心头一震", "心下了然", "心中暗道", "心中一凛", "不由得",
-    "不容置疑", "不容置喙", "不易察觉", "显而易见", "毫无疑问", "不可否认",
-    "不由自主", "情不自禁", "话锋一转", "取而代之的是",
-]
+# A 级：一级禁用词（真人语料里几乎不出现的 AI 特有词）：在注册表 check_words.level1，作者覆盖层可增删
+LEVEL1_WORDS = REGISTRY["check_words"]["level1"]
 # B 级：二级词（密度控制）与总结、预告句式
 LEVEL2_DENSITY_WORDS = ["缓缓", "微微", "轻轻", "淡淡"]
 SUMMARY_PATTERNS = {
@@ -79,13 +73,8 @@ SUMMARY_PATTERNS = {
 }
 
 
-# 古代背景下的时代错置词（只告警；穿越者等有意为之的写进放行清单）
-ANACHRONISM_WORDS = [
-    "手机", "电话", "电脑", "电视", "网络", "上网", "汽车", "火车", "飞机", "地铁", "公交", "OK", "拜拜", "哈喽",
-    "沙发", "咖啡", "巧克力", "冰箱", "空调", "手表", "分钟", "秒钟", "公里", "厘米", "星期", "周末", "上班", "下班",
-    "加班", "打卡", "效率", "经理", "员工", "拍照", "照片", "信号", "细胞", "基因", "病毒", "维生素", "卡路里",
-    "概率", "智商", "情商", "颜值", "吐槽", "内卷", "躺平", "靠谱",
-]
+# 古代背景下的时代错置词（只告警；穿越者等有意为之的写进放行清单）：在注册表 check_words.anachronism，作者覆盖层可增删
+ANACHRONISM_WORDS = REGISTRY["check_words"]["anachronism"]
 HONORIFIC_MISUSE = {
     "敬称用在自己身上": r"我(?:的|家)?(?:令尊|令堂|令郎|令爱|令兄|令妹|贵府|尊夫人)",
     "谦称用在对方身上": r"(?:你|您)(?:的)?(?:家父|家母|家兄|舍弟|舍妹|寒舍|拙荆|犬子)",
@@ -105,7 +94,7 @@ def knowledge_warnings(book_dir: Path, text: str):
         except json.JSONDecodeError:
             pass
     if era in ("古代", "架空古代"):
-        words = list(ANACHRONISM_WORDS)
+        words = with_words(ANACHRONISM_WORDS, overlay_values(book_dir).get("check.anachronism_words"))
         extra = book_dir / L("anachronism")
         if extra.exists():
             words += [w.strip() for w in re.findall(r"^[-*]\s*(\S+)", extra.read_text("utf-8"), flags=re.M)]
@@ -170,8 +159,12 @@ def dialogue_share(raw: str):
 
 
 def load_config(book_dir: Path):
-    cfg = {"words_min": 3000, "words_max": 5000, "ai_level1_max": 3,
-           "para_max": 200, "sentence_commas_max": 10, "dialogue_run_max": 10}
+    """阈值：插件默认（注册表 evolution.keys 的 default）< 作者覆盖层（evolve apply）< ncc.config.yaml。"""
+    cfg = {"words_min": 3000, "words_max": 5000}
+    over = overlay_values(book_dir)
+    for key, spec in EVOLUTION["keys"].items():
+        if key.startswith("check.") and spec["type"] == "int":
+            cfg[key[6:]] = int(over.get(key, spec["default"]))
     for p in (book_dir.parent / "ncc.config.yaml", book_dir / "ncc.config.yaml"):
         if p.exists():
             text = p.read_text("utf-8")
@@ -326,6 +319,35 @@ def burstiness(text: str):
     return {"sentences": len(lens), "mean_len": round(mean, 1), "cv": round(cv, 2), "mid_band_share": round(band, 2)}
 
 
+def ai_findings(book_dir: Path, text: str, words: int, cfg: dict):
+    """AI 味分级（M3-5）：返回（必须修、只告警、明细）。一级词按注册表＋作者覆盖层。"""
+    problems, warns = [], []
+    block = {k: len(re.findall(p, text)) for k, p in BLOCK_PATTERNS.items()}
+    block = {k: v for k, v in block.items() if v}
+    if block:
+        problems.append("A 级五星句式（出现即须改，或把原句写进 03-文风/放行清单.md 并说明理由）："
+                        + "，".join(f"{k}×{v}" for k, v in block.items()))
+    high = {k: len(re.findall(p, text)) for k, p in HIGH_RISK_PATTERNS.items()}
+    high = {k: v for k, v in high.items() if v}
+    level1 = with_words(LEVEL1_WORDS, overlay_values(book_dir).get("check.level1_words"))
+    l1 = {w: text.count(w) for w in level1 if text.count(w)}
+    a_hits = {**high, **l1}
+    a_total = sum(a_hits.values())
+    detail = "，".join(f"{k}×{v}" for k, v in sorted(a_hits.items(), key=lambda x: -x[1])[:8])
+    if a_total > cfg["ai_level1_max"]:
+        problems.append(f"A 级高危句式与一级禁用词合计 {a_total} 处 > {cfg['ai_level1_max']}：{detail}")
+    elif a_total:
+        warns.append(f"A 级命中 {a_total} 处（未超限）：{detail}")
+    per_k = sum(text.count(w) for w in LEVEL2_DENSITY_WORDS) / max(words / 1000, 1)
+    if per_k > 3:
+        warns.append(f"B 级：缓缓/微微/轻轻/淡淡 每千字 {per_k:.1f} 次 > 3")
+    summ = {k: len(re.findall(p, text)) for k, p in SUMMARY_PATTERNS.items()}
+    summ = {k: v for k, v in summ.items() if v}
+    if summ:
+        warns.append("B 级总结升华或空泛预告：" + "，".join(f"{k}×{v}" for k, v in summ.items()))
+    return problems, warns, {"block": block, "high_risk": high, "level1": l1, "level2_per_1000": round(per_k, 1), "summary": summ}
+
+
 def main():
     if len(sys.argv) < 3:
         print(__doc__)
@@ -376,28 +398,10 @@ def main():
     # AI 味分级
     waived = waived_snippets(book_dir)
     text = mask_waived(raw, waived)
-    block = {k: len(re.findall(p, text)) for k, p in BLOCK_PATTERNS.items()}
-    block = {k: v for k, v in block.items() if v}
-    if block:
-        problems.append("A 级五星句式（出现即须改，或把原句写进 03-文风/放行清单.md 并说明理由）："
-                        + "，".join(f"{k}×{v}" for k, v in block.items()))
-    high = {k: len(re.findall(p, text)) for k, p in HIGH_RISK_PATTERNS.items()}
-    high = {k: v for k, v in high.items() if v}
-    l1 = {w: text.count(w) for w in LEVEL1_WORDS if text.count(w)}
-    a_hits = {**high, **l1}
-    a_total = sum(a_hits.values())
-    detail = "，".join(f"{k}×{v}" for k, v in sorted(a_hits.items(), key=lambda x: -x[1])[:8])
-    if a_total > cfg["ai_level1_max"]:
-        problems.append(f"A 级高危句式与一级禁用词合计 {a_total} 处 > {cfg['ai_level1_max']}：{detail}")
-    elif a_total:
-        warns.append(f"A 级命中 {a_total} 处（未超限）：{detail}")
-    per_k = sum(text.count(w) for w in LEVEL2_DENSITY_WORDS) / max(words / 1000, 1)
-    if per_k > 3:
-        warns.append(f"B 级：缓缓/微微/轻轻/淡淡 每千字 {per_k:.1f} 次 > 3")
-    summ = {k: len(re.findall(p, text)) for k, p in SUMMARY_PATTERNS.items()}
-    summ = {k: v for k, v in summ.items() if v}
-    if summ:
-        warns.append("B 级总结升华或空泛预告：" + "，".join(f"{k}×{v}" for k, v in summ.items()))
+    ai_problems, ai_warns, ai = ai_findings(book_dir, text, words, cfg)
+    problems += ai_problems
+    warns += ai_warns
+    ai["waived_snippets"] = len(waived)
 
     k_warns, facts_used = knowledge_warnings(book_dir, text)
     warns += k_warns
@@ -426,8 +430,7 @@ def main():
     result = {
         "seq": seq, "file": str(f), "status": status, "han_words": words,
         "band": [lo, hi], "length": length, "hook": hook,
-        "ai": {"block": block, "high_risk": high, "level1": l1, "level2_per_1000": round(per_k, 1), "summary": summ,
-               "waived_snippets": len(waived)},
+        "ai": ai,
         "rhythm_reference": rhythm,
         "facts_mentioned": facts_used,
         "promise_touches": [f"{i} {k}" for i, k in touches],

@@ -33,12 +33,12 @@ when_to_use: "User says /ncc-write, 写下一章, 今更N章, 黄金三章, or r
 ## Step 1 — 一批场景卡
 
 1. `ncc_state.py scene next <书目录>` 给出下一批章号；逐章 `chapter add <书目录> <章号> --file 04-正文/第NNNN章-标题.md [--key]`。
-2. 派 outliner（task: scene）按 [references/scene-card.md](references/scene-card.md) 一次写完这一批 `02-大纲/场景卡/ch-NNNN.md`：每章 1–3 场；常规章每场五项（能写出"默认写法"就加上），关键章十项全写；作者的素材卡用得上就挂一行"素材：M-NNNN"（`material list` 看索引）。园丁模式可以没有章纲，从上一章结尾与人物欲望往下推。
+2. `ncc_state.py brief <书目录> --role outliner --seq 4 5 6` 出派单头（本角色记忆、作者刚说的、技法参考），派 outliner（task: scene）按 [references/scene-card.md](references/scene-card.md) 一次写完这一批 `02-大纲/场景卡/ch-NNNN.md`：每章 1–3 场；常规章每场五项（能写出"默认写法"就加上），关键章十项全写；作者的素材卡用得上就挂一行"素材：M-NNNN"（`material list` 看索引），技法卡用得上就挂一行"技法：T-NNNN"。园丁模式可以没有章纲，从上一章结尾与人物欲望往下推。
 3. `ncc_state.py scene check <书目录> 4 5 6` 过格式。
 
 ## Step 2 — 故事审（一批一次）
 
-1. 派 story-editor（task: story-review）审这一批：逐张过故事审清单，再横着看一遍——风险有没有逐场升级、情绪有没有连着几章一个颜色、承诺有没有在批内推进。
+1. `brief --role story-editor --seq 4 5 6` 出派单头，派 story-editor（task: story-review）审这一批：逐张过故事审清单，再横着看一遍——风险有没有逐场升级、情绪有没有连着几章一个颜色、承诺有没有在批内推进。
 2. 常规章：通过 → `scene review <书目录> 4 5 6 --result pass --by story-editor`；退回的卡由 outliner 按推荐改法改完再审那一张。结论记为暂定，单元复盘时作者复看。
 3. 关键章：story-editor 的意见连同场景卡呈给作者，作者确认后 `scene review <书目录> <章号> --result pass --by author`。
 4. 写着写着偏了、要改后面的卡：改哪张重审哪张。

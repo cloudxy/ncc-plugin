@@ -26,6 +26,7 @@
     力量体系.md    # [角色] 境界阶梯、量纲定义、越级例外｜worldbuilder；冻结后走变更提议
     设定词典.md    # [角色] 专名：首现章计划、读者已知、完整真相、计划揭示章｜worldbuilder；写手修正首现章实值
     规则表.md    # [角色] 克制链、兑换率（只对本书有效）｜worldbuilder
+    类目/    # [角色] 设定类目卡：门派、种族、血脉、企业……本书用哪些类目由 worldbuilder 研判、作者在 G1 确认（类目表在注册表，本书的选择在 book.json）｜setting add 建卡，worldbuilder 填｜如 门派/青云宗.md
     时代错置词.md    # [角色] 本书特有的时代错置词（可选）｜worldbuilder
     人物卡/    # [角色] 人物卡与角色采访；秘密是什么写这里，谁知道记知情台账｜worldbuilder｜如 <名字>.md、<名字>-采访.md
   02-大纲/
@@ -52,12 +53,16 @@
     知识台账.md    # [视图] 知识台账｜render 生成，勿手改
   07-导出/    # [工作件] 合稿与电子书（只收已定稿的章）｜export｜如 <书名>-第M-N章.md|txt|epub
   素材/    # [作者] 本书素材卡（按八域分目录）｜material add｜如 <八域>/M-0001-短名.md，未分的放 未分/
-  memory/    # [角色] 各角色的记忆：本书约定、reader 校准备注（不记作者偏好）｜各角色｜如 manager.md、writer.md、editor.md、reader.md…（每个角色一份）
+  memory/    # [源头] 各角色的本书记忆：约定、教训、手感、校准（<角色>.json 是源头，<角色>.md 是生成的视图；不记作者偏好）｜memory add/reinforce/merge/archive/restore/promote（经理按角色交回的记忆提议执行）｜如 writer.json、writer.md、reader.json…（每个角色一份）
   .ncc/    # [工作件] 机器工作件：写手包、审稿快照、横评、操作日志、迁移备份｜只由脚本写
     写手包/    # [工作件] 写手包（脚本组装、留档）｜pack｜如 ch-0001.md
     快照/    # [工作件] 审稿前的正文快照（复审只看改动）｜review plan/delta｜如 ch-0001.md
     横评/    # [工作件] 模型横评：同一写手包的各模型草稿、盲稿与结果｜ncc_eval.py bench｜如 ch-0001/
     操作日志.jsonl    # [历史] 写操作日志（团队交接）｜脚本自动追加
+    记忆日志.jsonl    # [历史] 记忆的每次新增、强化、合并、归档、晋升、撤回｜memory 命令自动追加
+    交接/
+      会话.jsonl    # [历史] 会话交接卡：作者在会话里的原话、决定、情绪、待办（只追加，关掉也是追加一条）｜handoff add/close
+    派单/    # [工作件] 派单头（脚本组装、留档）：本角色记忆、作者刚说的话、技法参考｜brief｜如 outliner-ch-0012.md
     迁移备份/    # [工作件] 迁移时移走的旧版手写视图｜migrate｜如 author-intent.旧.md
 
 {book_root}/
@@ -65,6 +70,13 @@
     偏好.json    # [源头] 偏好、雷点、否决过的推荐（权重随时间衰减）｜pref like/confirm/reject/dislike
     素材/    # [作者] 跨书共用的素材卡｜material add --shared｜如 <八域>/MS-0001-短名.md
     技艺库/    # [作者] 跨书技艺库：每本书一份｜完本后 craft init 再填｜如 <书名>.md
+    记忆/    # [源头] 跨书记忆：换一本书也成立的角色经验（<角色>.json 源头＋.md 视图）｜memory promote｜如 writer.json、writer.md
+    技法库/    # [作者] 跨书技法库：拆书学来的写法卡，每张带证据、适用条件、代价｜technique add（deconstructor 学法时）｜如 <类别>/T-0001-短名.md
+      使用记录.jsonl    # [历史] 技法卡用在哪本书哪一章、结果如何；停用与恢复｜unit close 自动结算；technique result/retire/restore
+    进化/
+      覆盖.json    # [源头] 作者覆盖层：通过闸门的规则改动（阈值、词表增删、新类目、新技法类别）；插件默认 < 作者覆盖 < 本书设置｜evolve apply/revert
+      提议.jsonl    # [历史] 进化提议：提出、评测、作者确认、生效、撤回｜evolve propose/eval/apply/reject/revert
+  _拆书库/    # [角色] 拆书库：每本对标书一个目录（原文、索引、实体、台账、报告，进度在 _progress.json）｜deconstructor；decon index/mark/stats｜如 <书名>/索引/chapter_index.json、<书名>/台账/伏笔.jsonl、<书名>/报告/基线.json
 ```
 
 ## 词表
@@ -101,4 +113,11 @@
 | 团队岗位（`team_positions`） | 主编、主笔、设定、考据、发展编辑、审稿、试读、拆书 | team set |
 | 读者数据来源（`feedback_sources`） | 真实、模拟 | feedback add --source |
 | 读者数据种类（`feedback_kinds`） | 追读、弃读、略读、划线、评论、出戏 | feedback add --kind |
+| 记忆种类（`memory_kinds`） | 约定、教训、手感、校准 | memory add --kind |
+| 会话交接种类（`handoff_kinds`） | 原话、决定、情绪、待办 | handoff add --kind |
+| 交接作用层（`handoff_layers`） | L0、L1、L2、L3、L4、拆书 | handoff add --layer（L0 书魂 … L4 文字；拆书单列） |
+| 技法类别（`technique_kinds`） | 大局设计、剧情规划、爽点规划、暗线伏笔、情绪调用、人物塑造、设定构造、文笔参考 | technique add --kind；场景卡「技法：」 |
+| 技法卡状态（由证据与使用结果推出）（`technique_states`） | 样本、手法、已验证、停用 | technique list |
+| 技法适用阶段（`technique_stages`） | 开篇、连载、卷末、收束 | technique add --applies 阶段=… |
+| 置信级（`confidence`） | 原文明说、强推断、弱推断 | technique add --confidence；拆书抽取 |
 | 写作模式（`writing_modes`） | 建筑师、园丁、混合 | init --mode、mode |

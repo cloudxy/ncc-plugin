@@ -3,9 +3,10 @@
 import re
 import sys
 from pathlib import Path
-from .core import (FACTS, FOCUS_VIEW, INTENT_VIEW, KNOWLEDGE, L, LEDGER_VIEWS, OLD_BOOK_PATHS, OLD_PACKS, OLD_ROOT_PATHS, OPEN_STATES, PACK_DIR, PROMISES, PROMISE_TYPES, SIGNING_POINTS, current_chapter, ledger, load, next_seq, read_json)
+from .core import (FACTS, FOCUS_VIEW, INTENT_VIEW, KNOWLEDGE, L, LEDGER_VIEWS, MEMORY_DIR, view_head, OLD_BOOK_PATHS, OLD_PACKS, OLD_ROOT_PATHS, OPEN_STATES, PACK_DIR, PROMISES, PROMISE_TYPES, SIGNING_POINTS, current_chapter, ledger, load, next_seq, read_json)
 from .ledgers import focus_core, history_problem, promise_overdue, promise_summary, reader_now_lines
 from .learning import pref_file, pref_load
+from .memory import memory_roles, memory_view
 
 
 GEN_BEGIN = "<!-- ncc:生成区块 开始（render 与 report --write 会整块重写；判断写在区块外） -->"
@@ -15,10 +16,6 @@ GEN_END = "<!-- ncc:生成区块 结束 -->"
 
 
 GEN_RE = re.compile(re.escape(GEN_BEGIN) + r".*?" + re.escape(GEN_END), re.S)
-
-
-def view_head(sources: str, how: str) -> str:
-    return f"> 本文件由 `ncc_state.py render` 从 {sources} 生成，勿手改；要改就改源头：{how}。"
 
 
 def outside_block(text: str) -> str:
@@ -104,6 +101,7 @@ def ledger_view(book_dir: Path, d: dict, kind: str) -> str:
 def views(book_dir: Path, d: dict) -> dict:
     out = {INTENT_VIEW: intent_view(book_dir, d), FOCUS_VIEW: focus_view(book_dir, d)}
     out.update({rel: ledger_view(book_dir, d, kind) for rel, kind in LEDGER_VIEWS.items()})
+    out.update({f"{MEMORY_DIR}/{role}.md": memory_view(book_dir, role) for role in memory_roles(book_dir)})
     return out
 
 

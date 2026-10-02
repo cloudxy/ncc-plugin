@@ -12,9 +12,14 @@ from ncclib.ledgers import *  # noqa: E402,F401,F403
 from ncclib.materials import *  # noqa: E402,F401,F403
 from ncclib.scenes import *  # noqa: E402,F401,F403
 from ncclib.learning import *  # noqa: E402,F401,F403
+from ncclib.memory import *  # noqa: E402,F401,F403
+from ncclib.settings import *  # noqa: E402,F401,F403
+from ncclib.decon import *  # noqa: E402,F401,F403
+from ncclib.techniques import *  # noqa: E402,F401,F403
 from ncclib.views import *  # noqa: E402,F401,F403
 from ncclib.loops import *  # noqa: E402,F401,F403
 from ncclib.delivery import *  # noqa: E402,F401,F403
+from ncclib.evolve import *  # noqa: E402,F401,F403
 from ncclib.book import *  # noqa: E402,F401,F403
 from ncclib.cli import main, READ_ONLY  # noqa: E402,F401
 

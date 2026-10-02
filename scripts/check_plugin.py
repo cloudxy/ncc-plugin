@@ -25,7 +25,7 @@ SECTION_NO = re.compile(r"§\s*[0-9〇零一二三四五六七八九十]+|第[�
 NAMED = re.compile(r"`?([\w./-]+\.md)`?\s*(?:的|里)\s*[\"「]([^\"」]+)[\"」]")
 SELF_NAMED = re.compile(r"(?:下面的|上面的|文末|见)\s*[\"「]([^\"」]+)[\"」]")
 WRITER_READABLE = ("skills/ncc-write/references/chapter-loop.md", "skills/ncc-write/references/writing-brief.md", "agents/writer.md")
-REVIEW_WORDS = ("可判定率", "critical", "典型硬伤", "诊断问句", "para_max")
+REVIEW_WORDS = tuple(REG["review_words"]["values"])
 
 
 def tracked():

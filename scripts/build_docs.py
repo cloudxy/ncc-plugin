@@ -9,6 +9,10 @@
   skills/ncc/references/book-layout.md  整份：目录契约、词表
   skills/ncc/references/stage-map.md    阶段表、每批场景卡章数、角色分工
   skills/ncc/SKILL.md                   铁律
+  skills/ncc/references/memory.md       记忆门槛与上限、各角色记什么、交接卡切给谁
+  skills/ncc/references/loops.md        进化的四档与能提议的键
+  skills/ncc-new/references/worldbuilding.md   设定类目表
+  skills/ncc-deconstruct/SKILL.md       技法卡：谁拿哪些类别、状态与版权口径
   agents/*.md、commands/*.md            frontmatter 的 description、color、argument-hint
   README.md                             版本行（版本只在 .zcode-plugin/plugin.json 写一份）
 
@@ -173,6 +177,70 @@ def iron_rules():
     return "\n".join(f"{i}. {r}" for i, r in enumerate(REG["iron_rules"], 1))
 
 
+def memory_rules():
+    m, c = REG["memory"], REG["memory"]["caps"]
+    once = "、".join(m["once_ok"])
+    return "\n".join([
+        f"- 门槛：同类证据至少 {m['min_evidence']} 处才生效（一次侥幸不成经验），不到的先记为候选；{once}一处即可（作者原话就是证据）。",
+        f"- 相近：和已有条目的字面重合度 ≥ {m['similar']} 的，记为再次出现，不新建。",
+        f"- 上限：本书记忆每个角色 {c['book_chars']} 字、{c['book_items']} 条；跨书记忆每个角色 {c['shared_chars']} 字。派单只带到上限为止。",
+        f"- 久未出现：连续 {m['stale_units']} 个单元没再出现的（{once}除外），关单元时自动归档，memory restore 可撤回。",
+        f"- 晋升：命中 ≥ {m['promote_hits']} 次、不是{once}的，够格进跨书记忆；完本时默认晋升，作者可以划掉。",
+    ])
+
+
+def memory_roles():
+    rows = ["| 角色 | 记哪些种类 | 记什么 | 不记什么 |", "|---|---|---|---|"]
+    for r, v in REG["memory"]["roles"].items():
+        rows.append(f"| {r} | {'、'.join(v['kinds'])} | {v['keeps']} | {v['never']} |")
+    return "\n".join(rows)
+
+
+def handoff_visibility():
+    h = REG["handoff"]
+    rows = ["| 角色 | 拿哪些种类 | 作用层 | 只拿覆盖本章的 |", "|---|---|---|---|"]
+    for r, v in h["visibility"].items():
+        if v is None:
+            rows.append(f"| {r} | 不拿 | — | — |")
+            continue
+        kinds = "全部" if v["kinds"] == "*" else "、".join(v["kinds"])
+        layers = "全部" if v["layers"] == "*" else "、".join(v["layers"])
+        rows.append(f"| {r} | {kinds} | {layers} | {'是' if v.get('chapter') else '—'} |")
+    rows += ["", h["why_none"], "", f"写手包里\"作者刚说的\"最多 {h['writer_chars']} 字，派单头里最多 {h['brief_chars']} 字，新的在前。"]
+    return "\n".join(rows)
+
+
+def setting_catalog():
+    sc = REG["setting_categories"]
+    rows = ["| 类目 | 别名 | 常见题材 | 必填字段 |", "|---|---|---|---|"]
+    for name, v in sc["catalog"].items():
+        rows.append(f"| {name} | {'、'.join(v['alias'])} | {'、'.join(v['genres'])} | {'、'.join(v['required'])} |")
+    rows += ["", f"每个类目都要有：{'、'.join(sc['common'])}（本书新提的类目由脚本补上）。"]
+    return "\n".join(rows)
+
+
+def technique_roles():
+    t = REG["techniques"]
+    rows = ["| 角色 | 拿哪些类别 | 最多几张 | 最多几字 |", "|---|---|---|---|"]
+    for r, v in t["per_role"].items():
+        rows.append(f"| {r} | {'、'.join(v['kinds'])}{'（只拿场景卡引用了的）' if v.get('only_referenced') else ''} | {v['max']} | {v['chars']} |")
+    rows.append(f"| {'、'.join(t['never'])} | 不拿 | — | — |")
+    rows += ["", f"{t['why_never']}写手拿到的由脚本转成\"写成什么\"，不带证据、出处与代价。同一本对标书每次最多 {t['per_source_max']} 张。", "",
+             f"状态：一处证据是样本，同一本书 {t['method_evidence']} 处以上是手法；用过且结果好是已验证；连续 {t['retire_after_bad']} 次结果差自动停用"
+             f"（technique restore 可恢复）；{t['general_books']} 本书以上都有的标\"通用\"。定位词 {t['locator'][0]}–{t['locator'][1]} 字；"
+             f"卡片正文和原文连续重合超过 {t['overlap_max']} 字就拒绝写入。"]
+    return "\n".join(rows)
+
+
+def evolution():
+    e = REG["evolution"]
+    rows = ["| 档 | 改什么 | 怎么生效 |", "|---|---|---|"] + [f"| {t['tier']} | {t['what']} | {t['how']} |" for t in e["tiers"]]
+    rows += ["", "能提议的键：", ""]
+    rows += [f"- `{k}`（{v['tier']}）：{v['what']}" + (f"；插件默认 {v['default']}" if "default" in v else "") for k, v in e["keys"].items()]
+    rows += ["", f"永不自动：{'、'.join(e['never'])}。"]
+    return "\n".join(rows)
+
+
 def frontmatter(text, key, value, where):
     pat = re.compile(rf"^{re.escape(key)}: .*$", re.M)
     head, sep, rest = text.partition("\n---\n")
@@ -192,6 +260,11 @@ def targets():
     yield "skills/ncc/references/stage-map.md", lambda t, w: fill(fill(fill(
         t, "stages", stages(), w), "batch", batch(), w), "roles", roles(), w)
     yield "skills/ncc/SKILL.md", lambda t, w: fill(t, "iron-rules", iron_rules(), w)
+    yield "skills/ncc/references/memory.md", lambda t, w: fill(fill(fill(
+        t, "memory-rules", memory_rules(), w), "memory-roles", memory_roles(), w), "handoff-visibility", handoff_visibility(), w)
+    yield "skills/ncc/references/loops.md", lambda t, w: fill(t, "evolution", evolution(), w)
+    yield "skills/ncc-new/references/worldbuilding.md", lambda t, w: fill(t, "setting-catalog", setting_catalog(), w)
+    yield "skills/ncc-deconstruct/SKILL.md", lambda t, w: fill(t, "technique-roles", technique_roles(), w)
     for name, r in REG["roles"].items():
         yield f"agents/{name}.md", lambda t, w, r=r: frontmatter(frontmatter(t, "description", q(r["description"]), w), "color", r["color"], w)
     for name, c in REG["commands"].items():

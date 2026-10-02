@@ -53,7 +53,7 @@ when_to_use: "User wants to start a new novel, has only a vague idea for one, or
 
 **先定写作模式**（D15，按 guidance 给推荐）：建筑师（大纲冻结后动笔）／园丁（只定书魂、第一卷方向与主要人物，按场景探索着写，台账事后补记，每单元整理一次）／混合（默认：书魂与人物先定，情节只规划到当前单元）。`ncc_state.py mode <书目录> 混合`。
 
-派 worldbuilder（task: settings），产出：
+派 worldbuilder（task: settings；派单头用 `brief --role worldbuilder`），先做**设定类目研判**（[references/worldbuilding.md](references/worldbuilding.md) 的"设定类目研判"：本书用门派、种族、血脉、企业……里的哪些，表里装不下的新提一类，呈作者确认后 `setting use`／`setting new`），再产出：
 
 - `01-设定/世界观圣经.md`——按 [references/worldbuilding.md](references/worldbuilding.md) 的结构；"世界的不公"要落在具体的社会结构上（对应书魂）。
 - `01-设定/力量体系.md`——境界阶梯＋**量纲定义**＋越级例外。金手指、力量体系这两个决策点按 guidance 给 2–3 套方案。

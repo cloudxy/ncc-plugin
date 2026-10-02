@@ -1,11 +1,13 @@
-"""场景卡与故事审、知识点清单、写手包、字数检查点、审稿快照。"""
+"""场景卡与故事审、知识点清单、写手包与派单头、字数检查点、审稿快照。"""
 
 import re
 import sys
 from pathlib import Path
-from .core import (ENTRY, ERAS, FACTS, KNOW_DIR, L, MATERIAL_HINT, PACK_BUDGET, PACK_DIR, PROMISES, SCENE_BATCH, SCENE_DIR, SCENE_KEY_REQUIRED, SCENE_REQUIRED, SEEDS, SNAPSHOT_DIR, STYLE_ANCHOR, WRITER_SEEDS, chapter_file, die, ensure_m3_fields, find_ch, han_words, knowledge_path, ledger, length_band, load, normalize_domain, now, plain, read_json, save, scene_path, section, sha16)
+from .core import (BRIEF_DIR, HANDOFF_CFG, ROLES, TECH_CFG, WRITER_GUARD, book_root, chars, ENTRY, ERAS, FACTS, KNOW_DIR, L, MATERIAL_HINT, PACK_BUDGET, PACK_DIR, PROMISES, SCENE_BATCH, SCENE_DIR, SCENE_KEY_REQUIRED, SCENE_REQUIRED, SEEDS, SNAPSHOT_DIR, STYLE_ANCHOR, WRITER_SEEDS, chapter_file, die, ensure_m3_fields, find_ch, han_words, knowledge_path, ledger, length_band, load, normalize_domain, now, plain, read_json, save, scene_path, section, sha16)
 from .ledgers import focus_core, reader_now_lines
 from .materials import material_cards, material_refs
+from .memory import handoff_slice, memory_slice
+from .techniques import brief_lines, technique_cards, technique_refs, writer_lines
 
 
 def scene_problems(book_dir: Path, seq: int, key: bool):
@@ -29,6 +31,11 @@ def scene_problems(book_dir: Path, seq: int, key: bool):
         lost = [r for r in refs if r not in material_cards(book_dir)]
         if lost:
             problems.append(f"引用的素材卡不存在: {'、'.join(lost)}（material list 查编号）")
+    trefs = technique_refs(text)
+    if trefs:
+        lost = [r for r in trefs if r not in technique_cards(book_root(book_dir))]
+        if lost:
+            problems.append(f"引用的技法卡不存在: {'、'.join(lost)}（technique list 查编号）")
     return problems, len(blocks)
 
 
@@ -224,7 +231,7 @@ def cmd_pack(a):
         die(f"不能组装写手包：{why}")
     card = scene_path(book_dir, a.seq).read_text("utf-8")
     blocks = re.split(r"^##\s*场景", card, flags=re.M)[1:]
-    out = [f"# 第 {a.seq} 章 写手包", "", "> 由 ncc_state.py pack 组装。阅读顺序：写作简报 → 读者此刻 → 人物声音 → 可用材料 → 前情 → 前一章结尾 → 文风基准。", ""]
+    out = [f"# 第 {a.seq} 章 写手包", "", "> 由 ncc_state.py pack 组装。阅读顺序：写作简报 → 本书经验 → 作者刚说的 → 读者此刻 → 人物声音 → 可用材料 → 前情 → 前一章结尾 → 文风基准。", ""]
 
     out += ["## 写作简报", ""]
     for i, b in enumerate(blocks, 1):
@@ -242,6 +249,16 @@ def cmd_pack(a):
             "- 简报里的事写完就停：不为凑字数加情节、加人物、加设定。写短了照实交回，由作者决定收不收。", ""]
     if a.note:
         out += ["### 经理的特别提醒（只写意图与材料）", a.note, ""]
+
+    mem, shared, _ = memory_slice(book_dir, d, "writer", plain=True)
+    said = handoff_slice(book_dir, d, "writer", seq=a.seq, plain=True)
+    bad = [w for w in WRITER_GUARD if any(w in x for x in mem + shared + said)]
+    if bad:
+        die(f"写手的记忆或交接里出现了审稿判据词（{'、'.join(bad)}）：改成\"怎么写\"（memory merge --text，或 handoff close 后重记）")
+    if mem or shared:
+        out += ["## 本书经验（写成什么）", ""] + mem + shared + [""]
+    if said:
+        out += ["## 作者刚说的", ""] + said + [""]
 
     out += reader_now_lines(book_dir, d, a.seq) + [""]
 
@@ -282,6 +299,7 @@ def cmd_pack(a):
         if r in mats:
             m = mats[r]
             out.append(f"- 素材 {r}：{m['内容']}（可用在：{m['可用处']}）{MATERIAL_HINT.get(m.get('可信级'), '')}")
+    out += writer_lines(book_dir, card)
     facts = read_json(book_dir / FACTS, {"facts": {}}).get("facts", {})
     for k, f in facts.items():
         if k in card:
@@ -320,6 +338,43 @@ def cmd_pack(a):
     c["pack"] = str(dest.relative_to(book_dir))
     save(book_dir, d)
     print(f"OK 写手包 {c['pack']}（{size} 字" + (f"，超过预算 {PACK_BUDGET}，请删减材料" if size > PACK_BUDGET else "") + "）")
+
+
+def cmd_brief(a):
+    """其余角色的派单头：本角色记忆、作者刚说的（按可见范围切）、技法参考。写手用 pack。"""
+    book_dir = Path(a.book_dir)
+    d = load(book_dir)
+    role = a.role
+    if role == "writer":
+        die("写手用 pack：写手包里已经带了本书经验、作者刚说的和场景卡引用的文笔参考")
+    if role not in ROLES:
+        die(f"--role 只能是 {'/'.join(r for r in ROLES if r != 'writer')}")
+    seqs = a.seq or []
+    head = f"# 派单头：{role}" + (f"（第 {'、'.join(map(str, seqs))} 章）" if seqs else "") + (f"｜任务：{a.task}" if a.task else "")
+    what = "这个画像的校准备注" if role == "reader" else "本角色的记忆、作者刚说的话、技法参考"
+    out = [head, "", f"> 由 ncc_state.py brief 组装：{what}。任务材料按派单包的 inputs 读；角色定义见 agents/{role}.md。", ""]
+    mem, shared, cut = memory_slice(book_dir, d, role, kinds=["校准"] if role == "reader" else None, persona=a.persona)
+    out += ["## 本书记忆" if role != "reader" else "## 校准备注（来自真实读者数据）", ""] + (mem or ["- （无）"]) + [""]
+    if shared:
+        out += ["## 跨书经验", ""] + shared + [""]
+    if cut:
+        out += [f"> 还有 {cut} 条没放进来（超上限，单元整理时合并或归档）", ""]
+    if HANDOFF_CFG["visibility"].get(role):
+        said = handoff_slice(book_dir, d, role, seq=seqs[0] if seqs else None)
+        out += ["## 作者刚说的（会话交接）", ""] + (said or ["- （无）"]) + [""]
+    elif role != "reader":
+        out += [f"> 不带会话交接：{HANDOFF_CFG['why_none']}", ""]
+    if role in TECH_CFG["per_role"]:
+        tl = brief_lines(book_dir, d, role, seqs)
+        out += ["## 技法参考（借写法，不借事件链；推荐理由仍先从作者种子长出来）", ""] + (tl or ["- （技法库里没有合适的卡）"]) + [""]
+    if a.note:
+        out += ["## 经理的特别提醒", a.note, ""]
+    name = role + (f"-ch-{seqs[0]:04d}" if seqs else "") + (f"-{a.persona}" if a.persona else "") + (f"-{a.task}" if a.task and not seqs else "")
+    dest = book_dir / BRIEF_DIR / f"{name}.md"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    text = "\n".join(out)
+    dest.write_text(text + "\n", "utf-8")
+    print(f"OK 派单头 {dest.relative_to(book_dir)}（{chars([text])} 字）；派单包的 inputs 里放它的路径")
 
 
 def cmd_words(a):

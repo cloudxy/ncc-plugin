@@ -1,13 +1,24 @@
-"""循环与收束：单元、卷、收束、读者反馈、团队、作者可持续、复盘底稿。"""
+"""循环与收束：单元、卷、收束、读者反馈、团队、作者可持续、复盘底稿（含记忆整理、技法结算、对标基线、进化提议）。"""
 
 import datetime
 import sys
 from pathlib import Path
-from .core import (EVENTS, FEEDBACK_KINDS, FEEDBACK_SOURCES, FINALE_LIST, FINALE_REQUIRED, KNOWLEDGE, OPEN_STATES, PROMISES, READER_DATA, REVIEW_DIR, TEAM_POSITIONS, UNIT_REVIEW_REQUIRED, VOLUME_REVIEW_REQUIRED, current_chapter, die, ensure_m3_fields, ledger, load, load_cfg, mood_of, normalize_domain, now, open_unit, open_volume, range_chapters, read_json, save, write_json)
+from .core import (MEMORY_CFG, MEMORY_LOG, book_root, read_jsonl, scene_path, EVENTS, FEEDBACK_KINDS, FEEDBACK_SOURCES, FINALE_LIST, FINALE_REQUIRED, KNOWLEDGE, OPEN_STATES, PROMISES, READER_DATA, REVIEW_DIR, TEAM_POSITIONS, UNIT_REVIEW_REQUIRED, VOLUME_REVIEW_REQUIRED, current_chapter, die, ensure_m3_fields, ledger, load, load_cfg, mood_of, normalize_domain, now, open_unit, open_volume, range_chapters, read_json, save, write_json)
 from .ledgers import chapter_touches, promise_overdue
 from .materials import material_cards, material_usage
 from .scenes import knowledge_rows
 from .views import outside_block, write_block
+from .memory import consolidate_lines, handoff_open, memory_items, memory_roles
+from .techniques import settle, technique_refs
+from .decon import compare_lines
+from .evolve import proposals, scan
+
+
+def _count(xs) -> dict:
+    out = {}
+    for x in xs:
+        out[x] = out.get(x, 0) + 1
+    return out
 
 
 def has_sections(p: Path, needed) -> list:
@@ -50,6 +61,13 @@ def cmd_unit(a):
             sys.exit(1)
         u.update({"end": a.end, "status": "closed", "closed_at": now()})
         msg = f"OK 单元 {u['id']} 关闭（第{u['start']}–{a.end}章）"
+        auto = [f"  技法结算：{x}" for x in settle(book_dir, d, u["start"], a.end)]
+        auto += [f"  记忆{x[1:]}" for x in consolidate_lines(book_dir, d, apply=True) if "已自动归档" in x]
+        left = [e for e in handoff_open(book_dir) if e["kind"] == "决定"]
+        if auto:
+            msg += "\n自动做了（可撤回）：\n" + "\n".join(auto)
+        if left:
+            msg += f"\n提醒：还有 {len(left)} 条作者的决定没落进源头（{'、'.join(e['id'] for e in left)}），写进台账、场景卡、偏好或记忆后 handoff close"
     save(book_dir, d)
     print(msg)
 
@@ -227,6 +245,22 @@ def cmd_report(a):
         out.append(f"- 素材库共 {len(mats)} 张，从未用过 {len(idle)} 张" + (f"：{'、'.join(idle[:10])}" if idle else "")
                    + "（outliner 排下一单元时可以挑；作者这段时间新看到、新想到的，随时 material add）")
     if a.kind == "unit":
+        mem = consolidate_lines(book_dir, d)
+        since = u.get("opened_at", "")
+        ops = [r for r in read_jsonl(book_dir / MEMORY_LOG) if r.get("at", "") >= since]
+        out += ["", "## 记忆与交接（关单元时自动归档久未出现的；其余由经理按底稿合并、晋升）", ""]
+        out.append(f"- 本单元记忆变动 {len(ops)} 次：" + ("、".join(f"{k} {v}" for k, v in _count(r['op'] for r in ops).items()) if ops else "（无）"))
+        out += mem or ["- 记忆不用整理"]
+        left = [e for e in handoff_open(book_dir) if e["kind"] == "决定"]
+        out += [f"- 还没落进源头的决定：{e['id']} {e['text']}" for e in left] or ["- 作者的决定都已落进源头"]
+        used = {}
+        for c in chs:
+            card = scene_path(book_dir, c["seq"])
+            for t in technique_refs(card.read_text("utf-8")) if card.exists() else []:
+                used.setdefault(t, []).append(c["seq"])
+        out += ["", "## 技法（场景卡引用的技法卡；关单元时自动结算结果）", ""]
+        out += [f"- {t}：第{'、'.join(map(str, v))}章" for t, v in used.items()] or ["- 本单元场景卡没有引用技法卡"]
+        out += ["", "## 对标基线（只作参照，不作判据）", ""] + compare_lines(book_dir, d, lo, hi)
         out += ["", "## 下一单元", "", "- 候选走向 2–3 个（outliner 从承诺账、读者此刻、书魂推出；标推荐与理由，至少一个非主流）（待填）",
                 "- 下一单元的关键章（系统先按规则推荐，作者确认）（待填）"]
     if a.kind == "volume":
@@ -236,6 +270,12 @@ def cmd_report(a):
                 "- 本卷从哪个角度考验了主题之问？主角的答案变了吗？（待填）"]
         out += ["", "## 数据归因", "", "- 追读与弃读的变化落在哪几章、对应哪类写法（scout 与 pulse 填）（待填）"]
         out += ["", "## 变更提议", "", "- 需要调整的骨架（L1）条目，按 architecture.md 的变更提议格式（待填）", "- 下一卷走向候选 2–3 个，标推荐（待填）"]
+        root = book_root(book_dir)
+        props = [p for p in proposals(root).values() if p["state"] not in ("已生效", "作者否决", "已撤回")]
+        out += ["", "## 进化（规则级改动：先过锚定章回归，再由作者确认）", ""]
+        out += [f"- {p['id']} [{p['tier']}] {p['state']}：{p['key']} ← {p['raw']}（{p['why']}）" for p in props] or ["- 没有待定的进化提议"]
+        out += [f"- 苗头：{key} ← {raw}：{why}（evolve scan --propose 记为提议）" for key, raw, why, _ in scan(root)
+                if not any(p["key"] == key and p["raw"] == raw for p in proposals(root).values())]
         by_dom, pend = {}, {}
         for c in chs:
             for r in knowledge_rows(book_dir, c["seq"]) or []:
@@ -262,6 +302,12 @@ def cmd_report(a):
         out += ["", "## 暗线收拢", "", "知情账里仍有人不知道的事（哪些要在终局揭开）："]
         out += [f"- {k['id']} {k['fact']}——{'、'.join(k['unknown_to'])} 还不知道" for k in gaps] or ["- （无）"]
         out += ["", "未兑现的名场面："] + plist(scenes_left) + ["", "核心意象的最后一次变化："] + plist(motifs)
+        promo = []
+        for role in memory_roles(book_dir):
+            promo += [f"- {role} {i['id']}：{i['text']}（命中 {i.get('hits', 1)} 次）" for i in memory_items(book_dir, role)
+                      if i.get("status") == "active" and i["kind"] not in MEMORY_CFG["once_ok"]
+                      and i.get("hits", 1) >= MEMORY_CFG["promote_hits"] and not i.get("promoted_to")]
+        out += ["", "## 跨书记忆候选（默认晋升，作者可以划掉；memory promote --role 角色）", ""] + (promo or ["- （无）"])
         out += ["", "## 书魂回答", "", f"- 主题之问：{d.get('soul', {}).get('question') or '（未填）'}",
                 "- 终局给出的回答：主角答案的胜利、修正，还是胜利的代价？（待填）",
                 "- 收束方案候选 2–3 个，标推荐（outliner 填）（待填）"]

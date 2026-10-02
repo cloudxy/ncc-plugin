@@ -23,7 +23,7 @@ when_to_use: "User says /ncc-review, 审第N章, 打回重写, 全书体检, 比
 ## 流程
 
 1. **定位**：章号或范围；读 book.json 确认正文 sha、是否关键章、场景卡状态。
-2. **硬伤层**：先 `ncc_state.py review plan` 定派谁并存快照；continuity（task: audit）必派，pulse（task: pulse）按计划参加，fresh 上下文。每条 observation：`{类别, 严重度: critical|major|minor, 正文引用, 推荐处置与理由}`。
+2. **硬伤层**：先 `ncc_state.py review plan` 定派谁并存快照；continuity（task: audit）必派，pulse（task: pulse）按计划参加，fresh 上下文；派单头用 `brief --role continuity|pulse --seq N`（只带本角色的约定与误报漏检记录，不带作者的会话）。每条 observation：`{类别, 严重度: critical|major|minor, 正文引用, 推荐处置与理由}`。
 3. **汇总**：经理合成 `05-审稿/ch-XXXX-review.md`：硬伤层结论（通过／不通过）、可判定率（能下结论的检查项占比，<0.8 视为不通过）、observation 清单。记 review.sha。
 4. **修订**：有 critical 或 major → 派 editor（task: revise）显式修订。**正文一变 SHA 即变，旧评审作废**：`ncc_state.py review delta` 列出改动的段落，由上次给出不通过项的审稿人只复审这些段落与那几项，更新审稿报告。minor 可留到卷末统一打磨。
 5. **品质层（关键章）**：pulse 对 `04-正文/_versions/` 里的版本两两比较（每组说明哪版更好、好在哪、另一版有什么值得保留），reader（默认目标读者画像，见 [references/reader-personas.md](references/reader-personas.md)）对候选版本做记忆测试；经理把结论和推荐呈给作者，作者 `chapter pick` 选定。选中版本接进正文后再过一次硬伤层。

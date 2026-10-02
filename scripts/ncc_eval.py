@@ -11,6 +11,11 @@
   prepare <run_dir> [--suite 底蕴|连贯|承诺|对照] [--runs 3]
                                          生成 continuity 审稿派单包到 <run_dir>/packets/（不含答案），报告回收到 <run_dir>/reports/
   score <run_dir>                        对照答案算检出率、定级、结论准确率、干净章误报、多次之间的稳定性，写 <run_dir>/score.md
+  gate --baseline B.json --candidate C.json
+                                         规则改动的闸门（evolve eval 调用）：用两份覆盖层各跑一遍锚定章的机械层，
+                                         候选不许漏掉原来报得出的错、不许在干净章上多报；变差退出 1
+  anchor new <编号-名字> --suite 底蕴|连贯|承诺|对照 --era 时代 [--clean]
+                                         漏检变锚定章：建一章锚定章的骨架（正文要原创复述，不摘真书）
 
 模型横评（同一个写手包，换不同模型写同一章）
   bench init <book> <seq>                冻结本章写手包的 SHA，建 .ncc/横评/ch-NNNN/
@@ -20,6 +25,7 @@
   bench score <book> <seq>               揭盲：各模型的机械指标与成对比较胜率，写 score.md
 """
 import argparse
+import os
 import itertools
 import json
 import random
@@ -335,6 +341,68 @@ def cmd_bench(a):
     print("\n".join(out))
 
 
+# ---------- 规则改动的闸门 ----------
+
+def anchor_findings(ans: dict, text: str) -> dict:
+    """一章锚定章在当前覆盖层下的机械层结果：底蕴与规避点提醒、AI 味必须修与告警。"""
+    with tempfile.TemporaryDirectory() as t:
+        book = Path(t)
+        (book / "book.json").write_text(json.dumps({"era": ans["era"]}), "utf-8")
+        cfg = cc.load_config(book)
+        warns, _ = cc.knowledge_warnings(book, text)
+        warns += cc.avoidance_warnings(text, cfg)
+        ai_p, ai_w, _ = cc.ai_findings(book, text, cc.han_count(text), cfg)
+    miss = [m for m in ans.get("mech", []) if not any(m in w for w in warns)]
+    noise = ([w for w in warns if w.startswith("底蕴")] + ai_p) if ans.get("mech_clean") else []
+    return {"miss": miss, "noise": noise, "problems": ai_p, "warns": warns + ai_w}
+
+
+def cmd_gate(a):
+    rows, worse = [], []
+    for d, ans in anchors():
+        text = (d / "正文.md").read_text("utf-8")
+        res = {}
+        for tag, path in (("base", a.baseline), ("cand", a.candidate)):
+            os.environ["NCC_OVERLAY"] = str(Path(path).resolve())
+            res[tag] = anchor_findings(ans, text)
+        os.environ.pop("NCC_OVERLAY", None)
+        b, c = res["base"], res["cand"]
+        new_miss = [m for m in c["miss"] if m not in b["miss"]]
+        new_noise = [x for x in c["noise"] if x not in b["noise"]]
+        if new_miss or new_noise:
+            worse.append(ans["id"])
+        rows.append(f"{'FAIL' if new_miss or new_noise else 'PASS'} {ans['id']}：必须修 {len(b['problems'])} → {len(c['problems'])}，"
+                    f"提醒 {len(b['warns'])} → {len(c['warns'])}"
+                    + (f"；新漏报：{'、'.join(new_miss)}" if new_miss else "")
+                    + (f"；干净章新误报：{'；'.join(new_noise)}" if new_noise else ""))
+    print("\n".join(rows))
+    print(f"GATE {'FAIL' if worse else 'PASS'}：" + (f"候选在 {'、'.join(worse)} 上变差" if worse else "候选没有让任何锚定章变差"))
+    sys.exit(1 if worse else 0)
+
+
+ANCHOR_TPL = {
+    "正文.md": "# {id}\n\n（原创复述那段漏检的戏，几百字即可；不摘真书原文。只埋一两处错，埋在审稿真正容易漏的地方。）\n",
+    "场景卡.md": "# {id} 场景卡\n\n## 场景 1\n- 视角：\n- 目标：\n- 翻转：\n- 两难：\n- 情感：\n",
+    "台账.md": "# {id} 台账摘录\n\n（审稿需要的：时代背景、视角、知情台账、知识台账、设定词典、承诺义务）\n",
+}
+
+
+def cmd_anchor(a):
+    if not re.fullmatch(r"A\d{2}-\S+", a.id):
+        die("编号写成 A07-短名（两位数字）")
+    d = ANCHORS / a.id
+    if d.exists():
+        die(f"已存在：{d}")
+    d.mkdir(parents=True)
+    for name, tpl in ANCHOR_TPL.items():
+        (d / name).write_text(tpl.format(id=a.id), "utf-8")
+    ans = {"id": a.id, "suite": a.suite, "era": a.era, "verdict": "pass" if a.clean else "fail", "mech": [], "expected": []}
+    if a.clean:
+        ans["mech_clean"] = True
+    write_json(d / "answers.json", ans)
+    print(f"OK 锚定章骨架 eval/anchors/{a.id}/：写正文、场景卡、台账，再把埋的错写进 answers.json 的 expected（格式见 eval/README.md）")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -343,6 +411,12 @@ def main():
     p = sub.add_parser("prepare"); p.add_argument("run_dir"); p.add_argument("--suite")
     p.add_argument("--runs", type=int, default=3); p.set_defaults(fn=cmd_prepare)
     p = sub.add_parser("score"); p.add_argument("run_dir"); p.set_defaults(fn=cmd_score)
+    p = sub.add_parser("gate"); p.add_argument("--baseline", required=True); p.add_argument("--candidate", required=True)
+    p.set_defaults(fn=cmd_gate)
+    p = sub.add_parser("anchor"); ans_ = p.add_subparsers(dest="action", required=True)
+    q = ans_.add_parser("new"); q.add_argument("id"); q.add_argument("--suite", required=True, choices=["底蕴", "连贯", "承诺", "对照"])
+    q.add_argument("--era", required=True); q.add_argument("--clean", action="store_true")
+    p.set_defaults(fn=cmd_anchor)
     p = sub.add_parser("bench"); bs = p.add_subparsers(dest="action", required=True)
     for act in ("init", "blind", "score"):
         q = bs.add_parser(act); q.add_argument("book_dir"); q.add_argument("seq", type=int)

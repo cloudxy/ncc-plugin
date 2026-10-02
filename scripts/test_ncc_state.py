@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """ncc_state.py / check_chapter.py 自测。运行: python3 scripts/test_ncc_state.py"""
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -108,7 +109,7 @@ class Base(unittest.TestCase):
 class TestInitAndSoul(Base):
     def test_init_layout(self):
         d = self.book_json()
-        self.assertEqual(d["schema_version"], 3)
+        self.assertEqual(d["schema_version"], ncc.SCHEMA)
         self.assertNotIn("promises", d)
         self.assertEqual(d["stage"], "founding")
         self.assertEqual(d["experience_level"], "新手")
@@ -165,6 +166,8 @@ class TestSettingsGate(Base):
         self.assertIn("社会洞察", self.bad("gate", self.book, "settings"))
         self.write("01-设定/世界观圣经.md", "# 圣经\n## 社会洞察\n| 规矩 | 为什么 | 谁受益 | 谁受害 | 主角在哪 | 不公 |\n"
                    "|---|---|---|---|---|---|\n| 夜班不开灯 | 省电 | 厂方 | 工人 | 守夜 | 弱者付成本 |\n## 世界秘密\n")
+        self.assertIn("类目研判", self.bad("gate", self.book, "settings"))
+        self.ok("setting", "none", self.book, "--why", "都市日常，势力只有一家工厂，圣经里一段就够")
         self.ok("gate", self.book, "settings")
 
 
@@ -1033,7 +1036,7 @@ class TestSevenLaws(Base):
         self.assertIn("我手写的创作意图", (self.book / ".ncc/迁移备份/author-intent.旧.md").read_text("utf-8"))
         self.assertTrue((root / "_作者" / "偏好.json").exists())
         d = self.book_json()
-        self.assertEqual(d["schema_version"], 3)
+        self.assertEqual(d["schema_version"], ncc.SCHEMA)
         self.assertNotIn("promises", d)
         self.ok("render", self.book)
         self.assertIn("CHECK OK", self.ok("check", self.book))
@@ -1070,6 +1073,296 @@ class TestPluginArchitecture(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertIn("|".join(ncc.ERAS), out)
         self.assertNotRegex(out, r"\{[a-z_]+\}")
+
+
+class TestMemoryAndHandoff(Base):
+    """M8：角色记忆（门槛、可见范围、整理、晋升）、会话交接卡按角色切片、派单头、全文检索。"""
+
+    def unit(self, start, end):
+        self.ok("unit", "open", self.book, "--start", start)
+        self.ok("report", self.book, "unit", "--write")
+        rel = f"00-策划/复盘/单元-U{len(self.book_json()['units'])}.md"
+        self.fill_review(rel)
+        return self.ok("unit", "close", self.book, "--end", end)
+
+    def test_threshold_guard_and_pack(self):
+        self.ok("soul", self.book, "--question", "谁有资格定义一个人的价值", "--answer", "A", "--injustice", "I", "--ending", "E")
+        out = self.ok("memory", "add", self.book, "--role", "writer", "--kind", "教训",
+                      "--text", "打斗场面每场只留一个转折动作，其余用结果带过", "--evidence", "第12章退回")
+        self.assertIn("候选", out)
+        self.add(4)
+        self.write("02-大纲/场景卡/ch-0004.md", SCENE_SHORT)
+        self.ok("scene", "review", self.book, 4, "--result", "pass", "--by", "story-editor")
+        self.ok("pack", self.book, 4)
+        self.assertNotIn("转折动作", (self.book / ".ncc/写手包/ch-0004.md").read_text("utf-8"))   # 一次侥幸不成经验
+        out = self.ok("memory", "add", self.book, "--role", "writer", "--kind", "教训",
+                      "--text", "打斗场面每场只留一个转折动作，其余的用结果带过", "--evidence", "第19章退回")
+        self.assertIn("MEM-0001", out)                                                        # 相近的记为再次出现
+        self.ok("pack", self.book, 4)
+        pack = (self.book / ".ncc/写手包/ch-0004.md").read_text("utf-8")
+        self.assertIn("## 本书经验（写成什么）", pack)
+        self.assertIn("转折动作", pack)
+        self.assertNotIn("MEM-0001", pack)                                                    # 写手只拿"写成什么"
+        self.assertIn("判据", self.bad("memory", "add", self.book, "--role", "writer", "--kind", "教训", "--text", "注意硬伤层的时间线"))
+        self.assertIn("书魂", self.bad("memory", "add", self.book, "--role", "editor", "--kind", "约定", "--text", "谁有资格定义一个人的价值"))
+        self.assertIn("pref", self.bad("memory", "add", self.book, "--role", "outliner", "--kind", "手感", "--text", "作者喜欢先抑后扬"))
+        self.assertIn("校准", self.bad("memory", "add", self.book, "--role", "reader", "--kind", "教训", "--text", "x"))
+        self.ok("memory", "add", self.book, "--role", "reader", "--kind", "校准", "--text", "老白画像在日常章低估追读",
+                "--evidence", "第3章；第8章")
+        self.assertIn("老白画像", (self.book / "memory/reader.md").read_text("utf-8"))
+        self.assertIn("CHECK OK", self.ok("check", self.book))
+        (self.book / "memory/reader.md").write_text("手改", "utf-8")
+        self.assertIn("memory/reader.md", self.bad("check", self.book))                    # 记忆的 .md 也是视图
+
+    def test_handoff_slices_and_brief(self):
+        self.ok("soul", self.book, "--question", "谁有资格定义一个人的价值", "--answer", "A", "--injustice", "I", "--ending", "E")
+        self.ok("handoff", "add", self.book, "--kind", "决定", "--layer", "L3", "--ch", "4-6", "--text", "这几章陆言不再求人，开口就是条件")
+        self.ok("handoff", "add", self.book, "--kind", "原话", "--layer", "L1", "--text", "金手指改成只能看见别人的欠条")
+        self.ok("handoff", "add", self.book, "--kind", "情绪", "--text", "今天状态不好，少问我")
+        self.assertIn("书魂", self.bad("handoff", "add", self.book, "--kind", "决定", "--layer", "L3", "--text", "谁有资格定义一个人的价值"))
+        self.bad("handoff", "add", self.book, "--kind", "决定", "--text", "没写作用层")
+        self.add(4)
+        self.write("02-大纲/场景卡/ch-0004.md", SCENE_SHORT)
+        self.ok("scene", "review", self.book, 4, "--result", "pass", "--by", "story-editor")
+        self.ok("pack", self.book, 4)
+        pack = (self.book / ".ncc/写手包/ch-0004.md").read_text("utf-8")
+        self.assertIn("## 作者刚说的", pack)
+        self.assertIn("开口就是条件", pack)
+        for banned in ("欠条", "少问我", "H-000"):
+            self.assertNotIn(banned, pack)
+        self.ok("brief", self.book, "--role", "outliner", "--seq", 4, 5, 6)
+        b = (self.book / ".ncc/派单/outliner-ch-0004.md").read_text("utf-8")
+        self.assertIn("欠条", b)
+        self.assertIn("开口就是条件", b)
+        self.assertNotIn("少问我", b)
+        self.ok("brief", self.book, "--role", "continuity", "--seq", 4)
+        b = (self.book / ".ncc/派单/continuity-ch-0004.md").read_text("utf-8")
+        self.assertNotIn("开口就是条件", b)
+        self.assertIn("审稿看源头", b)
+        self.ok("memory", "add", self.book, "--role", "reader", "--kind", "校准", "--text", "老白画像在日常章低估追读", "--evidence", "a；b")
+        self.ok("brief", self.book, "--role", "reader", "--persona", "老白")
+        b = (self.book / ".ncc/派单/reader-老白.md").read_text("utf-8")
+        self.assertIn("日常章低估追读", b)
+        for banned in ("欠条", "开口就是条件", "作者刚说的", "技法"):
+            self.assertNotIn(banned, b)
+        self.assertIn("pack", self.bad("brief", self.book, "--role", "writer"))
+        self.ok("handoff", "close", self.book, "H-0001", "--to", "场景卡")
+        self.ok("pack", self.book, 4)
+        self.assertNotIn("开口就是条件", (self.book / ".ncc/写手包/ch-0004.md").read_text("utf-8"))
+        self.assertIn("已落到「场景卡」", self.ok("handoff", "list", self.book))
+
+    def test_consolidate_promote_and_recall(self):
+        self.ok("memory", "add", self.book, "--role", "writer", "--kind", "教训", "--text", "雨夜戏别写成天气预报",
+                "--evidence", "第1章；第2章", "--ch", 1)
+        self.ok("memory", "add", self.book, "--role", "writer", "--kind", "手感", "--text", "吵架戏让人物先做事再说话",
+                "--evidence", "第1章；第2章；第3章", "--ch", 1)
+        self.ok("memory", "reinforce", self.book, "--role", "writer", "MEM-0002", "--evidence", "第25章", "--ch", 25)
+        self.unit(1, 10)
+        self.unit(11, 20)
+        out = self.unit(21, 30)
+        self.assertIn("已自动归档", out)                                            # 连续两个单元没再出现
+        items = {i["id"]: i for i in json.loads((self.book / "memory/writer.json").read_text("utf-8"))["items"]}
+        self.assertEqual(items["MEM-0001"]["status"], "archived")
+        self.assertEqual(items["MEM-0002"]["status"], "active")
+        self.ok("memory", "restore", self.book, "--role", "writer", "MEM-0001")
+        self.ok("memory", "promote", self.book, "--role", "writer")                   # 晋升够格的（命中 ≥3）
+        shared = json.loads((self.book.parent / "_作者/记忆/writer.json").read_text("utf-8"))["items"]
+        self.assertEqual([x["text"] for x in shared], ["吵架戏让人物先做事再说话"])
+        self.assertIn("约定", self.bad("memory", "add", self.book, "--role", "continuity", "--kind", "手感", "--text", "x"))
+        self.write("05-审稿/ch-0001-review.md", "| 1 | 连贯 | major | 「雨夜」 | 雨夜戏写成天气预报 | 改 |\n")
+        self.assertIn("审稿·ch-0001-review", self.ok("recall", self.book, "雨夜"))
+        self.assertNotIn("审稿·", self.ok("recall", self.book, "雨夜", "--role", "writer"))
+        self.assertIn("记忆·writer", self.ok("recall", self.book, "雨夜", "--role", "writer"))
+
+    def test_migrate_v3_memory(self):
+        d = self.book_json()
+        d["schema_version"] = 3
+        d.pop("setting_categories")
+        (self.book / "book.json").write_text(json.dumps(d, ensure_ascii=False), "utf-8")
+        self.write("memory/reader.md", "# reader 校准\n- 老白画像在日常章低估追读\n- 懂行读者对医疗细节过敏\n")
+        self.assertIn("migrate", self.bad("status", self.book))
+        self.assertIn("2 条", self.ok("migrate", self.book))
+        items = json.loads((self.book / "memory/reader.json").read_text("utf-8"))["items"]
+        self.assertEqual({i["kind"] for i in items}, {"校准"})
+        self.assertTrue((self.book / ".ncc/迁移备份/memory-reader.旧.md").exists())
+        self.assertIn("setting_categories", self.book_json())
+        self.assertIn("CHECK OK", self.ok("check", self.book))
+
+
+class TestSettingCategories(Base):
+    """M10：类目表、按题材研判、本书新类目、类目卡与检查、进 G1。"""
+
+    def test_catalog_use_new_add_check(self):
+        out = self.ok("setting", "catalog", self.book)
+        self.assertRegex(out, r"企业（[^）]*）★ 题材相关")
+        self.assertIn("setting new", self.bad("setting", "use", self.book, "灵契", "--why", "x"))
+        self.ok("setting", "use", self.book, "企业", "宗门", "--why", "工厂背后的集团和守夜人的门派是两股压力")
+        self.assertIn("门派", self.book_json()["setting_categories"]["used"])          # 别名认得
+        self.bad("setting", "new", self.book, "夜契", "--required", "代价", "--why", "w", "--gap", "g")
+        self.ok("setting", "new", self.book, "夜契", "--required", "立契条件,代价,解约方式", "--why", "守夜人靠夜契借力",
+                "--gap", "不是功法也不是法宝，是人和夜之间的契约")
+        self.assertIn("和主角的关系", self.book_json()["setting_categories"]["used"]["夜契"]["required"])
+        out = self.bad("setting", "check", self.book)
+        self.assertIn("还没有卡", out)
+        self.ok("setting", "add", self.book, "企业", "星河集团")
+        card = self.book / "01-设定/类目/企业/星河集团.md"
+        self.assertIn("- 钱从哪来：", card.read_text("utf-8"))
+        self.assertIn("星河集团 缺", self.bad("setting", "check", self.book))
+        fields = ["主营", "实际控制人", "钱从哪来", "灰色地带", "和权力的关系", "内部派系", "和主角的关系", "秘密"]
+        card.write_text("# 企业：星河集团\n" + "\n".join(f"- {f}：待定" for f in fields) + "\n- 规模：员工 3000 人\n", "utf-8")
+        self.ok("setting", "add", self.book, "门派", "守夜门")
+        self.ok("setting", "add", self.book, "夜契", "初契")
+        for rel, req in (("门派/守夜门", self.book_json()), ("夜契/初契", None)):
+            p = self.book / f"01-设定/类目/{rel}.md"
+            p.write_text(re.sub(r"：\n", "：待定\n", p.read_text("utf-8")), "utf-8")
+        out = self.ok("setting", "check", self.book)
+        self.assertIn("数字放知识台账", out)
+        self.assertIn("企业 1 张", self.ok("status", self.book))
+        self.assertIn("有卡", self.bad("setting", "drop", self.book, "企业"))
+
+
+class TestDeconAndTechniques(Base):
+    """M9：拆书索引、覆盖率、对标基线；技法卡（版权、状态、匹配、按角色可见）、使用结果自动结算。"""
+
+    CN = "一二三四五六"
+
+    def library(self, chapters="一二三四五六"):
+        lib = self.book.parent / "_拆书库" / "样书"
+        body = "\n".join(f"第{c}章 雨夜{i}\n" + f"少年在第{i}个雨夜里走过长街，灯一盏一盏灭下去，他数着脚步回家。" * 6
+                         for i, c in enumerate(chapters, 1))
+        (lib / "原文").mkdir(parents=True, exist_ok=True)
+        (lib / "原文" / "样书.txt").write_text(body, "utf-8")
+        return lib
+
+    def jsonl(self, path, rows):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), "utf-8")
+
+    def test_index_coverage_stats_link(self):
+        lib = self.library("一三四")
+        self.assertIn("跳号", self.bad("decon", "index", lib))
+        lib = self.library()
+        self.assertIn("6 章", self.ok("decon", "index", lib))
+        self.assertIn("还差 6 章", self.bad("decon", "coverage", lib))
+        self.assertIn("覆盖率", self.bad("decon", "stats", lib))
+        self.ok("decon", "mark", lib, "--done", "1-5")
+        self.ok("decon", "mark", lib, "--skip", 6, "--why", "番外")
+        self.ok("decon", "coverage", lib)
+        self.jsonl(lib / "台账/伏笔.jsonl", [{"id": "F1", "op": "埋", "chapter": 1}, {"id": "F1", "op": "强化", "chapter": 3},
+                                             {"id": "F1", "op": "回收", "chapter": 5}, {"id": "F2", "op": "埋", "chapter": 2}])
+        self.jsonl(lib / "台账/爽点.jsonl", [{"chapter": 3, "setup": 1, "parts": ["欠账", "兑现", "超额", "见证"]}, {"chapter": 6}])
+        self.jsonl(lib / "台账/情绪点.jsonl", [{"chapter": i, "tension": t} for i, t in enumerate("压压压放压放", 1)])
+        self.jsonl(lib / "实体/实体.jsonl", [{"name": "长街会", "category": "组织", "first_ch": 1}, {"name": "雨契", "category": "", "first_ch": 2}])
+        self.ok("decon", "stats", lib, "--write")
+        b = json.loads((lib / "报告/基线.json").read_text("utf-8"))
+        self.assertEqual((b["伏笔"]["平均等待章数"], b["伏笔"]["未回收"], b["爽点"]["每10章"], b["情绪"]["最长连续压抑"]), (4, 1, 3.3, 3))
+        self.assertEqual(b["实体"].get("未归类"), 1)
+        self.assertIn("勿手改", (lib / "报告/基线.md").read_text("utf-8"))
+        self.ok("decon", "link", self.book, "样书")
+        self.ok("unit", "open", self.book, "--start", 1)
+        self.assertIn("《样书》第1–6章", self.ok("report", self.book, "unit"))
+
+    def card(self, root, kind, method, ev, extra=()):
+        return run("technique", "add", root, "--kind", kind, "--method", method, "--how", "先压三章，再一次放出来",
+                   "--evidence", ev, "--applies", "题材=都市,诡异；阶段=开篇", "--cost", "压太久读者会走",
+                   "--confidence", "强推断", "--source", "样书", *extra)
+
+    def test_cards_match_visibility_and_settle(self):
+        self.library()
+        root = self.book.parent
+        code, out = self.card(root, "爽点规划", "少年在第1个雨夜里走过长街，灯一盏一盏灭下去", "拆:样书 第1章「灯一盏一盏灭」")
+        self.assertEqual(code, 1, out)
+        self.assertIn("重合", out)                                                        # 只用自己的话
+        code, out = self.card(root, "爽点规划", "憋屈要攒够再一次兑现", "拆:样书 第1章「灯一盏」")
+        self.assertEqual(code, 1, out)
+        self.assertIn("应在 5–15 字", out)
+        code, out = self.card(root, "爽点规划", "憋屈要攒够再一次兑现", "拆:样书 第1章「灯一盏一盏灭下去」；拆:样书 第3章「他数着脚步回家」")
+        self.assertEqual(code, 0, out)
+        code, out = self.card(root, "文笔参考", "环境描写跟着人物的脚步走", "拆:样书 第2章「灯一盏一盏灭下去」")
+        self.assertEqual(code, 0, out)
+        out = self.ok("technique", "list", root)
+        self.assertIn("T-0001 [爽点规划·手法]", out)
+        self.assertIn("T-0002 [文笔参考·样本]", out)
+        self.assertIn("T-0001", self.ok("technique", "match", self.book, "--role", "outliner"))
+        self.assertNotIn("T-0002", self.ok("technique", "match", self.book, "--role", "outliner"))
+        self.assertIn("不拿技法卡", self.ok("technique", "match", self.book, "--role", "continuity"))
+        self.add(4)
+        self.write("02-大纲/场景卡/ch-0004.md", SCENE_SHORT + "- 技法：T-0002、T-0009\n")
+        self.assertIn("技法卡不存在", self.bad("scene", "check", self.book, 4))
+        self.write("02-大纲/场景卡/ch-0004.md", SCENE_SHORT + "- 技法：T-0002、T-0001\n")
+        self.ok("scene", "review", self.book, 4, "--result", "pass", "--by", "story-editor")
+        self.ok("pack", self.book, 4)
+        pack = (self.book / ".ncc/写手包/ch-0004.md").read_text("utf-8")
+        self.assertIn("文笔参考：环境描写跟着人物的脚步走", pack)
+        for banned in ("拆:", "憋屈要攒够", "压太久"):
+            self.assertNotIn(banned, pack)                                               # 写手只拿引用的文笔参考
+        self.ok("brief", self.book, "--role", "outliner", "--seq", 4)
+        self.assertIn("T-0001", (self.book / ".ncc/派单/outliner-ch-0004.md").read_text("utf-8"))
+        self.ok("unit", "open", self.book, "--start", 4)
+        self.ok("complete", self.book, 4, "--words", 3000, "--hard", "pass")
+        self.ok("report", self.book, "unit", "--write")
+        self.fill_review("00-策划/复盘/单元-U1.md")
+        self.assertIn("技法结算：T-0002 第4章：好", self.ok("unit", "close", self.book, "--end", 4))
+        self.assertIn("T-0002 [文笔参考·已验证]", self.ok("technique", "list", root))
+        self.ok("technique", "retire", root, "T-0001", "--note", "用腻了")
+        self.assertNotIn("T-0001", self.ok("technique", "match", self.book, "--role", "outliner"))
+        self.ok("technique", "restore", root, "T-0001")
+        self.assertIn("T-0001", self.ok("technique", "match", self.book, "--role", "outliner"))
+
+
+class TestEvolution(Base):
+    """M11：提议、四档、锚定章回归当闸门、作者覆盖层生效与撤回、证据扫描。"""
+
+    def test_gate_apply_revert(self):
+        root = self.book.parent
+        self.assertIn("永不自动", self.bad("evolve", "propose", root, "--key", "iron_rules", "--value", "x", "--why", "w", "--evidence", "e"))
+        a01 = (ncc.PLUGIN_ROOT / "eval/anchors/A01-古代时代错置与称谓/正文.md").read_text("utf-8")
+        used = [w for w in ncc.REGISTRY["check_words"]["anachronism"] if w in a01]
+        self.assertTrue(used)
+        self.ok("evolve", "propose", root, "--key", "check.anachronism_words", "--value=" + ",".join("-" + w for w in used),
+                "--why", "作者觉得这些词古代也说得通", "--evidence", "测试")
+        self.assertIn("锚定章回归", self.bad("evolve", "apply", root, "EP-0001", "--quote", "改吧"))
+        out = self.bad("evolve", "eval", root, "EP-0001")
+        self.assertIn("新漏报", out)                                                       # 删词让锚定章漏报：拦下
+        self.assertIn("不能生效", self.bad("evolve", "apply", root, "EP-0001", "--quote", "改吧"))
+        self.ok("evolve", "propose", root, "--key", "check.para_max", "--value", "300", "--why", "作者的段落本来就长",
+                "--evidence", "第1–20章长段告警全被作者放行")
+        self.ok("evolve", "eval", root, "EP-0002")
+        self.assertIn("--quote", self.bad("evolve", "apply", root, "EP-0002"))
+        self.ok("evolve", "apply", root, "EP-0002", "--quote", "段落长是我的习惯")
+        self.assertIn("300  ← 作者覆盖", self.ok("evolve", "rules", root))
+        sys.path.insert(0, str(HERE))
+        import check_chapter as cc
+        self.assertEqual(cc.load_config(self.book)["para_max"], 300)
+        self.ok("evolve", "revert", root, "EP-0002")
+        self.assertEqual(cc.load_config(self.book)["para_max"], 200)
+        self.assertIn("已撤回", self.ok("evolve", "list", root))
+
+    def test_scan_custom_category_across_books(self):
+        root = self.book.parent
+        other = root / "第二本"
+        self.ok("init", other, "--title", "第二本")
+        for b in (self.book, other):
+            self.ok("setting", "new", b, "夜契", "--required", "立契条件,代价,解约方式", "--why", "w", "--gap", "g")
+        out = self.ok("evolve", "scan", root, "--propose")
+        self.assertIn("夜契", out)
+        self.assertIn("EP-0001", out)
+        self.assertIn("作者确认", self.ok("evolve", "list", root))
+        self.ok("evolve", "apply", root, "EP-0001", "--quote", "收进类目表")
+        third = root / "第三本"
+        self.ok("init", third, "--title", "第三本")
+        self.ok("setting", "use", third, "夜契", "--why", "也要用")                       # 覆盖层里的类目，新书能直接选
+        self.ok("technique", "list", root)
+
+    def test_anchor_new(self):
+        import shutil
+        d = ncc.PLUGIN_ROOT / "eval/anchors/A99-测试骨架"
+        try:
+            self.assertIn("A99-测试骨架", run("anchor", "new", "A99-测试骨架", "--suite", "连贯", "--era", "现代", script=EVAL)[1])
+            self.assertEqual(json.loads((d / "answers.json").read_text("utf-8"))["verdict"], "fail")
+            self.assertEqual(run("anchor", "new", "A99-测试骨架", "--suite", "连贯", "--era", "现代", script=EVAL)[0], 1)
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
 
 
 if __name__ == "__main__":

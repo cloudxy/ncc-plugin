@@ -13,6 +13,8 @@
 | 书魂四问、主角弧光 | 源头 | `book.json` 的 `soul` | 作者拍板后 soul | author-intent.md |
 | 类型契约、毒点、目标读者、签约点 | 源头 | `book.json` 的 `contract` | 作者拍板后 contract（含 --audience）、sign | author-intent.md |
 | 每章结束时的时间、地点、下一章要接的事 | 源头 | `book.json` 的 `chapters[].end` | chapter end | current-focus.md（续写状态卡） |
+| 本书用哪些设定类目、本书新提的类目与字段、为什么 | 源头 | `book.json` 的 `setting_categories` | 作者在 G1 确认后 setting use/new/none | setting list |
+| 本书的对标书（拆书库里的书名），单元复盘拿它的基线作参照 | 源头 | `book.json` 的 `benchmarks` | decon link | 单元复盘底稿 |
 | 作者种子（原话） | 作者 | `00-策划/作者种子.md` | 经理按作者原话记 | 写手包带 #1、#3、#6 |
 | 冻结后的变更提议与作者决定（只追加） | 历史 | `00-策划/变更提议.md` | 经理 | — |
 | 每章要发生的事：视角、目标、翻转、两难、情感（关键章十项） | 源头 | `02-大纲/场景卡/` | outliner 起草，过故事审 | 写手包；current-focus.md 的近三章 |
@@ -24,11 +26,19 @@
 | 数据：距离、物价、历法、称谓、数值 | 源头 | `06-台账/知识台账.json` | fact set（同键改值要 --override） | 06-台账/知识台账.md |
 | 人物与世界的变化（只追加；指纹记在 book.json） | 历史 | `06-台账/状态事件.json` | event add | event list；读者此刻 |
 | 本书素材卡（按八域分目录） | 作者 | `素材/` | material add | material list；写手包 |
+| 各角色的本书记忆：约定、教训、手感、校准（<角色>.json 是源头，<角色>.md 是生成的视图；不记作者偏好） | 源头 | `memory/` | memory add/reinforce/merge/archive/restore/promote（经理按角色交回的记忆提议执行） | memory/<角色>.md；派单头（brief）与写手包 |
 | 机器工作件：写手包、审稿快照、横评、操作日志、迁移备份 | 工作件 | `.ncc/` | 只由脚本写 | — |
 | 写操作日志（团队交接） | 历史 | `.ncc/操作日志.jsonl` | 脚本自动追加 | — |
+| 记忆的每次新增、强化、合并、归档、晋升、撤回 | 历史 | `.ncc/记忆日志.jsonl` | memory 命令自动追加 | recall；单元复盘底稿 |
+| 会话交接卡：作者在会话里的原话、决定、情绪、待办（只追加，关掉也是追加一条） | 历史 | `.ncc/交接/会话.jsonl` | handoff add/close | handoff list；按角色切进派单头与写手包 |
 | 偏好、雷点、否决过的推荐（权重随时间衰减） | 源头 | `{书库}/_作者/偏好.json` | pref like/confirm/reject/dislike | pref show；author-intent.md 的雷点 |
 | 跨书共用的素材卡 | 作者 | `{书库}/_作者/素材/` | material add --shared | — |
 | 跨书技艺库：每本书一份 | 作者 | `{书库}/_作者/技艺库/` | 完本后 craft init 再填 | 下一本书 craft read |
+| 跨书记忆：换一本书也成立的角色经验（<角色>.json 源头＋.md 视图） | 源头 | `{书库}/_作者/记忆/` | memory promote | _作者/记忆/<角色>.md；派单头 |
+| 跨书技法库：拆书学来的写法卡，每张带证据、适用条件、代价 | 作者 | `{书库}/_作者/技法库/` | technique add（deconstructor 学法时） | technique list/match；派单头；写手包只带场景卡引用的文笔参考 |
+| 技法卡用在哪本书哪一章、结果如何；停用与恢复 | 历史 | `{书库}/_作者/技法库/使用记录.jsonl` | unit close 自动结算；technique result/retire/restore | technique list |
+| 作者覆盖层：通过闸门的规则改动（阈值、词表增删、新类目、新技法类别）；插件默认 < 作者覆盖 < 本书设置 | 源头 | `{书库}/_作者/进化/覆盖.json` | evolve apply/revert | evolve rules |
+| 进化提议：提出、评测、作者确认、生效、撤回 | 历史 | `{书库}/_作者/进化/提议.jsonl` | evolve propose/eval/apply/reject/revert | evolve list；卷复盘底稿 |
 <!-- ncc:gen info-map 结束 -->
 
 **视图**：每次写操作后脚本自动重新生成；文件开头写着"勿手改"。`ncc_state.py check` 逐字比对视图与源头，手改过或过期都会报出来；`render` 手动重新生成。**脚本从不读视图当输入**（写手包的"前情"从 `book.json` 和场景卡现算）。

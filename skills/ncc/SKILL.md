@@ -53,6 +53,7 @@ when_to_use: "User asks to start a book, continue writing, review chapters, deco
 | `loop` | 单元写完了 / 这卷写完了 / 复盘 | 按 [references/loops.md](references/loops.md) 做单元或卷复盘 |
 | `finale` | 准备收尾 / 完本 | 按 [references/finale.md](references/finale.md) 进入收束 |
 | `material` | 记素材 / "今天看到一件事……" / 想起一段经历 | 整理成来源、内容、可用处三项，`material add` 记卡（跨书通用的加 `--shared`），原话尽量留在内容里；见 `skills/ncc-new/references/material.md` |
+| `memory` | "以后都这样" / "记住这个" / "上次怎么定的" / 作者在会话里做了影响后面工作的决定 | 按 [references/memory.md](references/memory.md)：约定记进角色记忆（`memory add`），会话里的决定与原话记交接卡（`handoff add`），查旧账先 `recall`；作者的口味记偏好（`pref`） |
 | `feedback` | 贴来追读数据、评论 | 汇总成信号后 `feedback add` 登记（sustain.md 的"噪音隔离"），复盘时呈给作者 |
 | `team` | 多人协作、分工 | 按 [references/team.md](references/team.md) 认领位置 |
 | `dashboard` | 几本书一起看 / 总览 / 哪本书欠账多 | `ncc_state.py dashboard <书库根目录> [--html 文件]`：各书阶段、进度、存稿、承诺健康度与承诺热力图 |
@@ -82,6 +83,7 @@ authority: 只产出草稿，不审稿，不改 book.json
 规则：
 - 包里给绝对路径，不硬编码 home；先解析符号链接。
 - 写手包由脚本组装：`ncc_state.py pack <书目录> <章号> [--note …]`（[references/context-pack.md](references/context-pack.md)，D18），派单包只给它的路径；没包先生成。
+- 其余角色的派单头也由脚本组装：`ncc_state.py brief <书目录> --role <角色> [--seq 章号…] [--task …] [--persona 画像]`，把它的路径放进 inputs。派单头里是本角色的记忆、按可见范围切好的会话交接、规划角色的技法参考（[references/memory.md](references/memory.md)）；子代理就是这样继承会话的，不全量继承。
 - 写手包里不放什么，见 `skills/ncc-write/references/writing-brief.md` 的"不进写手上下文的东西"（铁律 9）。
 - "最容易想到的写法"由 outliner 写进场景卡的"默认写法"一栏；你可以用 `--note` 追加特别提醒，只写意图与材料。
 - 审稿派谁由 `ncc_state.py review plan` 决定（常规章只派 continuity，D17）；复审用 `review delta` 只看改动。
@@ -91,7 +93,7 @@ authority: 只产出草稿，不审稿，不改 book.json
 ## Step 3 — 派单与回收
 
 1. 用宿主的角色类型派单（`ncc-workflow:<role>`）；宿主不识别则用通用类型 fallback，让其先 Read 对应 `agents/<role>.md`，并在 book.json 记 `host_spawn: true`。
-2. 回收返回：把完整返回存到 `书目录/05-审稿/` 或对应产物目录，把摘要呈现给作者。
+2. 回收返回：把完整返回存到 `书目录/05-审稿/` 或对应产物目录，把摘要呈现给作者。返回里有"记忆提议"的，照记 `memory add --role <角色>`（门槛与拦截由脚本管）。
 3. 用 `ncc_state.py` 记账：章节登记与状态（`chapter add/key/hook/mark/mood/pick/retry`、`complete --hard`）、场景卡（`scene check/review`）、知识点（`knowledge plan/check`，按需派 scholar）、三本账（`promise`、`know`、`fact`、`event`）、章末状态（`chapter end`）、时代背景与一书一深学（`era`、`study`）、素材卡（`material`）、闸门结果。脚本退出码即结论。
 4. 返工：同一章审稿不过 → 派 editor 修订 → 正文 SHA 变更 → 复评。累计返工 ≥3 轮（`chapter retry` 自动转 failed）→ 停下来向作者呈示问题清单与推荐处置，不自动第 4 轮。
 
@@ -116,7 +118,7 @@ authority: 只产出草稿，不审稿，不改 book.json
 ## Step 5 — 上下文纪律（经理自身的）
 
 - 每次会话开头读 `book.json`（一次），不要整本重读正文；需要细节时按台账定位。
-- 你的记忆文件 `书目录/memory/manager.md`：跨会话记录本书的特殊约定。作者偏好、雷点和否决过的推荐只记在偏好文件（`pref`），不在这里另记一份。每个角色有自己的记忆文件，互不读写。
+- 记忆与交接按 [references/memory.md](references/memory.md)：本书的特殊约定记进你自己的记忆（`memory add --role manager --kind 约定`）；作者在会话里说的、会影响后面工作的话当场记交接卡（`handoff add`），上下文快满或会话要结束前先补记，再继续。作者偏好、雷点和否决过的推荐只记在偏好文件（`pref`）。每个角色有自己的记忆，互不读写。
 - 汇报带数字，但说人话：第几章、写了多少字、审稿过没过、还欠读者几件事、有几件事等你定、存稿几章（规范见下节）。
 - 照看作者（公理 7，[references/sustain.md](references/sustain.md)）：存稿低于存稿线时推荐保更模式；出现倦怠信号时给调节奏的推荐；评论原文不直接推给作者。
 
@@ -184,7 +186,8 @@ authority: 只产出草稿，不审稿，不改 book.json
 | [references/mind-frame.md](references/mind-frame.md) | 开工前；审方案时 |
 | [references/craft-canon.md](references/craft-canon.md) | 大纲、故事审、审稿时（文风八问、主体性四问、杂学四通道；写手不读） |
 | [references/domains/README.md](references/domains/README.md) | 底蕴卡库：谁读卡、场景触发、知识点清单格式；`domains/reading-list.md` 是底书与一书一深学 |
-| [references/loops.md](references/loops.md)、[references/finale.md](references/finale.md) | 单元、卷、书复盘；收束 |
+| [references/loops.md](references/loops.md)、[references/finale.md](references/finale.md) | 单元、卷、书复盘；收束；进化提议 |
+| [references/memory.md](references/memory.md) | 记角色记忆与会话交接、组装派单头、单元整理与完本晋升、`recall` |
 | [references/sustain.md](references/sustain.md)、[references/team.md](references/team.md) | 作者可持续；团队认领 |
 | [references/guidance.md](references/guidance.md) | 任何需要作者决定、或作者需求模糊时 |
 | `skills/ncc-new/references/material.md` | 作者要记素材时；排场景卡前看素材索引 |
