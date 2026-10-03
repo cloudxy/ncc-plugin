@@ -1,11 +1,55 @@
 {
   "schema_version": 2,
+  "preparation": {
+    "schema": 1,
+    "state": "prepare.json",
+    "work": ".ncc-prepare",
+    "output": "成果",
+    "tasks": {
+      "material-organize": "资料整理",
+      "material-improve": "资料完善",
+      "material-create": "资料创建",
+      "setting-organize": "设定整理",
+      "setting-improve": "设定完善",
+      "setting-create": "设定创建"
+    },
+    "natures": [
+      "fact",
+      "fiction",
+      "inference"
+    ],
+    "item_states": [
+      "candidate",
+      "accepted",
+      "shelved",
+      "rejected"
+    ],
+    "source_kinds": [
+      "mixed",
+      "material",
+      "setting",
+      "archive"
+    ],
+    "text_extensions": [
+      ".md",
+      ".markdown",
+      ".txt"
+    ],
+    "max_file_bytes": 12582912,
+    "what": "独立的创作前准备工作区；资料与设定各自整理、完善、创建。无 book.json 依赖，不接管正文状态。脚本管理来源与交付，语义整理和创作由模型完成。"
+  },
   "commands": {
+    "ncc-prepare": {
+      "skill": "ncc-prepare",
+      "mode": "prepare",
+      "description": "通用创作前准备：资料整理、完善、创建，设定整理、完善、创建。可从空白开始，也可处理已有资料与设定；不要求书名或 book.json。完成内容、来源、关系、冲突与缺项处理，交付可复用资料或指定范围的设定成果。",
+      "argument_hint": "[整理资料 <目录> | 完善资料 <主题> | 创建资料 <要求> | 整理设定 | 完善设定 | 创建设定 <想法> | continue]"
+    },
     "ncc": {
       "skill": "ncc",
       "mode": "auto",
-      "description": "Novel Create Center 主入口：一句话入口（识别意图并推荐下一步）、书项目状态（含存稿与倦怠信号）、续写恢复、单元与卷复盘、收束、读者数据登记、素材记录、团队认领、多书仪表盘、合稿导出、角色记忆与会话交接、派单与闸门记账。本窗口始终是经理。",
-      "argument_hint": "[一句话 | 开新书 | 续写 | 审稿 | 拆书 | 复盘 | 收尾 | 记素材 | 仪表盘 | 导出 | continue | status]"
+      "description": "Novel Create Center 主入口：通用创作前准备（资料与设定各自整理、完善、创建，无需书项目）、一句话入口、书项目状态、续写恢复、复盘与收束、派单与闸门记账。本窗口始终保持与作者对话。",
+      "argument_hint": "[创作前准备 | 整理资料 | 完善资料 | 创建资料 | 整理设定 | 完善设定 | 创建设定 | 开新书 | 续写 | 审稿 | 拆书 | continue | status]"
     },
     "ncc-new": {
       "skill": "ncc-new",
@@ -125,7 +169,7 @@
     "worldbuilder": {
       "skill": "ncc-new",
       "task": "settings",
-      "description": "Use this agent for the world bible, power system, setting lexicon, per-book rule/dimension tables, the fact ledger's initial values, and the character engine: full character cards (desire, need, fear, wound, the lie, inner contradiction, secret, voice, relationships) with in-character interviews. Writes the social-insight list (rules that seem unreasonable yet persist, tied to the book soul's injustice), may use the author's setting base (小说底盘) as raw material, and turns author seeds #3/#6 into material cards. Also drafts the style anchor (task: style) from the author's old writing or chapter 1: voice in a sentence, 2–3 calibration passages, a negative list — no numbers. Decides which setting categories the book needs (sects, races, bloodlines, companies…), proposes new ones when none fits, and fills category cards. Owns G1 freeze evidence; never outlines plots. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent for book settings and characters: world bible, power system with dimensions and limits, lexicon, rules, sourced fact values, full character cards and voice interviews, category selection, and social mechanisms tied to the book soul. Drafts the prose style anchor for task: style. For task: prepare, organizes, improves or creates reusable settings and fictional materials without a book, protagonist or chapters; builds systems, entities and relationships within the requested scope. Owns G1 evidence for book settings, never outlines plots. Do NOT use while /ncc runs in the parent window.",
       "color": "purple",
       "fresh": false,
       "function": "创作",
@@ -155,7 +199,7 @@
     "scholar": {
       "skill": "ncc-write",
       "task": "knowledge",
-      "description": "Use this agent as the knowledge adviser (D1): when a batch of scene cards lists knowledge points, write each chapter's knowledge list — concrete facts and how to put them on the page, each with a source or marked unverified — from the domain cards, the fact ledger and reliable references; also check how fictional settings operate against real-world rules. Never invents facts; never writes prose. Called on demand, not in every loop. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent as the knowledge adviser (D1): when a batch of scene cards lists knowledge points, write each chapter's knowledge list — concrete facts and how to put them on the page, each with a source or marked unverified — from the domain cards, the fact ledger and reliable references; also check how fictional settings operate against real-world rules. Never invents facts; never writes prose. Called on demand, not in every loop. Do NOT use while /ncc runs in the parent window. For task: prepare, organizes, improves or creates sourced thematic research materials without requiring a book project or scene cards.",
       "color": "brown",
       "fresh": false,
       "function": "创作",
@@ -560,6 +604,14 @@
     "tools": "ncc_state.py render（生成视图）、check（视图一致、历史只追加、旧布局残留）、event add、chapter end、report --write"
   },
   "stage_table": [
+    {
+      "stage": "P 创作前准备（可独立、可重入）",
+      "layer": "通用资产 / 世界或作品设定",
+      "lead": "ncc-prepare",
+      "support": "worldbuilder（设定与虚构素材）、scholar（事实资料），按宿主授权执行",
+      "products": "资料与设定的整理、完善、创建成果；来源、关系、采用决定、缺项与范围检查；独立 prepare.json",
+      "gate": "范围内准备检查；不替代 G0–G5"
+    },
     {
       "stage": "S0 立书",
       "layer": "L0",
@@ -1586,7 +1638,9 @@
         "skills/ncc-new/references/character.md",
         "skills/ncc-new/references/material.md",
         "skills/ncc/references/guidance.md",
-        "skills/ncc/templates/style-anchor.md"
+        "skills/ncc/templates/style-anchor.md",
+        "skills/ncc-prepare/references/settings.md",
+        "skills/ncc-prepare/references/materials.md"
       ],
       "outliner": [
         "agents/outliner.md",
@@ -1606,7 +1660,8 @@
       "scholar": [
         "agents/scholar.md",
         "skills/ncc/references/domains/README.md",
-        "domains:2"
+        "domains:2",
+        "skills/ncc-prepare/references/materials.md"
       ],
       "writer": [
         "agents/writer.md",
@@ -1667,6 +1722,13 @@
         "skills/ncc/references/guidance.md",
         "skills/ncc/references/loops.md",
         "skills/ncc/references/memory.md"
+      ],
+      "manager:prepare": [
+        "skills/ncc/SKILL.md",
+        "skills/ncc-prepare/SKILL.md",
+        "skills/ncc-prepare/references/materials.md",
+        "skills/ncc-prepare/references/settings.md",
+        "skills/ncc-prepare/references/workspace.md"
       ]
     },
     "note": "domains:N 表示按场景读的 N 张底蕴卡，按最长的 N 张计。agents/<角色>.md 里写了全路径要读的规则文件，必须列在这里（自测会查）。"

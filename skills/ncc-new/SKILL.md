@@ -14,6 +14,8 @@ when_to_use: "User wants to start a new novel, has only a vague idea for one, or
 
 ## Step 0 — 入口
 
+**先接已有准备**：作者只要求资料或设定工作、尚不打算开书时，转 [../ncc-prepare/SKILL.md](../ncc-prepare/SKILL.md)，不 init。明确要开书且已有准备成果时，先读其交接文档、来源、采用决定与未解决问题，沿用已答信息，再补本书需要的选择；通用库不整体变成本书设定。已有外部写作工程不直接 init 覆盖，先明确接续或迁移方式。
+
 1. 读偏好：`ncc_state.py pref show {book_root}`（M6-3：权重按时间衰减，作者否决过的不首推，雷点是硬约束）。偏好驱动选项排序、⭐ 标记与推荐理由。
 2. **第一问：引导档位**（guidance 的"按作者经验分档"）。按作者自述推荐：第一次写长篇或只有模糊想法 → 新手；写过一两本 → 熟手；有成熟方法论 → 老手。
 3. 建书：`python3 <PLUGIN_ROOT>/scripts/ncc_state.py init {book_root}/{书名或暂名} --title … --level …`。脚本会建目录、三本账、`00-策划/作者种子.md` 模板与几份生成的视图（`author-intent.md` 等，勿手改），`stage: founding`。书名未定就用暂名，L3 再定。
@@ -54,6 +56,8 @@ when_to_use: "User wants to start a new novel, has only a vague idea for one, or
 **先定写作模式**（D15，按 guidance 给推荐）：建筑师（大纲冻结后动笔）／园丁（只定书魂、第一卷方向与主要人物，按场景探索着写，台账事后补记，每单元整理一次）／混合（默认：书魂与人物先定，情节只规划到当前单元）。`ncc_state.py mode <书目录> 混合`。
 
 派 worldbuilder（task: settings；派单头用 `brief --role worldbuilder`），先做**设定类目研判**（[references/worldbuilding.md](references/worldbuilding.md) 的"设定类目研判"：本书用门派、种族、血脉、企业……里的哪些，表里装不下的新提一类，呈作者确认后 `setting use`／`setting new`），再产出：
+
+若准备阶段已完成相关体系、人物或类目，按本书采用范围接入并补差项；不重新生成一套冲突的版本。缺少资料或设定时，可按 ncc-prepare 的对应方法创建和完善，再回到本步验收。
 
 - `01-设定/世界观圣经.md`——按 [references/worldbuilding.md](references/worldbuilding.md) 的结构；"世界的不公"要落在具体的社会结构上（对应书魂）。
 - `01-设定/力量体系.md`——境界阶梯＋**量纲定义**＋越级例外。金手指、力量体系这两个决策点按 guidance 给 2–3 套方案。

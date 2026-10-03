@@ -12,6 +12,7 @@ S0 立书 ─G0书魂闸─▶ S1 立骨(设定 ─G1─▶ 大纲 ─G2─) ─
 <!-- ncc:gen stages 开始（scripts/build_docs.py 由 workflow/registry.json 生成，勿手改） -->
 | 阶段 | 层 | 主责角色 | 参与角色 | 产物 | 闸门 |
 |---|---|---|---|---|---|
+| P 创作前准备（可独立、可重入） | 通用资产 / 世界或作品设定 | ncc-prepare | worldbuilder（设定与虚构素材）、scholar（事实资料），按宿主授权执行 | 资料与设定的整理、完善、创建成果；来源、关系、采用决定、缺项与范围检查；独立 prepare.json | 范围内准备检查；不替代 G0–G5 |
 | S0 立书 | L0 | 经理（按 guidance 引导，先问作者种子） | scout（从种子出整本方向候选）、worldbuilder（有旧文时写文风基准） | 作者种子.md、技艺库摘录.md（写过书的作者）、briefing.md、文风指纹与文风基准（有旧文时）、book.json 的书魂与类型契约（author-intent.md 由脚本生成） | **G0** 书魂闸，作者签字 |
 | S1 立骨·设定 | L1 | worldbuilder | deconstructor（喂料） | 写作模式；世界观圣经（含社会洞察）、力量体系（可用小说底盘做底料）、设定词典、规则表、人物卡与采访、主角弧光；素材卡起头 | **G1** 设定冻结 |
 | S1 立骨·大纲 | L1 | outliner | worldbuilder（答疑） | 总纲、卷纲/、章纲/（深浅随模式）、名场面与母题、承诺台账 | **G2** 大纲冻结 |

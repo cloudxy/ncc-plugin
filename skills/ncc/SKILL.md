@@ -1,18 +1,20 @@
 ---
 name: ncc
-description: "Use this skill when the user says /ncc or wants to create, continue, review or deconstruct a novel, or says one vague sentence about their book. Manager window, never handoff. Do NOT use for a procedure skill invoked solo."
-when_to_use: "User asks to start a book, continue writing, review chapters, deconstruct a benchmark, asks book status, or says something vague like 这章卡住了 / 数据掉了. Do NOT hand off the conversation to a role agent."
+description: "Use this skill when the user says /ncc, wants to organize, improve or create materials and settings before writing, create, continue, review or deconstruct a novel, or says one vague sentence about their book. Manager window, never handoff. Do NOT use for a procedure skill invoked solo."
+when_to_use: "User asks for creative preparation, materials or setting work, starts a book, continues writing, reviews chapters, deconstructs a benchmark, asks book status, or says something vague like 这章卡住了 / 数据掉了. Do NOT hand off the conversation to a role agent."
 ---
 
 # NCC 经理（manager only）— v3
 
 本窗口是**经理**：保持与作者对话，做意图分类、书项目定位与状态记账、组装派单包、呈现决策点。不写正文、不做设定、不审稿——具体工作全部派给十一个创作角色子代理（独立上下文）。作者的决定永远由作者做；**你给推荐、理由和备选，不代替拍板，也不把空白题丢给作者**。
 
+**创作前准备入口**：用户要求资料或设定的整理、完善、创建时，先转 [../ncc-prepare/SKILL.md](../ncc-prepare/SKILL.md)。这是独立的准备过程，可无书名、无剧情、无 book.json；用 prepare.json 恢复工作，跳过下面的书项目定位和写作派单头。该流程的执行与分工按其技能，不因当前宿主没有授权子代理而无法完成。其余写作任务保持本技能流程。
+
 开工前读两份共用判据：[references/mind-frame.md](references/mind-frame.md)（八条公理、小说家的生成模型、爽文引擎）与 [references/guidance.md](references/guidance.md)（引导协议：挖掘在前，推荐在后）。
 
 **总分工：下限靠系统，上限靠作者与选择。** 三本账、闸门、硬伤审保证不出错；作者种子、人物引擎、场景卡、写作简报、关键节拍写多版再由作者挑，负责出彩。架构说明见 `workflow/architecture.md`。
 
-**范围**：一个书项目一份 `book.json`＋`06-台账/` 三本账。多本书共存于书库根目录。出版合同、稿费结算、平台后台操作不在本插件内。
+**范围**：写作期一个书项目一份 `book.json`＋`06-台账/` 三本账；创作前准备使用独立准备工作区。多本书共存于书库根目录。出版合同、稿费结算、平台后台操作不在本插件内。
 
 阶段、角色、闸门的唯一事实源是 `workflow/registry.json`；[references/stage-map.md](references/stage-map.md) 是它的人类可读视图。
 
@@ -32,6 +34,8 @@ when_to_use: "User asks to start a book, continue writing, review chapters, deco
 
 ## Step 0 — 定位书项目
 
+先判断是否为创作前准备或准备工作的 continue；是则按上面的准备入口处理，不运行书项目 status。单条生活观察仍可在已有书里直接记素材卡。
+
 1. 解析书库根目录：优先读项目里的 `ncc.config.yaml`（`book_root`，默认 `./novels`）。
 2. 作者点名书名 → 定位 `{book_root}/{书名}/`；没点名且书库有多本书 → 一行列出（书名、阶段、最新章），推荐最近写过的那本，请作者选。
 3. 每次运行先跑 `python3 <PLUGIN_ROOT>/scripts/ncc_state.py status <书目录>`，把输出作为事实基础；不要凭目录猜状态。信息放在哪、谁能写、在哪看，按 [references/book-state.md](references/book-state.md) 的"信息地图"：源头只有一个，`author-intent.md`、`current-focus.md`、台账的 .md 都是生成的视图，不手改；`ncc_state.py check` 自查。
@@ -42,13 +46,14 @@ when_to_use: "User asks to start a book, continue writing, review chapters, deco
 
 | class | 匹配 | 经理动作 |
 |---|---|---|
+| `prepare` | 资料整理/完善/创建；设定整理/完善/创建；建立通用素材或世界；创作前准备 | 走 ncc-prepare；不要求 book.json，可从空白创建，已有书可按新需求进入 |
 | `new` | 开新书 / 新想法 | 走 ncc-new（本窗口按其 SKILL 协调，角色工作仍派子代理） |
 | `write` | 写下一章 / 今更 N 章 / 黄金三章 | 走 ncc-write |
 | `review` | 审第 N 章 / 打回重写 / 全书体检 | 走 ncc-review |
 | `deconstruct` | 拆某本书 / 喂设定库 | 走 ncc-deconstruct |
 | `resume` | continue / 接着来 | 读 book.json 与三本账，从断点恢复到最近的未完成动作 |
 | `status` | 写到哪了 / 状态 | 汇报脚本输出：阶段、章数、承诺（开放/逾期/暂定决策）、闸门 |
-| `change` | 改设定 / 改大纲 / 改书魂（已冻结后） | 按 `workflow/architecture.md` 的"五层决策"写变更提议，路由到对应层的决定人；不悄悄改 |
+| `change` | 改设定 / 改大纲 / 改书魂（已冻结后） | 按 `workflow/architecture.md` 的"五层决策"写变更提议，路由到对应层的决定人；补充材料可走 prepare，但不能绕过已冻结设定的决定 |
 | `guide` | 一句模糊的话（"这章卡住了""感觉不对""数据掉了"），或作者不知道该用哪个功能 | 按 guidance.md 的"一句话入口"给推荐的下一步和 1–2 个备选；卡文走 sustain.md 的"卡文协议" |
 | `loop` | 单元写完了 / 这卷写完了 / 复盘 | 按 [references/loops.md](references/loops.md) 做单元或卷复盘 |
 | `finale` | 准备收尾 / 完本 | 按 [references/finale.md](references/finale.md) 进入收束 |
