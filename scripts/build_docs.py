@@ -181,11 +181,11 @@ def memory_rules():
     m, c = REG["memory"], REG["memory"]["caps"]
     once = "、".join(m["once_ok"])
     return "\n".join([
-        f"- 门槛：同类证据至少 {m['min_evidence']} 处才生效（一次侥幸不成经验），不到的先记为候选；{once}一处即可（作者原话就是证据）。",
-        f"- 相近：和已有条目的字面重合度 ≥ {m['similar']} 的，记为再次出现，不新建。",
-        f"- 上限：本书记忆每个角色 {c['book_chars']} 字、{c['book_items']} 条；跨书记忆每个角色 {c['shared_chars']} 字。派单只带到上限为止。",
+        f"- 门槛：同类独立证据至少 {m['min_evidence']} 处才生效（重复提交不计数），不到的先记为候选；{once}一处即可（作者原话就是证据）。",
+        f"- 相近：正文完全相同才自动合并证据；字面重合度 ≥ {m['similar']} 的不同正文独立保存并提示候选，经理确认同义后才 merge，纠正意见用 edit 或 archive。",
+        f"- 上限：本书记忆每个角色 {c['book_chars']} 字、{c['book_items']} 条；跨书记忆每个角色 {c['shared_chars']} 字。放不下的整条跳过并报告省略数，不截断句意。",
         f"- 久未出现：连续 {m['stale_units']} 个单元没再出现的（{once}除外），关单元时自动归档，memory restore 可撤回。",
-        f"- 晋升：命中 ≥ {m['promote_hits']} 次、不是{once}的，够格进跨书记忆；完本时默认晋升，作者可以划掉。",
+        f"- 晋升：有 ≥ {m['promote_hits']} 处独立证据且已生效、不是{once}的，够格进跨书记忆；完本时默认晋升，作者可以划掉。",
     ])
 
 

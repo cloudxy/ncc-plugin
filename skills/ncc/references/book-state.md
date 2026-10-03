@@ -26,7 +26,7 @@
 | 数据：距离、物价、历法、称谓、数值 | 源头 | `06-台账/知识台账.json` | fact set（同键改值要 --override） | 06-台账/知识台账.md |
 | 人物与世界的变化（只追加；指纹记在 book.json） | 历史 | `06-台账/状态事件.json` | event add | event list；读者此刻 |
 | 本书素材卡（按八域分目录） | 作者 | `素材/` | material add | material list；写手包 |
-| 各角色的本书记忆：约定、教训、手感、校准（<角色>.json 是源头，<角色>.md 是生成的视图；不记作者偏好） | 源头 | `memory/` | memory add/reinforce/merge/archive/restore/promote（经理按角色交回的记忆提议执行） | memory/<角色>.md；派单头（brief）与写手包 |
+| 各角色的本书记忆：约定、教训、手感、校准（<角色>.json 是源头，<角色>.md 是生成的视图；不记作者偏好） | 源头 | `memory/` | memory add/reinforce/edit/merge/archive/restore/promote（经理按角色交回的记忆提议执行） | memory/<角色>.md；派单头（brief）与写手包 |
 | 机器工作件：写手包、审稿快照、横评、操作日志、迁移备份 | 工作件 | `.ncc/` | 只由脚本写 | — |
 | 写操作日志（团队交接） | 历史 | `.ncc/操作日志.jsonl` | 脚本自动追加 | — |
 | 记忆的每次新增、强化、合并、归档、晋升、撤回 | 历史 | `.ncc/记忆日志.jsonl` | memory 命令自动追加 | recall；单元复盘底稿 |
@@ -34,10 +34,10 @@
 | 偏好、雷点、否决过的推荐（权重随时间衰减） | 源头 | `{书库}/_作者/偏好.json` | pref like/confirm/reject/dislike | pref show；author-intent.md 的雷点 |
 | 跨书共用的素材卡 | 作者 | `{书库}/_作者/素材/` | material add --shared | — |
 | 跨书技艺库：每本书一份 | 作者 | `{书库}/_作者/技艺库/` | 完本后 craft init 再填 | 下一本书 craft read |
-| 跨书记忆：换一本书也成立的角色经验（<角色>.json 源头＋.md 视图） | 源头 | `{书库}/_作者/记忆/` | memory promote | _作者/记忆/<角色>.md；派单头 |
+| 跨书记忆：换一本书也成立的角色经验（<角色>.json 源头＋.md 视图） | 源头 | `{书库}/_作者/记忆/` | memory promote；edit/reinforce/merge/archive/restore/consolidate --shared | _作者/记忆/<角色>.md；派单头 |
 | 跨书技法库：拆书学来的写法卡，每张带证据、适用条件、代价 | 作者 | `{书库}/_作者/技法库/` | technique add（deconstructor 学法时） | technique list/match；派单头；写手包只带场景卡引用的文笔参考 |
 | 技法卡用在哪本书哪一章、结果如何；停用与恢复 | 历史 | `{书库}/_作者/技法库/使用记录.jsonl` | unit close 自动结算；technique result/retire/restore | technique list |
-| 作者覆盖层：通过闸门的规则改动（阈值、词表增删、新类目、新技法类别）；插件默认 < 作者覆盖 < 本书设置 | 源头 | `{书库}/_作者/进化/覆盖.json` | evolve apply/revert | evolve rules |
+| 作者覆盖层：通过闸门的规则改动（阈值、词表增删、新类目、新技法类别）；插件默认 < 书库配置 < 作者覆盖 < 本书配置 | 源头 | `{书库}/_作者/进化/覆盖.json` | evolve apply/revert | evolve rules |
 | 进化提议：提出、评测、作者确认、生效、撤回 | 历史 | `{书库}/_作者/进化/提议.jsonl` | evolve propose/eval/apply/reject/revert | evolve list；卷复盘底稿 |
 <!-- ncc:gen info-map 结束 -->
 

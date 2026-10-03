@@ -4,6 +4,7 @@ import re
 import sys
 from pathlib import Path
 from .core import (CONFIDENCE, DECON_LIB, HAN, SCENE_DIR, TECH_CFG, TECHNIQUE_LIB, TECHNIQUE_STAGES, TECHNIQUE_USAGE, append_jsonl, book_root, chars, die, load, next_id, now, read_jsonl, scene_path, split_names, technique_kinds)
+from .core import capped, technique_catalog, writer_input_problems
 from .learning import pref_file, pref_load
 
 
@@ -81,6 +82,8 @@ def card_problems(root: Path, card: dict) -> list:
         problems.append(f"类别「{card['类别']}」应为 {'/'.join(kinds)}（新类别走 evolve propose --key technique.kinds）")
     if card.get("置信级") and card["置信级"] not in CONFIDENCE:
         problems.append(f"置信级应为 {'/'.join(CONFIDENCE)}")
+    if technique_catalog(root).get(card.get("类别")) == "文笔参考":
+        problems += writer_input_problems({}, card.get("手法", "") + "\n" + card.get("怎么做", ""))
     locs = LOCATOR.findall(card.get("证据", ""))
     lo, hi = TECH_CFG["locator"]
     if card.get("证据") and not locs:
@@ -127,14 +130,14 @@ def batch_text(book_dir: Path, seqs) -> str:
     return "\n".join(scene_path(book_dir, s).read_text("utf-8") for s in seqs or [] if scene_path(book_dir, s).exists())
 
 
-def match(book_dir: Path, d: dict, role: str, seqs=None) -> list:
+def match(book_dir: Path, d: dict, role: str, seqs=None, card_text=None) -> list:
     """按题材、阶段、契约、本批场景卡涉及的承诺类型打分；状态加权；作者否决过的降权；同一本对标书限量。"""
     cfg = TECH_CFG["per_role"].get(role)
     if not cfg or role in TECH_CFG["never"]:
         return []
     root = book_root(book_dir)
     cards, uses = technique_cards(root), usage(root)
-    text = batch_text(book_dir, seqs)
+    text = batch_text(book_dir, seqs) if card_text is None else card_text
     if cfg.get("only_referenced"):
         refs = technique_refs(text)
         cards = {k: v for k, v in cards.items() if k in refs}
@@ -144,8 +147,9 @@ def match(book_dir: Path, d: dict, role: str, seqs=None) -> list:
     contract = " ".join([ct.get("main", "")] + list(ct.get("extras", [])))
     rejected = {r["value"] for r in pref_load(pref_file(book_dir)).get("rejected", []) if r.get("key") == "技法"}
     scored = []
+    catalog = technique_catalog(book_dir)
     for cid, c in cards.items():
-        if c.get("类别") not in cfg["kinds"]:
+        if catalog.get(c.get("类别")) not in cfg["kinds"]:
             continue
         status, general, _ = card_state(c, cid, uses)
         if status == "停用":
@@ -166,10 +170,11 @@ def match(book_dir: Path, d: dict, role: str, seqs=None) -> list:
     scored.sort(key=lambda x: -x[0])
     out, per_book = [], {}
     for s, cid, c, status in scored:
-        src = (sources_of(c) or ["?"])[0]
-        if per_book.get(src, 0) >= TECH_CFG["per_source_max"]:
+        sources = sources_of(c) or ["?"]
+        if any(per_book.get(src, 0) >= TECH_CFG["per_source_max"] for src in sources):
             continue
-        per_book[src] = per_book.get(src, 0) + 1
+        for src in sources:
+            per_book[src] = per_book.get(src, 0) + 1
         out.append((s, cid, c, status))
         if len(out) >= cfg["max"]:
             break
@@ -180,30 +185,26 @@ def brief_lines(book_dir: Path, d: dict, role: str, seqs=None) -> list:
     cfg = TECH_CFG["per_role"].get(role) or {}
     lines = [f"- {cid} [{c['类别']}·{st}] {c['手法']}：{c['怎么做']}｜适用：{c['适用条件']}｜代价：{c['代价与失效']}｜证据：{c['证据']}"
              for _, cid, c, st in match(book_dir, d, role, seqs)]
-    out, used = [], 0
-    for x in lines:
-        if used + chars([x]) > cfg.get("chars", 1500) and out:
-            break
-        out.append(x)
-        used += chars([x])
+    out, cut = capped(lines, cfg.get("chars", 1500))
+    if cut:
+        print(f"提醒：{role} 的技法参考省略 {cut} 条（超过字数预算，请先压缩卡片）", file=sys.stderr)
     return out
 
 
 def writer_lines(book_dir: Path, card_text: str) -> list:
     """写手只拿场景卡引用的文笔参考，转成"写成什么"一两句：不带证据、出处与代价。"""
-    root = book_root(book_dir)
-    cards = technique_cards(root)
+    d = load(book_dir)
     cap = TECH_CFG["per_role"]["writer"]["chars"]
-    out, used = [], 0
-    for cid in technique_refs(card_text):
-        c = cards.get(cid)
-        if not c or c.get("类别") not in TECH_CFG["per_role"]["writer"]["kinds"]:
-            continue
-        x = f"- 文笔参考：{c['手法']}——{c['怎么做']}"
-        if used + chars([x]) > cap and out:
-            break
-        out.append(x)
-        used += chars([x])
+    lines = []
+    for _, cid, c, _ in match(book_dir, d, "writer", card_text=card_text):
+        text = f"- 文笔参考：{c['手法']}——{c['怎么做']}"
+        problems = writer_input_problems(d, text)
+        if problems:
+            die(f"技法 {cid} 不能进写手包：" + "；".join(problems))
+        lines.append(text)
+    out, cut = capped(lines, cap)
+    if cut:
+        print(f"提醒：写手文笔参考省略 {cut} 条（超过字数预算，请先压缩卡片）", file=sys.stderr)
     return out
 
 

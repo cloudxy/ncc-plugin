@@ -53,7 +53,7 @@
     知识台账.md    # [视图] 知识台账｜render 生成，勿手改
   07-导出/    # [工作件] 合稿与电子书（只收已定稿的章）｜export｜如 <书名>-第M-N章.md|txt|epub
   素材/    # [作者] 本书素材卡（按八域分目录）｜material add｜如 <八域>/M-0001-短名.md，未分的放 未分/
-  memory/    # [源头] 各角色的本书记忆：约定、教训、手感、校准（<角色>.json 是源头，<角色>.md 是生成的视图；不记作者偏好）｜memory add/reinforce/merge/archive/restore/promote（经理按角色交回的记忆提议执行）｜如 writer.json、writer.md、reader.json…（每个角色一份）
+  memory/    # [源头] 各角色的本书记忆：约定、教训、手感、校准（<角色>.json 是源头，<角色>.md 是生成的视图；不记作者偏好）｜memory add/reinforce/edit/merge/archive/restore/promote（经理按角色交回的记忆提议执行）｜如 writer.json、writer.md、reader.json…（每个角色一份）
   .ncc/    # [工作件] 机器工作件：写手包、审稿快照、横评、操作日志、迁移备份｜只由脚本写
     写手包/    # [工作件] 写手包（脚本组装、留档）｜pack｜如 ch-0001.md
     快照/    # [工作件] 审稿前的正文快照（复审只看改动）｜review plan/delta｜如 ch-0001.md
@@ -70,11 +70,11 @@
     偏好.json    # [源头] 偏好、雷点、否决过的推荐（权重随时间衰减）｜pref like/confirm/reject/dislike
     素材/    # [作者] 跨书共用的素材卡｜material add --shared｜如 <八域>/MS-0001-短名.md
     技艺库/    # [作者] 跨书技艺库：每本书一份｜完本后 craft init 再填｜如 <书名>.md
-    记忆/    # [源头] 跨书记忆：换一本书也成立的角色经验（<角色>.json 源头＋.md 视图）｜memory promote｜如 writer.json、writer.md
+    记忆/    # [源头] 跨书记忆：换一本书也成立的角色经验（<角色>.json 源头＋.md 视图）｜memory promote；edit/reinforce/merge/archive/restore/consolidate --shared｜如 writer.json、writer.md
     技法库/    # [作者] 跨书技法库：拆书学来的写法卡，每张带证据、适用条件、代价｜technique add（deconstructor 学法时）｜如 <类别>/T-0001-短名.md
       使用记录.jsonl    # [历史] 技法卡用在哪本书哪一章、结果如何；停用与恢复｜unit close 自动结算；technique result/retire/restore
     进化/
-      覆盖.json    # [源头] 作者覆盖层：通过闸门的规则改动（阈值、词表增删、新类目、新技法类别）；插件默认 < 作者覆盖 < 本书设置｜evolve apply/revert
+      覆盖.json    # [源头] 作者覆盖层：通过闸门的规则改动（阈值、词表增删、新类目、新技法类别）；插件默认 < 书库配置 < 作者覆盖 < 本书配置｜evolve apply/revert
       提议.jsonl    # [历史] 进化提议：提出、评测、作者确认、生效、撤回｜evolve propose/eval/apply/reject/revert
   _拆书库/    # [角色] 拆书库：每本对标书一个目录（原文、索引、实体、台账、报告，进度在 _progress.json）｜deconstructor；decon index/mark/stats｜如 <书名>/索引/chapter_index.json、<书名>/台账/伏笔.jsonl、<书名>/报告/基线.json
 ```

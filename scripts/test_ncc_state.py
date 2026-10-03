@@ -1097,7 +1097,8 @@ class TestMemoryAndHandoff(Base):
         self.assertNotIn("转折动作", (self.book / ".ncc/写手包/ch-0004.md").read_text("utf-8"))   # 一次侥幸不成经验
         out = self.ok("memory", "add", self.book, "--role", "writer", "--kind", "教训",
                       "--text", "打斗场面每场只留一个转折动作，其余的用结果带过", "--evidence", "第19章退回")
-        self.assertIn("MEM-0001", out)                                                        # 相近的记为再次出现
+        self.assertIn("MEM-0002", out)                                                        # 相近的先独立保存，由经理确认同义
+        self.ok("memory", "merge", self.book, "--role", "writer", "--into", "MEM-0001", "MEM-0002")
         self.ok("pack", self.book, 4)
         pack = (self.book / ".ncc/写手包/ch-0004.md").read_text("utf-8")
         self.assertIn("## 本书经验（写成什么）", pack)

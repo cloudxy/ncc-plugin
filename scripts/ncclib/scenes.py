@@ -7,6 +7,7 @@ from .core import (BRIEF_DIR, HANDOFF_CFG, ROLES, TECH_CFG, WRITER_GUARD, book_r
 from .ledgers import focus_core, reader_now_lines
 from .materials import material_cards, material_refs
 from .memory import handoff_slice, memory_slice
+from .core import writer_input_problems
 from .techniques import brief_lines, technique_cards, technique_refs, writer_lines
 
 
@@ -250,11 +251,10 @@ def cmd_pack(a):
     if a.note:
         out += ["### 经理的特别提醒（只写意图与材料）", a.note, ""]
 
-    mem, shared, _ = memory_slice(book_dir, d, "writer", plain=True)
+    mem, shared, cut = memory_slice(book_dir, d, "writer", plain=True)
+    if cut:
+        print(f"提醒：写手经验省略 {cut} 条（超过预算，请整理记忆）", file=sys.stderr)
     said = handoff_slice(book_dir, d, "writer", seq=a.seq, plain=True)
-    bad = [w for w in WRITER_GUARD if any(w in x for x in mem + shared + said)]
-    if bad:
-        die(f"写手的记忆或交接里出现了审稿判据词（{'、'.join(bad)}）：改成\"怎么写\"（memory merge --text，或 handoff close 后重记）")
     if mem or shared:
         out += ["## 本书经验（写成什么）", ""] + mem + shared + [""]
     if said:
@@ -326,11 +326,9 @@ def cmd_pack(a):
         out += ["## 文风基准（最后读）", "", style.read_text("utf-8").strip(), ""]
 
     text = "\n".join(out)
-    soul = d.get("soul", {})
-    leaks = [v for v in (soul.get("question"), soul.get("answer"), soul.get("injustice"), soul.get("ending"))
-             if v and len(v) >= 6 and v in text]
-    if leaks:
-        die("写手包里出现了书魂原文（多半写进了场景卡）：" + "；".join(leaks) + "。书魂不进写手提示，请改场景卡后重审。")
+    problems = writer_input_problems(d, text)
+    if problems:
+        die("写手包内容不可见：" + "；".join(problems))
     size = len(re.findall(r"[\u4e00-\u9fff]", text))
     dest = book_dir / PACK_DIR / f"ch-{a.seq:04d}.md"
     dest.parent.mkdir(parents=True, exist_ok=True)

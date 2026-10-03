@@ -82,16 +82,22 @@ def progress(lib: Path) -> dict:
     return {"done": sorted(set(p.get("done", []))), "skipped": p.get("skipped", {})}
 
 
-def coverage(lib: Path):
+def coverage(lib: Path, window=None):
     idx = read_json(lib / DECON_CFG["index"], None)
     if not idx:
         return None, ["还没有章节索引（decon index）"]
     pr = progress(lib)
     covered = set(pr["done"]) | {int(k) for k in pr["skipped"]}
-    missing = [c["seq"] for c in idx["chapters"] if c["seq"] not in covered]
+    seqs = {c["seq"] for c in idx["chapters"]}
+    selected = set(range(window[0], window[1] + 1)) if window else seqs
+    missing = sorted((seqs & selected) - covered)
     problems = []
+    if window and (window[0] > window[1] or not selected or not selected <= seqs):
+        problems.append("统计范围不在章节索引内")
     src = lib / idx["source"]
-    if src.exists() and sha16(src) != idx.get("sha"):
+    if not src.is_file():
+        problems.append("索引对应的原文不存在：恢复原文后重建索引")
+    elif sha16(src) != idx.get("sha"):
         problems.append("原文在建索引之后变过：先重建索引（decon index），章号一律以索引为准")
     if missing:
         head = "、".join(map(str, missing[:20])) + ("……" if len(missing) > 20 else "")
@@ -253,17 +259,11 @@ def cmd_decon(a):
         print(f"COVERAGE OK  索引 {len(idx['chapters'])} 章 = 已拆 + 显式跳过")
         return
     # stats
-    idx, problems = coverage(lib)
-    if a.range:
-        lo, hi = parse_window(a.range)
-        pr = progress(lib)
-        undone = [s for s in range(lo, hi + 1) if s not in pr["done"] and str(s) not in pr["skipped"]]
-        if undone:
-            die(f"第{lo}–{hi} 段还有没拆的序号：{undone[:10]}（这一段拆完再学法）")
-    else:
-        if problems:
-            die("全书统计要先过覆盖率闸门：" + "；".join(problems) + "（只统计一段用 --range A-B）")
-        lo, hi = 1, len(idx["chapters"])
+    window = parse_window(a.range) if a.range else None
+    idx, problems = coverage(lib, window)
+    if problems:
+        die("统计要先过覆盖率闸门：" + "；".join(problems) + "（只统计一段用 --range A-B）")
+    lo, hi = window or (1, len(idx["chapters"]))
     b = baseline(lib, lo, hi)
     md = baseline_md(lib.name, b)
     if a.write:

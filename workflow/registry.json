@@ -1357,7 +1357,7 @@
       "path": "memory",
       "kind": "源头",
       "what": "各角色的本书记忆：约定、教训、手感、校准（<角色>.json 是源头，<角色>.md 是生成的视图；不记作者偏好）",
-      "writer": "memory add/reinforce/merge/archive/restore/promote（经理按角色交回的记忆提议执行）",
+      "writer": "memory add/reinforce/edit/merge/archive/restore/promote（经理按角色交回的记忆提议执行）",
       "view": "memory/<角色>.md；派单头（brief）与写手包",
       "dir": true,
       "eg": "writer.json、writer.md、reader.json…（每个角色一份）"
@@ -1472,7 +1472,7 @@
       "path": "_作者/记忆",
       "kind": "源头",
       "what": "跨书记忆：换一本书也成立的角色经验（<角色>.json 源头＋.md 视图）",
-      "writer": "memory promote",
+      "writer": "memory promote；edit/reinforce/merge/archive/restore/consolidate --shared",
       "view": "_作者/记忆/<角色>.md；派单头",
       "scope": "root",
       "dir": true,
@@ -1499,7 +1499,7 @@
     "evolution_overlay": {
       "path": "_作者/进化/覆盖.json",
       "kind": "源头",
-      "what": "作者覆盖层：通过闸门的规则改动（阈值、词表增删、新类目、新技法类别）；插件默认 < 作者覆盖 < 本书设置",
+      "what": "作者覆盖层：通过闸门的规则改动（阈值、词表增删、新类目、新技法类别）；插件默认 < 书库配置 < 作者覆盖 < 本书配置",
       "writer": "evolve apply/revert",
       "view": "evolve rules",
       "scope": "root"
@@ -1928,7 +1928,7 @@
     "why_none": "审稿角色与 reader 不拿交接卡：作者的决定只要影响审稿，必然已经落进台账、场景卡或放行清单，审稿看源头；reader 盲读。"
   },
   "review_words": {
-    "what": "审稿判据词：写手能读的插件文件里不许出现（check_plugin.py 查），写手与 editor 的记忆里也不许出现（memory add 查，另加 memory_extra）",
+    "what": "审稿判据词：check_plugin.py 查写手能读的插件文件；写手与 editor 的记忆、文笔技法及完整写手包统一检查（另加 memory_extra）",
     "values": [
       "可判定率",
       "critical",
@@ -2495,7 +2495,8 @@
       "pulse",
       "reader"
     ],
-    "why_never": "技法一进审稿就成了判据；reader 盲读。"
+    "why_never": "技法一进审稿就成了判据；reader 盲读。",
+    "default_parent": "剧情规划"
   },
   "evolution": {
     "method": "skills/ncc/references/loops.md",
@@ -2566,7 +2567,7 @@
       "technique.kinds": {
         "type": "words",
         "tier": "作者确认",
-        "what": "技法类别增补（+类别）"
+        "what": "技法类别增补（+类别；可用 --parent 指定内置父类，默认剧情规划，继承父类的可见范围）"
       }
     },
     "never": [

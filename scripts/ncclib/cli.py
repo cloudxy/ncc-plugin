@@ -103,14 +103,15 @@
 
 记忆与交接（M8：角色各有记忆；子代理按可见范围继承会话）
   memory add <book> --role R --kind {memory_kinds} --text T [--evidence E]... [--ch N]
-                                         记一条角色记忆；同类证据不到两处先记为候选（约定除外）；和已有条目相近则记为再次出现；
+                                         记一条角色记忆；独立证据不到两处先记为候选（约定除外）；相同正文合并证据，相近正文独立保存；
                                          写手与 editor 的记忆里不许有审稿判据词与书魂原文；作者偏好改用 pref
-  memory reinforce <book> --role R <id> [--evidence E]... [--ch N]
-  memory merge <book> --role R --into ID <id>... [--text 合并后的说法]
-  memory archive|restore <book> --role R <id> [--note N]
-  memory promote <book> --role R [<id>...] [--genre a,b]   进跨书记忆（不写编号则晋升够格的：命中 ≥3 次、不是本书约定）
+  memory reinforce <book> --role R <id> [--evidence E]... [--ch N] [--shared]
+  memory merge <book> --role R --into ID <id>... [--text 合并后的说法] [--shared]
+  memory edit <book> --role R <id> --text 修正后的说法 [--note N] [--shared]
+  memory archive|restore <book> --role R <id> [--note N] [--shared]
+  memory promote <book> [<id>...] --role R [--genre a,b]   进跨书记忆（不写编号则晋升够格的：独立证据 ≥3 处、已生效、不是本书约定）
   memory list <book> [--role R] [--all] [--shared]
-  memory consolidate <book> [--role R] [--apply]
+  memory consolidate <book> [--role R] [--apply] [--shared]
                                          单元整理底稿：候选、可合并、久未出现、超上限、够格进跨书；--apply 自动归档久未出现的
   handoff add <book> --kind {handoff_kinds} --text T [--layer {handoff_layers}] [--ch N 或 A-B]
                                          会话交接卡：作者在会话里的原话、决定、情绪、待办（原话与决定要写作用层）
@@ -146,13 +147,13 @@
   technique retire|restore <书库或书目录> <id> [--note N]
 
 进化（M11：记忆自动、规则设闸）
-  evolve propose <书库或书目录> --key K --value=V --why W --evidence E...
+  evolve propose <书库或书目录> --key K --value=V --why W --evidence E... [--parent 内置技法类别]
                                          词表增删写 --value=+词,-词（带等号，免得 -词 被当成选项）
   evolve eval <书库或书目录> <id>         评测＋作者确认档：锚定章回归，改动前后对比，变差就拒绝
   evolve apply <书库或书目录> <id> --quote 作者原话      写进作者覆盖层 _作者/进化/覆盖.json
   evolve reject|revert <书库或书目录> <id> [--note N]
   evolve list <书库或书目录> [--open]
-  evolve rules <书库或书目录>            各项的生效值与来源（插件默认、作者覆盖）
+  evolve rules <书库或书目录>            实际值与来源：插件默认 < 书库配置 < 作者覆盖 < 本书配置
   evolve scan <书库或书目录> [--propose]  从各书的证据里找规则级改动的苗头
 
 书库与导出（M7）
@@ -358,17 +359,23 @@ def main():
     q.add_argument("--kind", required=True); q.add_argument("--text", required=True)
     q.add_argument("--evidence", action="append"); q.add_argument("--ch", type=int)
     q = mms.add_parser("reinforce"); q.add_argument("book_dir"); q.add_argument("--role", required=True); q.add_argument("id")
+    q.add_argument("--shared", action="store_true")
     q.add_argument("--evidence", action="append"); q.add_argument("--ch", type=int)
     q = mms.add_parser("merge"); q.add_argument("book_dir"); q.add_argument("--role", required=True)
+    q.add_argument("--shared", action="store_true")
     q.add_argument("--into", required=True); q.add_argument("ids", nargs="+"); q.add_argument("--text")
     for act in ("archive", "restore"):
         q = mms.add_parser(act); q.add_argument("book_dir"); q.add_argument("--role", required=True); q.add_argument("id")
         q.add_argument("--note")
+        q.add_argument("--shared", action="store_true")
+    q = mms.add_parser("edit"); q.add_argument("book_dir"); q.add_argument("--role", required=True); q.add_argument("id")
+    q.add_argument("--text", required=True); q.add_argument("--note"); q.add_argument("--shared", action="store_true")
     q = mms.add_parser("promote"); q.add_argument("book_dir"); q.add_argument("--role", required=True)
     q.add_argument("ids", nargs="*"); q.add_argument("--genre")
     q = mms.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--role"); q.add_argument("--all", action="store_true")
     q.add_argument("--shared", action="store_true")
     q = mms.add_parser("consolidate"); q.add_argument("book_dir"); q.add_argument("--role"); q.add_argument("--apply", action="store_true")
+    q.add_argument("--shared", action="store_true")
     p.set_defaults(fn=cmd_memory)
     p = sub.add_parser("handoff"); hs = p.add_subparsers(dest="action", required=True)
     q = hs.add_parser("add"); q.add_argument("book_dir"); q.add_argument("--kind", required=True); q.add_argument("--text", required=True)
@@ -417,6 +424,7 @@ def main():
     p.set_defaults(fn=cmd_technique)
     p = sub.add_parser("evolve"); evs_ = p.add_subparsers(dest="action", required=True)
     q = evs_.add_parser("propose"); q.add_argument("path"); q.add_argument("--key", required=True); q.add_argument("--value", required=True)
+    q.add_argument("--parent", help="新技法类别继承的内置父类（默认剧情规划）")
     q.add_argument("--why", required=True); q.add_argument("--evidence", action="append")
     for act in ("eval", "apply", "reject", "revert"):
         q = evs_.add_parser(act); q.add_argument("path"); q.add_argument("id"); q.add_argument("--quote"); q.add_argument("--note")

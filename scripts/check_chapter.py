@@ -46,7 +46,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ncc_state import (EVOLUTION, FACTS, PROMISES, REGISTRY, REV_LINE, L, chapter_touches, han_words, length_band,  # noqa: E402
-                       overlay_values, scene_path, sha16, style_drift_lines, with_words)
+                       load_cfg, overlay_values, scene_path, sha16, style_drift_lines, with_words)
 
 # A 级：五星句式，命中一处即须改
 BLOCK_PATTERNS = {
@@ -159,21 +159,7 @@ def dialogue_share(raw: str):
 
 
 def load_config(book_dir: Path):
-    """阈值：插件默认（注册表 evolution.keys 的 default）< 作者覆盖层（evolve apply）< ncc.config.yaml。"""
-    cfg = {"words_min": 3000, "words_max": 5000}
-    over = overlay_values(book_dir)
-    for key, spec in EVOLUTION["keys"].items():
-        if key.startswith("check.") and spec["type"] == "int":
-            cfg[key[6:]] = int(over.get(key, spec["default"]))
-    for p in (book_dir.parent / "ncc.config.yaml", book_dir / "ncc.config.yaml"):
-        if p.exists():
-            text = p.read_text("utf-8")
-            for k in cfg:
-                m = re.search(rf"{k}:\s*(\d+)", text)
-                if m:
-                    cfg[k] = int(m.group(1))
-            break
-    return cfg
+    return load_cfg(book_dir)
 
 
 def find_chapter(book_dir: Path, seq: int, explicit: str):

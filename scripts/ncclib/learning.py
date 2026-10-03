@@ -6,6 +6,7 @@ import re
 import statistics
 from pathlib import Path
 from .core import (CRAFT_EXCERPT, CRAFT_LIBRARY, HAN, PLUGIN_ROOT, PREFS, PREF_HALF_LIFE, PREF_V1, READER_DATA, STYLE_ANCHOR, STYLE_FP, STYLE_MIN, copy_template, die, ensure_m3_fields, ledger, load, now, parse_window, range_chapters, read_json, save, write_json)
+from .core import config_numbers
 
 
 def style_metrics(text: str) -> dict:
@@ -160,10 +161,9 @@ def pref_load(path: Path) -> dict:
 
 def pref_half_life(path: Path) -> int:
     for cfg in (path.parent.parent / "ncc.config.yaml", path.parent.parent.parent / "ncc.config.yaml"):
-        if cfg.exists():
-            m = re.search(r"half_life_days:\s*(\d+)", cfg.read_text("utf-8"))
-            if m:
-                return int(m.group(1))
+        values = config_numbers(cfg, ["half_life_days"])
+        if "half_life_days" in values:
+            return max(1, values["half_life_days"])
     return PREF_HALF_LIFE
 
 

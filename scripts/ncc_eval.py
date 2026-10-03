@@ -33,6 +33,7 @@ import re
 import shutil
 import sys
 import tempfile
+from collections import Counter
 from difflib import SequenceMatcher
 from pathlib import Path
 
@@ -351,24 +352,61 @@ def anchor_findings(ans: dict, text: str) -> dict:
         cfg = cc.load_config(book)
         warns, _ = cc.knowledge_warnings(book, text)
         warns += cc.avoidance_warnings(text, cfg)
-        ai_p, ai_w, _ = cc.ai_findings(book, text, cc.han_count(text), cfg)
-    miss = [m for m in ans.get("mech", []) if not any(m in w for w in warns)]
-    noise = ([w for w in warns if w.startswith("底蕴")] + ai_p) if ans.get("mech_clean") else []
-    return {"miss": miss, "noise": noise, "problems": ai_p, "warns": warns + ai_w}
+        ai_p, ai_w, detail = cc.ai_findings(book, text, cc.han_count(text), cfg)
+    # 用稳定类别和命中数比较，阈值数字变化不能伪装成新增/消失的问题。
+    alerts, required = Counter(), Counter()
+    for warning in warns:
+        if warning.startswith("底蕴：时代错置词"):
+            for word, count in re.findall(r"([^：，]+)×(\d+)", warning):
+                alerts[f"时代错置词：{word}"] += int(count)
+        else:
+            m = re.match(r"规避点：(长段|长句) (\d+) 处", warning)
+            if m:
+                alerts[f"规避点：{m[1]}"] += int(m[2])
+            else:
+                alerts[warning] += 1
+    required.update({f"AI 五星句式：{key}": count for key, count in detail["block"].items()})
+    high = {**detail["high_risk"], **detail["level1"]}
+    alerts.update({f"AI 高危命中：{key}": count for key, count in high.items()})
+    if sum(high.values()) > cfg["ai_level1_max"]:
+        required.update({f"AI 必须修：{key}": count for key, count in high.items()})
+    alerts.update(w for w in ai_w if not w.startswith("A 级"))
+    all_findings = warns + ai_w + ai_p
+    miss = [m for m in ans.get("mech", []) if not any(m in w for w in all_findings)]
+    return {"miss": miss, "alerts": alerts, "required": required, "problems": ai_p, "warns": warns + ai_w}
+
+
+def gate_cases():
+    for directory, answer in anchors():
+        yield answer, (directory / "正文.md").read_text("utf-8")
+    # 专用于脚本阈值/词表的样例，不混入模型审稿派单与打分。
+    for case in read_json(PLUGIN_ROOT / "eval/mechanical.json", []):
+        yield case, case["text"]
 
 
 def cmd_gate(a):
     rows, worse = [], []
-    for d, ans in anchors():
-        text = (d / "正文.md").read_text("utf-8")
+    for ans, text in gate_cases():
         res = {}
-        for tag, path in (("base", a.baseline), ("cand", a.candidate)):
-            os.environ["NCC_OVERLAY"] = str(Path(path).resolve())
-            res[tag] = anchor_findings(ans, text)
-        os.environ.pop("NCC_OVERLAY", None)
+        previous = os.environ.get("NCC_OVERLAY")
+        try:
+            for tag, path in (("base", a.baseline), ("cand", a.candidate)):
+                os.environ["NCC_OVERLAY"] = str(Path(path).resolve())
+                res[tag] = anchor_findings(ans, text)
+        finally:
+            if previous is None:
+                os.environ.pop("NCC_OVERLAY", None)
+            else:
+                os.environ["NCC_OVERLAY"] = previous
         b, c = res["base"], res["cand"]
         new_miss = [m for m in c["miss"] if m not in b["miss"]]
-        new_noise = [x for x in c["noise"] if x not in b["noise"]]
+        if not ans.get("mech_clean"):
+            for key in ("alerts", "required"):
+                new_miss += [f"{name}（{count} → {c[key].get(name, 0)}）" for name, count in b[key].items()
+                             if c[key].get(name, 0) < count]
+        new_noise = [f"{name}（{b[key].get(name, 0)} → {count}）"
+                     for key in ("alerts", "required") for name, count in c[key].items()
+                     if ans.get("mech_clean") and count > b[key].get(name, 0)]
         if new_miss or new_noise:
             worse.append(ans["id"])
         rows.append(f"{'FAIL' if new_miss or new_noise else 'PASS'} {ans['id']}：必须修 {len(b['problems'])} → {len(c['problems'])}，"

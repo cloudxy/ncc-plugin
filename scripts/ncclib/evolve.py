@@ -12,6 +12,7 @@ import sys
 import tempfile
 from pathlib import Path
 from .core import (EVOLUTION, EVOLUTION_LOG, L, OVERLAY, PLUGIN_ROOT, REGISTRY, append_jsonl, book_root, category_catalog, die, next_id, now, read_json, read_jsonl, split_names, write_json)
+from .core import resolved_config
 
 
 KEYS = EVOLUTION["keys"]
@@ -48,6 +49,15 @@ def parse_value(key: str, raw: str):
         items = split_names(raw)
         if not items:
             die(f"{key} 写成 +词 或 -词，多个用逗号隔开")
+        if key == "technique.kinds":
+            for item in items:
+                if item.startswith("-"):
+                    continue
+                name, _, parent = item.lstrip("+").partition(":")
+                if not name or (parent and parent not in REGISTRY["vocab"]["technique_kinds"]["values"]):
+                    die("新技法类别的父类必须是内置技法类别")
+                if parent and name in REGISTRY["vocab"]["technique_kinds"]["values"] and name != parent:
+                    die("不能通过新增类别改变内置类别的可见范围")
         return items
     m = re.fullmatch(r"\s*([^:：]+)[:：](.+)", raw)
     if not m:
@@ -76,6 +86,25 @@ def overlay_file(root: Path) -> Path:
 
 def current(root: Path) -> dict:
     return read_json(overlay_file(root), {}).get("values", {})
+
+
+def without_proposal(root: Path, pid: str, key: str) -> dict:
+    """从该项首次应用前的值重放仍生效的提议；撤回旧项不覆盖后来的改动。"""
+    ps = proposals(root)
+    applications = [r for r in read_jsonl(root / EVOLUTION_LOG)
+                    if r.get("op") == "apply" and ps.get(r.get("id"), {}).get("key") == key]
+    values = current(root)
+    initial = applications[0].get("prev")
+    values.pop(key, None)
+    if initial is not None:
+        values[key] = initial
+    # 同一提议撤回后再应用时，只有最后一次应用参与，顺序按日志而非时间戳。
+    latest = {r["id"]: index for index, r in enumerate(applications)}
+    for index, row in enumerate(applications):
+        other = ps[row["id"]]
+        if row["id"] != pid and latest[row["id"]] == index and other["state"] == "已生效":
+            values = merged(values, key, other["value"])
+    return values
 
 
 def run_gate(base: dict, cand: dict):
@@ -134,14 +163,21 @@ def cmd_evolve(a):
     if a.action == "propose":
         if a.key not in KEYS:
             die(f"--key 只能是 {'、'.join(KEYS)}。永不自动的（{'、'.join(EVOLUTION['never'])}）只有作者主动要求，在开发会话里改插件本体")
-        value = parse_value(a.key, a.value)
+        raw = a.value
+        if getattr(a, "parent", None):
+            if a.key != "technique.kinds":
+                die("--parent 只用于新增技法类别")
+            if any(x.startswith("-") or ":" in x for x in split_names(raw)):
+                die("--parent 只用于 +类别名，不用于删除或重复指定父类")
+            raw = ",".join(f"{x}:{a.parent}" for x in split_names(raw))
+        value = parse_value(a.key, raw)
         if not a.evidence:
             die("提议要带证据（--evidence，可多次）：哪本书、哪几章、哪次审稿或放行")
-        rec = {"op": "propose", "id": next_id(list(props.values()), "EP"), "key": a.key, "value": value, "raw": a.value,
+        rec = {"op": "propose", "id": next_id(list(props.values()), "EP"), "key": a.key, "value": value, "raw": raw,
                "why": a.why, "evidence": a.evidence, "tier": KEYS[a.key]["tier"], "at": now()}
         append_jsonl(root / EVOLUTION_LOG, rec)
         nxt = "evolve eval 跑锚定章回归" if rec["tier"] == "评测＋作者确认" else "呈给作者，确认后 evolve apply --quote"
-        print(f"OK {rec['id']}（{rec['tier']}）{a.key} ← {a.value}；下一步：{nxt}")
+        print(f"OK {rec['id']}（{rec['tier']}）{a.key} ← {raw}；下一步：{nxt}")
         return
     if a.action == "list":
         for p in props.values():
@@ -153,15 +189,16 @@ def cmd_evolve(a):
         return
     if a.action == "rules":
         over = current(root)
+        cfg, sources = resolved_config(Path(a.path))
         for key, spec in KEYS.items():
             if spec["type"] == "int":
-                val, src = (over[key], "作者覆盖") if key in over else (spec["default"], "插件默认")
+                val, src = cfg[key[6:]], sources[key[6:]]
             elif key in over:
                 val, src = "、".join(map(str, over[key])) if isinstance(over[key], list) else "、".join(over[key]), "作者覆盖"
             else:
                 val, src = "（不改）", "插件默认"
             print(f"{key}（{spec['what']}）= {val}  ← {src}")
-        print("本书的 ncc.config.yaml 里写了同名阈值（去掉 check. 前缀）时，本书设置优先")
+        print("优先级：插件默认 < 书库配置 < 作者覆盖 < 本书配置；传书目录时显示该书的实际值")
         return
     if a.action == "scan":
         found = scan(root)
@@ -177,6 +214,8 @@ def cmd_evolve(a):
             print("没有找到规则级改动的苗头")
         return
     p = props.get(a.id) or die(f"没有提议 {a.id}")
+    if a.action in ("eval", "reject") and p["state"] == "已生效":
+        die(f"{a.id} 已生效；要取消请 evolve revert，要变更请新建提议")
     if a.action == "eval":
         if p["tier"] != "评测＋作者确认":
             print(f"{a.id} 是「{p['tier']}」档，不用跑评测，呈给作者确认即可")
@@ -194,6 +233,10 @@ def cmd_evolve(a):
         if not (a.quote or "").strip():
             die("生效要附作者原话（--quote）：规则改动由作者确认")
         values = current(root)
+        if p["tier"] == "评测＋作者确认":
+            ok, out = run_gate(values, merged(values, p["key"], p["value"]))
+            if not ok:
+                die("当前覆盖层下评测变差，不能生效；请重新 evolve eval\n" + out)
         prev = values.get(p["key"])
         write_json(overlay_file(root), {"values": merged(values, p["key"], p["value"]), "updated_at": now()})
         append_jsonl(root / EVOLUTION_LOG, {"op": "apply", "id": a.id, "prev": prev, "quote": a.quote, "at": now()})
@@ -206,12 +249,7 @@ def cmd_evolve(a):
     # revert
     if p["state"] != "已生效":
         die(f"{a.id} 没有生效过（现在：{p['state']}）")
-    values = current(root)
-    prev = p["applied"].get("prev")
-    if prev is None:
-        values.pop(p["key"], None)
-    else:
-        values[p["key"]] = prev
+    values = without_proposal(root, a.id, p["key"])
     write_json(overlay_file(root), {"values": values, "updated_at": now()})
     append_jsonl(root / EVOLUTION_LOG, {"op": "revert", "id": a.id, "note": a.note or "", "at": now()})
-    print(f"OK {a.id} 已撤回：{p['key']} 回到 {prev if prev is not None else '插件默认'}")
+    print(f"OK {a.id} 已撤回：{p['key']} = {values.get(p['key'], '插件默认')}（其余生效提议保留）")

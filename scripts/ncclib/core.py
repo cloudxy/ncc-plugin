@@ -376,17 +376,44 @@ def save(book_dir: Path, data: dict):
     write_json(book_dir / "book.json", data)
 
 
+def config_numbers(path: Path, keys) -> dict:
+    """读取约定的整数配置项，兼容平铺与分节；忽略注释与相似键名。"""
+    if not path.is_file():
+        return {}
+    text = path.read_text("utf-8")
+    out = {}
+    for key in keys:
+        matches = re.findall(rf"^\s*{re.escape(key)}:[ \t]*(\d+)[ \t]*(?:#.*)?$", text, re.M)
+        if matches:
+            out[key] = int(matches[-1])
+    return out
+
+
+def resolved_config(where: Path):
+    """默认 < 书库配置 < 作者覆盖 < 本书配置；同时返回每项的实际来源。"""
+    where = Path(where)
+    root = book_root(where)
+    cfg = {"words_min": 3000, "words_max": 5000, "max_retry": 3, "buffer_min": 5,
+           "half_life_days": PREF_HALF_LIFE}
+    cfg.update({key[6:]: spec["default"] for key, spec in EVOLUTION["keys"].items()
+                if key.startswith("check.") and spec["type"] == "int"})
+    sources = dict.fromkeys(cfg, "插件默认")
+
+    def apply(values, source):
+        cfg.update(values)
+        sources.update(dict.fromkeys(values, source))
+
+    apply(config_numbers(root / "ncc.config.yaml", cfg), "书库配置")
+    over = overlay_values(where)
+    apply({key[6:]: int(value) for key, value in over.items()
+           if key.startswith("check.") and key[6:] in cfg and EVOLUTION["keys"].get(key, {}).get("type") == "int"}, "作者覆盖")
+    if root != where:
+        apply(config_numbers(where / "ncc.config.yaml", cfg), "本书配置")
+    return cfg, sources
+
+
 def load_cfg(book_dir: Path) -> dict:
-    cfg = {"words_min": 3000, "words_max": 5000, "max_retry": 3, "buffer_min": 5}
-    for p in (book_dir.parent / "ncc.config.yaml", book_dir / "ncc.config.yaml"):
-        if p.exists():
-            text = p.read_text("utf-8")
-            for k in cfg:
-                m = re.search(rf"{k}:\s*(\d+)", text)
-                if m:
-                    cfg[k] = int(m.group(1))
-            break
-    return cfg
+    return resolved_config(book_dir)[0]
 
 
 def ledger(book_dir: Path, rel: str, key: str = "items"):
@@ -560,8 +587,27 @@ def with_words(base, change) -> list:
     return out
 
 
+def technique_catalog(where: Path = None) -> dict:
+    """类别 → 内置父类；新增类别继承父类的可见范围，不扩大审稿权限。"""
+    catalog = {kind: kind for kind in V["technique_kinds"]}
+    for change in overlay_values(where).get("technique.kinds", []):
+        if change.startswith("-"):
+            catalog.pop(change[1:], None)
+            continue
+        name, _, parent = change.lstrip("+").partition(":")
+        # v3.0 已批准但未指定父类的类别兼容为剧情规划。
+        if name in V["technique_kinds"]:
+            catalog[name] = name
+        else:
+            parent = parent or TECH_CFG["default_parent"]
+            if parent not in V["technique_kinds"]:
+                die(f"技法类别「{name}」的父类「{parent}」不存在")
+            catalog[name] = parent
+    return catalog
+
+
 def technique_kinds(where: Path = None) -> tuple:
-    return tuple(with_words(V["technique_kinds"], overlay_values(where).get("technique.kinds")))
+    return tuple(technique_catalog(where))
 
 
 def category_catalog(where: Path = None) -> dict:
@@ -609,6 +655,24 @@ def soul_leaks(d: dict, text: str) -> list:
 
 def chars(lines) -> int:
     return sum(len(HAN.findall(x)) for x in lines)
+
+
+def capped(lines: list, cap: int):
+    """整条筛选至汉字预算；超长条目跳过，继续容纳后面的短条，不截断语义。"""
+    out, used, omitted = [], 0, 0
+    for line in lines:
+        size = chars([line])
+        if used + size > cap:
+            omitted += 1
+            continue
+        out.append(line)
+        used += size
+    return out, omitted
+
+
+def writer_input_problems(d: dict, text: str) -> list:
+    bad = [w for w in WRITER_GUARD if w in text]
+    return ([f"审稿判据词：{'、'.join(bad)}"] if bad else []) + [f"书魂原文：{x}" for x in soul_leaks(d, text)]
 
 
 def mood_of(c):

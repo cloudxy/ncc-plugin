@@ -125,7 +125,8 @@ def cmd_setting(a):
                 name = resolve_cat(raw, d, catalog)
                 if not name:
                     die(f"类目表里没有「{raw}」：setting catalog 看现有类目；确实装不下就 setting new")
-                sc["used"][name] = {"why": a.why, "custom": False, "at": now()}
+                spec = sc["used"].setdefault(name, {"custom": False})
+                spec.update(why=a.why, at=now())
                 got.append(name)
             sc["none"] = ""
             msg = f"OK 选用类目：{'、'.join(got)}（它会怎么进剧情：{a.why}）"

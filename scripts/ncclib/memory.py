@@ -5,6 +5,7 @@ import re
 import sys
 from pathlib import Path
 from .core import (EVENTS, FACTS, HANDOFF, HANDOFF_CFG, HANDOFF_KINDS, HANDOFF_LAYERS, HAN, KNOWLEDGE, MEMORY_CFG, MEMORY_DIR, MEMORY_KINDS, MEMORY_LOG, MEMORY_ROLES, PROMISES, REVIEW_DIR, SCENE_DIR, SHARED_MEMORY, WRITER_GUARD, L, append_jsonl, bigrams, book_root, chars, current_chapter, die, ledger, load, next_id, next_seq, now, read_json, read_jsonl, similarity, soul_leaks, split_names, view_head, write_json)
+from .core import capped, writer_input_problems
 
 
 STATE_ZH = {"candidate": "候选", "active": "生效", "archived": "归档", "superseded": "已合并"}
@@ -78,19 +79,16 @@ def guard(d: dict, role: str, kind: str, text: str):
     if PREF_LIKE.search(text):
         die("这像是作者偏好：偏好只记在偏好文件（pref like/reject/dislike），记忆不另存一份")
     if cfg.get("guard"):
-        bad = [w for w in WRITER_GUARD if w in text]
-        if bad:
-            die(f"{role} 的记忆里不放审稿判据（{'、'.join(bad)}）：写成\"怎么写\"，不搬判据原文（铁律 9）")
-        leaks = soul_leaks(d, text)
-        if leaks:
-            die(f"{role} 的记忆里不放书魂原文：{'；'.join(leaks)}")
+        problems = writer_input_problems(d, text)
+        if problems:
+            die(f"{role} 的记忆要写成怎么写，不放" + "；".join(problems))
 
 
 def evidence_of(a) -> list:
     ev = []
     for x in a.evidence or []:
         ev += [s.strip() for s in re.split(r"[；;]", x) if s.strip()]
-    return ev
+    return list(dict.fromkeys(ev))
 
 
 def active_items(items: list, kinds=None) -> list:
@@ -98,15 +96,8 @@ def active_items(items: list, kinds=None) -> list:
     return sorted(out, key=lambda i: (i["kind"] != "约定", -i.get("hits", 1), -(i.get("last") or 0)))
 
 
-def capped(lines: list, cap: int):
-    out, used = [], 0
-    for x in lines:
-        n = chars([x])
-        if used + n > cap and out:
-            return out, len(lines) - len(out)
-        out.append(x)
-        used += n
-    return out, 0
+def evidence_count(item: dict) -> int:
+    return len(set(item.get("evidence", [])))
 
 
 def genre_fits(item: dict, d: dict) -> bool:
@@ -122,7 +113,11 @@ def memory_slice(book_dir: Path, d: dict, role: str, plain: bool = False, kinds=
     if persona:
         own = [i for i in own if persona in i["text"] or (i.get("applies") or {}).get("画像") == persona]
     shared = [i for i in active_items(memory_items(book_dir, role, shared=True), kinds) if genre_fits(i, d)]
-    a, cut_a = capped([fmt(i) for i in own], CAPS["book_chars"])
+    if persona:
+        shared = [i for i in shared if persona in i["text"] or (i.get("applies") or {}).get("画像") == persona]
+    limit = CAPS["book_items"]
+    a, cut_a = capped([fmt(i) for i in own[:limit]], CAPS["book_chars"])
+    cut_a += max(0, len(own) - limit)
     b, cut_b = capped([fmt(i) for i in shared], CAPS["shared_chars"])
     return a, b, cut_a + cut_b
 
@@ -134,25 +129,27 @@ def stale_before(d: dict):
     return closed[-n]["start"] if len(closed) >= n else None
 
 
-def consolidate_lines(book_dir: Path, d: dict, apply: bool = False, roles=None) -> list:
+def consolidate_lines(book_dir: Path, d: dict, apply: bool = False, roles=None, shared: bool = False) -> list:
     """单元整理底稿：候选、可合并、久未出现、超上限、够格进跨书记忆；--apply 只自动归档久未出现的。"""
-    out, line = [], stale_before(d)
-    for role in roles or memory_roles(book_dir):
-        items = memory_items(book_dir, role)
+    out, line = [], None if shared else stale_before(d)
+    cap = CAPS["shared_chars"] if shared else CAPS["book_chars"]
+    for role in roles or memory_roles(book_dir, shared):
+        items = memory_items(book_dir, role, shared)
         act = [i for i in items if i.get("status") == "active"]
         cand = [i for i in items if i.get("status") == "candidate"]
-        pairs = [(x["id"], y["id"]) for k, x in enumerate(act) for y in act[k + 1:]
+        live = act + cand
+        pairs = [(x["id"], y["id"]) for k, x in enumerate(live) for y in live[k + 1:]
                  if x["kind"] == y["kind"] and similarity(x["text"], y["text"]) >= MEMORY_CFG["similar"]]
         stale = [i for i in act if line is not None and i["kind"] not in MEMORY_CFG["once_ok"] and (i.get("last") or 0) < line]
         size = chars(i["text"] for i in act)
-        promo = [i for i in act if i["kind"] not in MEMORY_CFG["once_ok"] and i.get("hits", 1) >= MEMORY_CFG["promote_hits"]
+        promo = [i for i in act if not shared and i["kind"] not in MEMORY_CFG["once_ok"] and evidence_count(i) >= MEMORY_CFG["promote_hits"]
                  and not i.get("promoted_to")]
-        if not (cand or pairs or stale or promo or size > CAPS["book_chars"] or len(act) > CAPS["book_items"]):
+        if not (cand or pairs or stale or promo or size > cap or len(act) > CAPS["book_items"]):
             continue
-        out.append(f"- {role}：生效 {len(act)} 条（{size} 字，上限 {CAPS['book_chars']} 字、{CAPS['book_items']} 条）")
+        out.append(f"- {role}{'（跨书）' if shared else ''}：生效 {len(act)} 条（{size} 字，上限 {cap} 字、{CAPS['book_items']} 条）")
         out += [f"  - 候选（再出现一次才生效）：{i['id']} {i['text']}" for i in cand]
-        out += [f"  - 可合并：{a} 与 {b}（memory merge）" for a, b in pairs]
-        if size > CAPS["book_chars"] or len(act) > CAPS["book_items"]:
+        out += [f"  - 相似候选：{a} 与 {b}（先确认同义，再 memory merge；相反意见不要合并）" for a, b in pairs]
+        if size > cap or len(act) > CAPS["book_items"]:
             out.append("  - 超上限：合并相近的，或归档用不上的")
         for i in stale:
             if apply:
@@ -161,7 +158,7 @@ def consolidate_lines(book_dir: Path, d: dict, apply: bool = False, roles=None) 
             out.append(f"  - {'已自动归档' if apply else '久未出现'}：{i['id']} {i['text']}（最后一次第 {i.get('last')} 章）")
         out += [f"  - 够格进跨书记忆：{i['id']} {i['text']}（命中 {i.get('hits')} 次；完本时默认晋升，memory promote）" for i in promo]
         if apply and stale:
-            memory_save(book_dir, role, items)
+            memory_save(book_dir, role, items, shared)
     return out
 
 
@@ -169,6 +166,7 @@ def cmd_memory(a):
     book_dir = Path(a.book_dir)
     d = load(book_dir)
     act = a.action
+    scope_shared = getattr(a, "shared", False)
     if act == "list":
         roles = [a.role] if a.role else memory_roles(book_dir, a.shared)
         if not roles:
@@ -182,62 +180,90 @@ def cmd_memory(a):
                       f"（命中 {i.get('hits', 1)}，第 {i.get('since')}–{i.get('last')} 章；证据：{'；'.join(i.get('evidence', [])) or '—'}）")
         return
     if act == "consolidate":
-        lines = consolidate_lines(book_dir, d, apply=a.apply, roles=[a.role] if a.role else None)
+        lines = consolidate_lines(book_dir, d, apply=a.apply, roles=[a.role] if a.role else None, shared=scope_shared)
         print("\n".join(lines) if lines else "记忆不用整理：没有候选、重复、久未出现或超上限的条目")
-        ho = [e for e in handoff_open(book_dir) if e["kind"] == "决定"]
+        ho = [e for e in handoff_open(book_dir) if e["kind"] == "决定"] if not scope_shared else []
         if ho:
             print("还没落进源头的决定（写进台账、场景卡、偏好或记忆后 handoff close）：")
             print("\n".join(f"- {e['id']} {e['text']}" for e in ho))
         return
     role = a.role
     role_cfg(role)
-    items = memory_items(book_dir, role)
+    items = memory_items(book_dir, role, scope_shared)
+    def persist():
+        memory_save(book_dir, role, items, scope_shared)
+
+    def log(op, mid, **kw):
+        mem_log(book_dir, op, role, mid, scope="shared" if scope_shared else "book", **kw)
+
     find = lambda mid: next((i for i in items if i["id"] == mid), None) or die(f"{role} 的记忆里没有 {mid}")
     ch = a.ch if getattr(a, "ch", None) is not None else current_chapter(d)
     if act == "add":
         guard(d, role, a.kind, a.text)
         ev = evidence_of(a)
-        best = max(((similarity(a.text, i["text"]), i) for i in items
-                    if i["kind"] == a.kind and i.get("status") in ("active", "candidate")), default=(0, None), key=lambda x: x[0])
-        if best[0] >= MEMORY_CFG["similar"]:
-            i = best[1]
+        live = [i for i in items if i["kind"] == a.kind and i.get("status") in ("active", "candidate")]
+        exact = next((i for i in live if i["text"].strip() == a.text.strip()), None)
+        if exact:
+            i = exact
             reinforce(book_dir, role, i, ev or [f"第 {ch} 章"], ch)
             memory_save(book_dir, role, items)
-            print(f"OK 和 {i['id']} 相近，记为再次出现：{i['id']} 命中 {i['hits']} 次（{STATE_ZH[i['status']]}）")
+            print(f"OK 和 {i['id']} 正文相同，合并独立证据：{i['id']} 命中 {i['hits']} 次（{STATE_ZH[i['status']]}）")
             return
+        best = max(((similarity(a.text, i["text"]), i) for i in live), default=(0, None), key=lambda x: x[0])
         ev = ev or [f"第 {ch} 章"]
         once = a.kind in MEMORY_CFG["once_ok"]
         item = {"id": next_id(items, "MEM"), "kind": a.kind, "text": a.text.strip(), "evidence": ev, "since": ch, "last": ch,
-                "hits": len(ev), "status": "active" if once or len(ev) >= MEMORY_CFG["min_evidence"] else "candidate", "at": now()}
+                "hits": len(ev), "recordings": 1, "status": "active" if once or len(ev) >= MEMORY_CFG["min_evidence"] else "candidate", "at": now()}
         items.append(item)
         memory_save(book_dir, role, items)
         mem_log(book_dir, "add", role, item["id"], text=item["text"], status=item["status"])
         print(f"OK {role} {item['id']} [{a.kind}] {STATE_ZH[item['status']]}"
               + ("（同类证据再出现一次才生效：一次侥幸不成经验）" if item["status"] == "candidate" else ""))
+        if best[0] >= MEMORY_CFG["similar"]:
+            print(f"  与 {best[1]['id']} 相似，已独立保存；确认同义后 memory merge，纠正旧意见则 edit 或 archive")
         size = chars(i["text"] for i in items if i.get("status") == "active")
         if size > CAPS["book_chars"]:
-            print(f"  提醒：{role} 的生效记忆 {size} 字，超过上限 {CAPS['book_chars']}；派单只带前 {CAPS['book_chars']} 字，单元整理时合并或归档")
+            print(f"  提醒：{role} 的生效记忆 {size} 字，超过上限 {CAPS['book_chars']}；派单跳过放不下的整条，单元整理时压缩或归档")
         return
     if act == "reinforce":
         i = find(a.id)
-        reinforce(book_dir, role, i, evidence_of(a) or [f"第 {ch} 章"], ch)
-        memory_save(book_dir, role, items)
+        ev = evidence_of(a) or [f"第 {ch} 章"]
+        if scope_shared:
+            ev = [f"{book_dir.resolve()}::{e}" for e in ev]
+        reinforce(book_dir, role, i, ev, ch, shared=scope_shared)
+        persist()
         print(f"OK {i['id']} 命中 {i['hits']} 次（{STATE_ZH[i['status']]}）")
+    elif act == "edit":
+        i = find(a.id)
+        guard(d, role, i["kind"], a.text)
+        old = i["text"]
+        i["text"] = a.text.strip()
+        persist()
+        log("edit", i["id"], before=old, text=i["text"], note=a.note or "")
+        print(f"OK {i['id']} 已修改（{'跨书' if scope_shared else '本书'}记忆；证据与来源保留）")
     elif act == "archive":
         i = find(a.id)
+        if i["status"] == "archived":
+            die(f"{a.id} 已归档")
         i.update(prev=i["status"], status="archived", note=a.note or "")
-        memory_save(book_dir, role, items)
-        mem_log(book_dir, "archive", role, i["id"], note=a.note or "")
+        persist()
+        log("archive", i["id"], note=a.note or "")
         print(f"OK {i['id']} 已归档（memory restore 可撤回）")
     elif act == "restore":
         i = find(a.id)
-        i["status"] = i.pop("prev", "active") if i.get("status") == "archived" else "active"
+        if i["status"] not in ("archived", "superseded"):
+            die(f"{a.id} 不是已归档或已合并的条目")
+        i["status"] = i.pop("prev", "candidate")
         i.pop("by", None)
-        memory_save(book_dir, role, items)
-        mem_log(book_dir, "restore", role, i["id"])
+        persist()
+        log("restore", i["id"])
         print(f"OK {i['id']} 已恢复（{STATE_ZH[i['status']]}）")
     elif act == "merge":
         into = find(a.into)
+        if a.into in a.ids:
+            die("不能把记忆合并到自己")
+        if any(find(mid)["kind"] != into["kind"] for mid in a.ids):
+            die("只能合并同一种类的记忆")
         if a.text:
             guard(d, role, into["kind"], a.text)
             into["text"] = a.text.strip()
@@ -247,15 +273,15 @@ def cmd_memory(a):
             into["since"] = min(into.get("since") or ch, x.get("since") or ch)
             into["last"] = max(into.get("last") or 0, x.get("last") or 0)
             x.update(prev=x["status"], status="superseded", by=into["id"])
-        into["hits"] = max(into.get("hits", 1), len(into["evidence"]))
+        into["hits"] = len(into["evidence"])
         if into["status"] == "candidate" and len(into["evidence"]) >= MEMORY_CFG["min_evidence"]:
             into["status"] = "active"
-        memory_save(book_dir, role, items)
-        mem_log(book_dir, "merge", role, into["id"], merged=a.ids)
+        persist()
+        log("merge", into["id"], merged=a.ids)
         print(f"OK {'、'.join(a.ids)} 并入 {into['id']}（命中 {into['hits']} 次）")
     elif act == "promote":
         ids = a.ids or [i["id"] for i in items if i.get("status") == "active" and i["kind"] not in MEMORY_CFG["once_ok"]
-                        and i.get("hits", 1) >= MEMORY_CFG["promote_hits"] and not i.get("promoted_to")]
+                        and evidence_count(i) >= MEMORY_CFG["promote_hits"] and not i.get("promoted_to")]
         if not ids:
             print(f"{role} 没有够格进跨书记忆的条目（命中 ≥ {MEMORY_CFG['promote_hits']} 次、不是本书约定）")
             return
@@ -265,10 +291,13 @@ def cmd_memory(a):
             i = find(mid)
             if i["kind"] in MEMORY_CFG["once_ok"]:
                 die(f"{mid} 是本书约定，不进跨书记忆")
+            if i.get("status") != "active" or evidence_count(i) < MEMORY_CFG["promote_hits"]:
+                die(f"{mid} 晋升需要生效且至少 {MEMORY_CFG['promote_hits']} 处独立证据")
             if i.get("promoted_to"):
                 continue
-            new = {"id": next_id(shared, "MX"), "kind": i["kind"], "text": i["text"], "hits": i.get("hits", 1),
-                   "evidence": [f"{d.get('title')} {mid}"], "applies": applies, "status": "active", "at": now(),
+            new = {"id": next_id(shared, "MX"), "kind": i["kind"], "text": i["text"], "hits": evidence_count(i),
+                   "evidence": [f"{book_dir.resolve()}::{e}" for e in dict.fromkeys(i["evidence"])],
+                   "applies": {**(i.get("applies") or {}), **applies}, "status": "active", "at": now(),
                    "origin": {"book": d.get("title"), "id": mid}}
             shared.append(new)
             i["promoted_to"] = new["id"]
@@ -278,13 +307,14 @@ def cmd_memory(a):
         memory_save(book_dir, role, items)
 
 
-def reinforce(book_dir: Path, role: str, i: dict, ev: list, ch: int):
+def reinforce(book_dir: Path, role: str, i: dict, ev: list, ch: int, shared: bool = False):
     i["evidence"] = list(dict.fromkeys(i.get("evidence", []) + ev))
-    i["hits"] = max(i.get("hits", 1) + 1, len(i["evidence"]))
+    i["hits"] = len(i["evidence"])
+    i["recordings"] = i.get("recordings", 1) + 1
     i["last"] = max(i.get("last") or 0, ch)
     if i["status"] == "candidate" and len(i["evidence"]) >= MEMORY_CFG["min_evidence"]:
         i["status"] = "active"
-    mem_log(book_dir, "reinforce", role, i["id"], evidence=ev, status=i["status"])
+    mem_log(book_dir, "reinforce", role, i["id"], scope="shared" if shared else "book", evidence=ev, status=i["status"])
 
 
 # ---------- 会话交接卡 ----------
@@ -330,7 +360,10 @@ def handoff_slice(book_dir: Path, d: dict, role: str, seq=None, plain: bool = Fa
             return f"- {e['text']}"
         where = f"·第{e['chapters'][0]}–{e['chapters'][1]}章" if e.get("chapters") else ""
         return f"- [{e['kind']}{'·' + e['layer'] if e.get('layer') else ''}{where}] {e['text']}（{e['id']}）"
-    lines, _ = capped([fmt(e) for e in es], cap or (HANDOFF_CFG["writer_chars"] if plain else HANDOFF_CFG["brief_chars"]))
+    limit = cap if cap is not None else (HANDOFF_CFG["writer_chars"] if plain else HANDOFF_CFG["brief_chars"])
+    lines, cut = capped([fmt(e) for e in es], limit)
+    if cut:
+        print(f"提醒：{role} 的交接省略 {cut} 条（超过字数预算，请压缩原条目）", file=sys.stderr)
     return lines
 
 
