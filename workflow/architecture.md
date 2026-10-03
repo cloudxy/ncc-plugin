@@ -239,3 +239,11 @@ A2 再改插件自己：
 | 技法库（M9） | `scripts/ncclib/techniques.py`；`{书库}/_作者/技法库/<类别>/T-NNNN.md`；`technique add/check/list/match/result/retire/restore`；状态由证据数与使用结果推出（使用记录只追加）；卡片和原文连续重合超过上限拒绝写入；按角色可见（注册表 `techniques.per_role`），审稿与 reader 不拿；场景卡"技法："引用，`unit close` 自动结算好坏 |
 | 自进化（M11） | `scripts/ncclib/evolve.py`；四档在注册表 `evolution`；规则改动写进作者覆盖层 `{书库}/_作者/进化/覆盖.json`（插件默认 < 书库配置 < 作者覆盖 < 本书配置），提议日志只追加；`evolve propose/eval/apply/reject/revert/list/rules/scan`；`ncc_eval.py gate` 当闸门（改动前后各跑一遍锚定章，变差就拒绝），`ncc_eval.py anchor new` 让漏检变锚定章；章节检查的阈值默认值与一级词、时代错置词两份词表挪进注册表 |
 | 迁移 | 书项目 schema 3 → 4：`migrate` 补 `setting_categories`、`benchmarks` 字段，手写的 `memory/<角色>.md` 转成条目（原文件移到迁移备份） |
+
+## 通用素材库治理
+
+准备入口对“治理全库、建立标准结构、整理混杂内容和方便写作调用”加载素材库方法。curator 加入专职角色，按本库规范承担内容与结构治理；研究与创作仍使用对应职责，执行方式由宿主与用户授权决定。方法见 [素材库治理](../skills/ncc-prepare/references/library.md)。
+
+`ncc_prepare.py` 仍管理准备状态、锁、来源与普通成果。`ncc_library.py` 通过注册接口扩展命令，复用准备的持久化、索引、版本和路径检查，库规则与操作方法在注册表 preparation.library。库治理在 prepare.json 的 library 中保存规范版本、完整输入快照、逐来源处置、批次、取用用例、复核与交付事务，写作期状态契约保持独立。
+
+规范按库适配，不绑定示例目录与题材字段。新库与原地交付都从版本化 staging 验收；输入范围、规范、内容或报告变更后旧结论失效。来源处置报告与全库语义报告负责信息保真及适用性，脚本只检查可计算关系。原地应用保留备份和事务，外部改动阻止覆盖；交付后对实际目标继续检查。接口见 [治理接口](../skills/ncc-prepare/references/library-tools.md)。

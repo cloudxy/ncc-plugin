@@ -36,14 +36,32 @@
       ".txt"
     ],
     "max_file_bytes": 12582912,
-    "what": "独立的创作前准备工作区；资料与设定各自整理、完善、创建。无 book.json 依赖，不接管正文状态。脚本管理来源与交付，语义整理和创作由模型完成。"
+    "what": "独立的创作前准备工作区；资料与设定各自整理、完善、创建。无 book.json 依赖，不接管正文状态。脚本管理来源与交付，语义整理和创作由模型完成。",
+    "library": {
+      "schema": 1,
+      "operations": {
+        "library-audit": "按本库规范分区体检；逐项报告路径/行号、证据、严重度与未读部分。脚本检查结构与显式约束，模型复核权威源、术语、信息保真和关系；不因扫描通过宣称语义通过。",
+        "library-analyze": "读取实际内容和有效决定，解释混乱的原因与影响；提出分类、文件职责、字段和引用规范，给出方案、推荐及需要作者决定的关键选择；已有授权直接沿用。",
+        "library-enrich": "先验证已定标准和完整样例，再分批补全理解与取用所必需的信息；每条保留依据、范围、条件及未核项，不编造事实，不机械填充空字段。",
+        "library-refactor": "按规范处理主归属、主题拆分/合并、规则/条目/导航职责和引用；保留独有信息、适用范围与版本例外；实际交付整理后的内容，并验证路径和关联。",
+        "library-curate": "治理导航、孤儿、重复候选和作品特例，建立多角度查找路径；依据复用价值与适用范围处置，不因出现人物名就清除内容；回传逐来源处置证据。"
+      },
+      "dispositions": [
+        "retained",
+        "transformed",
+        "merged",
+        "split",
+        "excluded",
+        "deferred"
+      ]
+    }
   },
   "commands": {
     "ncc-prepare": {
       "skill": "ncc-prepare",
       "mode": "prepare",
-      "description": "通用创作前准备：资料整理、完善、创建，设定整理、完善、创建。可从空白开始，也可处理已有资料与设定；不要求书名或 book.json。完成内容、来源、关系、冲突与缺项处理，交付可复用资料或指定范围的设定成果。",
-      "argument_hint": "[整理资料 <目录> | 完善资料 <主题> | 创建资料 <要求> | 整理设定 | 完善设定 | 创建设定 <想法> | continue]"
+      "description": "通用创作前准备与小说素材库治理：整理、完善、创建资料和设定；诊断混乱素材库、适配组织规范、分批治理内容和结构、全库验收并按写作需求检索。独立工作区，无需书名或 book.json。",
+      "argument_hint": "[治理素材库 路径 | 资料/设定 整理/完善/创建 | continue]"
     },
     "ncc": {
       "skill": "ncc",
@@ -159,7 +177,7 @@
     "scout": {
       "skill": "ncc-new",
       "task": "ideation",
-      "description": "Use this agent when picking a genre, scanning bestseller boards, or generating 2–3 whole-book direction candidates grown from the author's seeds before a book starts. Produces briefing, benchmark list and direction options, each citing which author seed it grows from, with a recommendation and at least one unconventional option; never writes settings. At volume review, attributes changes in real reader data to chapters and writing patterns. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent when picking a genre, scanning bestseller boards, or generating 2–3 whole-book direction candidates grown from the author's seeds before a book starts. Produces briefing, benchmark list and direction options, each citing which author seed it grows from, with a recommendation and at least one unconventional option; never writes settings. At volume review, attributes changes in real reader data to chapters and writing patterns. The /ncc parent coordinates this role; run the specialist task in its execution context and return results to the manager.",
       "color": "cyan",
       "fresh": false,
       "function": "策划",
@@ -169,7 +187,7 @@
     "worldbuilder": {
       "skill": "ncc-new",
       "task": "settings",
-      "description": "Use this agent for book settings and characters: world bible, power system with dimensions and limits, lexicon, rules, sourced fact values, full character cards and voice interviews, category selection, and social mechanisms tied to the book soul. Drafts the prose style anchor for task: style. For task: prepare, organizes, improves or creates reusable settings and fictional materials without a book, protagonist or chapters; builds systems, entities and relationships within the requested scope. Owns G1 evidence for book settings, never outlines plots. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent for book settings and characters: world bible, power system with dimensions and limits, lexicon, rules, sourced fact values, full character cards and voice interviews, category selection, and social mechanisms tied to the book soul. Drafts the prose style anchor for task: style. For task: prepare, organizes, improves or creates reusable settings and fictional materials without a book, protagonist or chapters; builds systems, entities and relationships within the requested scope. Owns G1 evidence for book settings, never outlines plots. The /ncc parent coordinates this role; run the specialist task in its execution context and return results to the manager.",
       "color": "purple",
       "fresh": false,
       "function": "创作",
@@ -179,7 +197,7 @@
     "outliner": {
       "skill": "ncc-new",
       "task": "outline",
-      "description": "Use this agent for the outline scaled to the writing mode (master → volume → chapter), signature scenes and core motifs, the emotion curve, registering promises, and drafting scene cards in small batches (task: scene; 3 chapters in hybrid mode), including the default move the writer should avoid a knowledge line when a scene needs specialist knowledge, and a material line when one of the author's material cards fits the scene. Owns G2 freeze evidence. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent for the outline scaled to the writing mode (master → volume → chapter), signature scenes and core motifs, the emotion curve, registering promises, and drafting scene cards in small batches (task: scene; 3 chapters in hybrid mode), including the default move the writer should avoid a knowledge line when a scene needs specialist knowledge, and a material line when one of the author's material cards fits the scene. Owns G2 freeze evidence. The /ncc parent coordinates this role; run the specialist task in its execution context and return results to the manager.",
       "color": "blue",
       "fresh": false,
       "function": "创作",
@@ -189,7 +207,7 @@
     "story-editor": {
       "skill": "ncc-write",
       "task": "story-review",
-      "description": "Use this agent as the developmental (structural) editor: story review of a batch of scene cards before any prose is written (task: story-review), also reading across the batch for escalation and repetition, and structural questions at unit and volume review (task: unit-questions) — turns, real dilemmas, target emotion, escalation, character desire and need, human agency within structural constraints, what the protagonist lost. Asks questions and recommends directions; never scores and never writes prose. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent as the developmental (structural) editor: story review of a batch of scene cards before any prose is written (task: story-review), also reading across the batch for escalation and repetition, and structural questions at unit and volume review (task: unit-questions) — turns, real dilemmas, target emotion, escalation, character desire and need, human agency within structural constraints, what the protagonist lost. Asks questions and recommends directions; never scores and never writes prose. The /ncc parent coordinates this role; run the specialist task in its execution context and return results to the manager.",
       "color": "teal",
       "fresh": false,
       "function": "质量",
@@ -199,7 +217,7 @@
     "scholar": {
       "skill": "ncc-write",
       "task": "knowledge",
-      "description": "Use this agent as the knowledge adviser (D1): when a batch of scene cards lists knowledge points, write each chapter's knowledge list — concrete facts and how to put them on the page, each with a source or marked unverified — from the domain cards, the fact ledger and reliable references; also check how fictional settings operate against real-world rules. Never invents facts; never writes prose. Called on demand, not in every loop. Do NOT use while /ncc runs in the parent window. For task: prepare, organizes, improves or creates sourced thematic research materials without requiring a book project or scene cards.",
+      "description": "Use this agent as the knowledge adviser (D1): when a batch of scene cards lists knowledge points, write each chapter's knowledge list — concrete facts and how to put them on the page, each with a source or marked unverified — from the domain cards, the fact ledger and reliable references; also check how fictional settings operate against real-world rules. Never invents facts; never writes prose. Called on demand, not in every loop. The /ncc parent coordinates this role; run the specialist task in its execution context and return results to the manager. For task: prepare, organizes, improves or creates sourced thematic research materials without requiring a book project or scene cards.",
       "color": "brown",
       "fresh": false,
       "function": "创作",
@@ -209,7 +227,7 @@
     "writer": {
       "skill": "ncc-write",
       "task": "draft",
-      "description": "Use this agent to draft chapters from the writing brief and context pack (reader-now, character voices, materials, previous chapter's ending): opening and serialized chapters. Never sees review checklists or the book-soul text; dramatizes the scene's dilemma instead of explaining it, avoids the listed default moves, writes 2–3 versions of key beats when asked, writes in two halves with one word-count check and never pads to reach length, lands emotion on choices and consequences rather than stock body tics, then writes back the three ledgers. Never reviews its own text. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent to draft chapters from the writing brief and context pack (reader-now, character voices, materials, previous chapter's ending): opening and serialized chapters. Never sees review checklists or the book-soul text; dramatizes the scene's dilemma instead of explaining it, avoids the listed default moves, writes 2–3 versions of key beats when asked, writes in two halves with one word-count check and never pads to reach length, lands emotion on choices and consequences rather than stock body tics, then writes back the three ledgers. Never reviews its own text. The /ncc parent coordinates this role; run the specialist task in its execution context and return results to the manager.",
       "color": "green",
       "fresh": false,
       "function": "创作",
@@ -219,7 +237,7 @@
     "editor": {
       "skill": "ncc-review",
       "task": "revise",
-      "description": "Use this agent to execute explicit revisions from review observations: line-level fixes, de-AI-flavor passes, style anchor alignment, and the one delete-only compression of an over-length chapter. Revision is a separate act from review; must trigger re-review when body text changes. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent to execute explicit revisions from review observations: line-level fixes, de-AI-flavor passes, style anchor alignment, and the one delete-only compression of an over-length chapter. Revision is a separate act from review; must trigger re-review when body text changes. The /ncc parent coordinates this role; run the specialist task in its execution context and return results to the manager.",
       "color": "yellow",
       "fresh": false,
       "function": "质量",
@@ -229,7 +247,7 @@
     "continuity": {
       "skill": "ncc-review",
       "task": "audit",
-      "description": "Use this agent for the hard-defect layer of review: setting conflicts, timeline, promise-ledger obligations, whether the scene card's turn and dilemma actually happen on the page, knowledge-state leaks (POV discipline), state-event replay, fact-ledger consistency, and the knowledge layer (did the prose follow the chapter's knowledge list, unsourced specifics, anachronisms, honorific misuse). On regular chapters it is the only hard-defect reviewer and also checks the poison list; re-reviews only the changed paragraphs from review delta. Pass/fail with evidence-cited observations only — never edits manuscripts, never scores quality. Fresh context, no producer memory. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent for the hard-defect layer of review: setting conflicts, timeline, promise-ledger obligations, whether the scene card's turn and dilemma actually happen on the page, knowledge-state leaks (POV discipline), state-event replay, fact-ledger consistency, and the knowledge layer (did the prose follow the chapter's knowledge list, unsourced specifics, anachronisms, honorific misuse). On regular chapters it is the only hard-defect reviewer and also checks the poison list; re-reviews only the changed paragraphs from review delta. Pass/fail with evidence-cited observations only — never edits manuscripts, never scores quality. Fresh context, no producer memory. The /ncc parent coordinates this role; run the specialist task in its execution context and return results to the manager.",
       "color": "red",
       "fresh": true,
       "function": "质量",
@@ -239,7 +257,7 @@
     "pulse": {
       "skill": "ncc-review",
       "task": "pulse",
-      "description": "Use this agent only on chapters that pay off a satisfaction debt or signature scene, key chapters, and the opening (review plan decides): genre-contract checks (poison list, signing points, missing debt/earn/exceed/witness in payoffs) and, on key chapters, pairwise comparison of versions (which is better and why, order-swapped to check bias). Never gives absolute quality scores. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent only on chapters that pay off a satisfaction debt or signature scene, key chapters, and the opening (review plan decides): genre-contract checks (poison list, signing points, missing debt/earn/exceed/witness in payoffs) and, on key chapters, pairwise comparison of versions (which is better and why, order-swapped to check bias). Never gives absolute quality scores. The /ncc parent coordinates this role; run the specialist task in its execution context and return results to the manager.",
       "color": "orange",
       "fresh": true,
       "function": "质量",
@@ -249,7 +267,7 @@
     "reader": {
       "skill": "ncc-review",
       "task": "blind-read",
-      "description": "Use this agent as a simulated fresh reader for the opening chapters and key chapters, reading as one persona per dispatch (target reader, veteran, newcomer, or an insider of the book's trade): would they keep reading, where do they skim, where do they drop, a memory test — what they remember and the one line they would screenshot — and, in their own words, what they are waiting for and who knows what (checked against reader-now); insiders also flag lines that break immersion. Reads its calibration notes from past real-reader data when provided. Blind — no outlines, no settings, no producer context. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent as a simulated fresh reader for the opening chapters and key chapters, reading as one persona per dispatch (target reader, veteran, newcomer, or an insider of the book's trade): would they keep reading, where do they skim, where do they drop, a memory test — what they remember and the one line they would screenshot — and, in their own words, what they are waiting for and who knows what (checked against reader-now); insiders also flag lines that break immersion. Reads its calibration notes from past real-reader data when provided. Blind — no outlines, no settings, no producer context. The /ncc parent coordinates this role; run the specialist task in its execution context and return results to the manager.",
       "color": "magenta",
       "fresh": true,
       "function": "质量",
@@ -259,12 +277,22 @@
     "deconstructor": {
       "skill": "ncc-deconstruct",
       "task": "deconstruct",
-      "description": "Use this agent to deconstruct benchmark novels per the 5.0 framework: chapter index as the single slicing source, evidence-and-confidence-tagged extraction, event-sourced state ledger, entities tagged with the setting categories. Feeds the setting vault and lexicon, plus texture-detail and social-mechanism samples and the benchmark's inferred book soul and genre contract. After each segment it runs the learning pass: technique cards on overall design, plot and payoff planning, hidden lines and foreshadowing, emotion, character, setting construction and prose, each with evidence, applicability and cost, in its own words. Do NOT use while /ncc runs in the parent window.",
+      "description": "Use this agent to deconstruct benchmark novels per the 5.0 framework: chapter index as the single slicing source, evidence-and-confidence-tagged extraction, event-sourced state ledger, entities tagged with the setting categories. Feeds the setting vault and lexicon, plus texture-detail and social-mechanism samples and the benchmark's inferred book soul and genre contract. After each segment it runs the learning pass: technique cards on overall design, plot and payoff planning, hidden lines and foreshadowing, emotion, character, setting construction and prose, each with evidence, applicability and cost, in its own words. The /ncc parent coordinates this role; run the specialist task in its execution context and return results to the manager.",
       "color": "gray",
       "fresh": false,
       "function": "策划",
       "duty": "按总纲5.0拆对标书，喂设定库；质感细节与机制样本、对标书的书魂与契约；拆完一段学写法，写技法卡",
       "never": "写本书正文"
+    },
+    "curator": {
+      "skill": "ncc-prepare",
+      "task": "library-analyze",
+      "description": "Use this agent to govern general novel material libraries: diagnose mixed content and structure, establish library-specific organization standards, preserve unique information while splitting or merging topics, enrich necessary fields, refactor ownership and references, curate navigation and reusable scope, and verify whole-library coverage and writing retrieval. Handles library-audit, library-analyze, library-enrich, library-refactor and library-curate without a book project. Uses prepare.json task packets and batches. Requests sourced factual research from scholar and fictional creation from worldbuilder as needed; never invents facts or silently decides unresolved canon. The /ncc parent coordinates this role.",
+      "color": "green",
+      "fresh": false,
+      "function": "准备",
+      "duty": "通用素材库治理：诊断、组织规范、内容与结构整理、补全、导航、全库验收和写作取用",
+      "never": "编造事实、擅定冲突口径、以样本或报告冒充全库治理"
     }
   },
   "stages": {
@@ -608,8 +636,8 @@
       "stage": "P 创作前准备（可独立、可重入）",
       "layer": "通用资产 / 世界或作品设定",
       "lead": "ncc-prepare",
-      "support": "worldbuilder（设定与虚构素材）、scholar（事实资料），按宿主授权执行",
-      "products": "资料与设定的整理、完善、创建成果；来源、关系、采用决定、缺项与范围检查；独立 prepare.json",
+      "support": "curator（素材库治理）、worldbuilder（设定与虚构素材）、scholar（事实资料），按宿主授权执行",
+      "products": "资料与设定的整理、完善、创建成果；来源、关系、采用决定、缺项与范围检查；独立 prepare.json；本库规范、全库处置与批次、实际整理库和取用验证",
       "gate": "范围内准备检查；不替代 G0–G5"
     },
     {
@@ -1728,7 +1756,14 @@
         "skills/ncc-prepare/SKILL.md",
         "skills/ncc-prepare/references/materials.md",
         "skills/ncc-prepare/references/settings.md",
-        "skills/ncc-prepare/references/workspace.md"
+        "skills/ncc-prepare/references/workspace.md",
+        "skills/ncc-prepare/references/library.md",
+        "skills/ncc-prepare/references/library-tools.md"
+      ],
+      "curator": [
+        "agents/curator.md",
+        "skills/ncc-prepare/references/library.md",
+        "skills/ncc-prepare/references/library-tools.md"
       ]
     },
     "note": "domains:N 表示按场景读的 N 张底蕴卡，按最长的 N 张计。agents/<角色>.md 里写了全路径要读的规则文件，必须列在这里（自测会查）。"

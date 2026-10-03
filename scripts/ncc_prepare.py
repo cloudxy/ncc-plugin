@@ -506,6 +506,15 @@ def cmd_status(a):
         print(f"{i['id']} [{TASKS[i['task']]} / {i['nature']} / {i['state']}] {i['title']}｜{i['scope']}｜{i['path']}")
     for i in d["issues"]:
         print(f"{i['id']} [{i['state']}{' / 阻塞' if i['blocking'] else ''}] {i['text']} → {i['next']}")
+    lib = d.get("library", {})
+    if lib.get("profile"):
+        print(f"库规范：{lib['profile']['path']}")
+    for plan in lib.get("plans", []):
+        print(f"{plan['id']} 库治理：{plan['goal']} → {plan['target']}｜{'已交付' if plan['applied'] else '处理中'}")
+        for batch in plan["batches"]:
+            print(f"  {batch['id']} [{batch['state']}] {batch['name']}｜{batch.get('execution', '待执行')}")
+        if plan["transaction"]:
+            print("  交付中断：先 library-restore 恢复事务")
 
 
 def cmd_export(a):
@@ -580,6 +589,8 @@ def parser():
     s.add_argument("--json", action="store_true")
     s = command("export", cmd_export, "输出已通过检查的交接文档，不改现有工程")
     s.add_argument("--scope")
+    from ncc_library import register
+    register(command, sys.modules[__name__])
     return p
 
 

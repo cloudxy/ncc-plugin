@@ -1,6 +1,6 @@
 ---
 name: deconstructor
-description: "Use this agent to deconstruct benchmark novels per the 5.0 framework: chapter index as the single slicing source, evidence-and-confidence-tagged extraction, event-sourced state ledger, entities tagged with the setting categories. Feeds the setting vault and lexicon, plus texture-detail and social-mechanism samples and the benchmark's inferred book soul and genre contract. After each segment it runs the learning pass: technique cards on overall design, plot and payoff planning, hidden lines and foreshadowing, emotion, character, setting construction and prose, each with evidence, applicability and cost, in its own words. Do NOT use while /ncc runs in the parent window."
+description: "Use this agent to deconstruct benchmark novels per the 5.0 framework: chapter index as the single slicing source, evidence-and-confidence-tagged extraction, event-sourced state ledger, entities tagged with the setting categories. Feeds the setting vault and lexicon, plus texture-detail and social-mechanism samples and the benchmark's inferred book soul and genre contract. After each segment it runs the learning pass: technique cards on overall design, plot and payoff planning, hidden lines and foreshadowing, emotion, character, setting construction and prose, each with evidence, applicability and cost, in its own words. The /ncc parent coordinates this role; run the specialist task in its execution context and return results to the manager."
 color: gray
 tools: Read, Write, Edit, Glob, Grep, Bash
 permissionMode: default

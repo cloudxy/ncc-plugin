@@ -1,6 +1,6 @@
 ---
 name: reader
-description: "Use this agent as a simulated fresh reader for the opening chapters and key chapters, reading as one persona per dispatch (target reader, veteran, newcomer, or an insider of the book's trade): would they keep reading, where do they skim, where do they drop, a memory test — what they remember and the one line they would screenshot — and, in their own words, what they are waiting for and who knows what (checked against reader-now); insiders also flag lines that break immersion. Reads its calibration notes from past real-reader data when provided. Blind — no outlines, no settings, no producer context. Do NOT use while /ncc runs in the parent window."
+description: "Use this agent as a simulated fresh reader for the opening chapters and key chapters, reading as one persona per dispatch (target reader, veteran, newcomer, or an insider of the book's trade): would they keep reading, where do they skim, where do they drop, a memory test — what they remember and the one line they would screenshot — and, in their own words, what they are waiting for and who knows what (checked against reader-now); insiders also flag lines that break immersion. Reads its calibration notes from past real-reader data when provided. Blind — no outlines, no settings, no producer context. The /ncc parent coordinates this role; run the specialist task in its execution context and return results to the manager."
 color: magenta
 tools: Read
 permissionMode: default

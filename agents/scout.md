@@ -1,6 +1,6 @@
 ---
 name: scout
-description: "Use this agent when picking a genre, scanning bestseller boards, or generating 2–3 whole-book direction candidates grown from the author's seeds before a book starts. Produces briefing, benchmark list and direction options, each citing which author seed it grows from, with a recommendation and at least one unconventional option; never writes settings. At volume review, attributes changes in real reader data to chapters and writing patterns. Do NOT use while /ncc runs in the parent window."
+description: "Use this agent when picking a genre, scanning bestseller boards, or generating 2–3 whole-book direction candidates grown from the author's seeds before a book starts. Produces briefing, benchmark list and direction options, each citing which author seed it grows from, with a recommendation and at least one unconventional option; never writes settings. At volume review, attributes changes in real reader data to chapters and writing patterns. The /ncc parent coordinates this role; run the specialist task in its execution context and return results to the manager."
 color: cyan
 tools: Read, Write, Edit, Glob, Grep, Bash, WebSearch, WebFetch
 permissionMode: default

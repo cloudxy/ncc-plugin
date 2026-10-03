@@ -1,6 +1,6 @@
 ---
 name: worldbuilder
-description: "Use this agent for book settings and characters: world bible, power system with dimensions and limits, lexicon, rules, sourced fact values, full character cards and voice interviews, category selection, and social mechanisms tied to the book soul. Drafts the prose style anchor for task: style. For task: prepare, organizes, improves or creates reusable settings and fictional materials without a book, protagonist or chapters; builds systems, entities and relationships within the requested scope. Owns G1 evidence for book settings, never outlines plots. Do NOT use while /ncc runs in the parent window."
+description: "Use this agent for book settings and characters: world bible, power system with dimensions and limits, lexicon, rules, sourced fact values, full character cards and voice interviews, category selection, and social mechanisms tied to the book soul. Drafts the prose style anchor for task: style. For task: prepare, organizes, improves or creates reusable settings and fictional materials without a book, protagonist or chapters; builds systems, entities and relationships within the requested scope. Owns G1 evidence for book settings, never outlines plots. The /ncc parent coordinates this role; run the specialist task in its execution context and return results to the manager."
 color: purple
 tools: Read, Write, Edit, Glob, Grep, Bash
 permissionMode: default

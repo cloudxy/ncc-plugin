@@ -1,6 +1,6 @@
 ---
 name: outliner
-description: "Use this agent for the outline scaled to the writing mode (master → volume → chapter), signature scenes and core motifs, the emotion curve, registering promises, and drafting scene cards in small batches (task: scene; 3 chapters in hybrid mode), including the default move the writer should avoid a knowledge line when a scene needs specialist knowledge, and a material line when one of the author's material cards fits the scene. Owns G2 freeze evidence. Do NOT use while /ncc runs in the parent window."
+description: "Use this agent for the outline scaled to the writing mode (master → volume → chapter), signature scenes and core motifs, the emotion curve, registering promises, and drafting scene cards in small batches (task: scene; 3 chapters in hybrid mode), including the default move the writer should avoid a knowledge line when a scene needs specialist knowledge, and a material line when one of the author's material cards fits the scene. Owns G2 freeze evidence. The /ncc parent coordinates this role; run the specialist task in its execution context and return results to the manager."
 color: blue
 tools: Read, Write, Edit, Glob, Grep, Bash
 permissionMode: default

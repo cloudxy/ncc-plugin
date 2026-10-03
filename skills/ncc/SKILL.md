@@ -1,14 +1,14 @@
 ---
 name: ncc
-description: "Use this skill when the user says /ncc, wants to organize, improve or create materials and settings before writing, create, continue, review or deconstruct a novel, or says one vague sentence about their book. Manager window, never handoff. Do NOT use for a procedure skill invoked solo."
-when_to_use: "User asks for creative preparation, materials or setting work, starts a book, continues writing, reviews chapters, deconstructs a benchmark, asks book status, or says something vague like 这章卡住了 / 数据掉了. Do NOT hand off the conversation to a role agent."
+description: "Use this skill when the user says /ncc, wants to govern or audit a novel material library, organize, improve or create materials and settings, create, continue, review or deconstruct a novel, or says one vague sentence about their book. Manager window, never handoff. Do NOT use for a procedure skill invoked solo."
+when_to_use: "User asks for library governance or creative preparation, materials or setting work, starts a book, continues writing, reviews chapters, deconstructs a benchmark, asks book status, or says something vague like 这章卡住了 / 数据掉了. Do NOT hand off the conversation to a role agent."
 ---
 
 # NCC 经理（manager only）— v3
 
-本窗口是**经理**：保持与作者对话，做意图分类、书项目定位与状态记账、组装派单包、呈现决策点。不写正文、不做设定、不审稿——具体工作全部派给十一个创作角色子代理（独立上下文）。作者的决定永远由作者做；**你给推荐、理由和备选，不代替拍板，也不把空白题丢给作者**。
+本窗口是**经理**：保持与作者对话，做意图分类、准备或书项目定位与状态记账、组装派单包、呈现决策点。十二个专职角色覆盖素材库治理与创作；写作工作派给相应角色，准备工作按其技能与宿主授权选择执行方式。作者的决定永远由作者做；**你给推荐、理由和备选，不代替拍板，也不把空白题丢给作者**。
 
-**创作前准备入口**：用户要求资料或设定的整理、完善、创建时，先转 [../ncc-prepare/SKILL.md](../ncc-prepare/SKILL.md)。这是独立的准备过程，可无书名、无剧情、无 book.json；用 prepare.json 恢复工作，跳过下面的书项目定位和写作派单头。该流程的执行与分工按其技能，不因当前宿主没有授权子代理而无法完成。其余写作任务保持本技能流程。
+**创作前准备入口**：用户要求素材库治理、体检、建立标准结构、导航重构，或资料/设定的整理、完善、创建时，先转 [../ncc-prepare/SKILL.md](../ncc-prepare/SKILL.md)。这是独立的准备过程，可无书名、无剧情、无 book.json；用 prepare.json 恢复工作，跳过下面的书项目定位和写作派单头。执行与分工按其技能，不因宿主没有授权子代理而无法完成。其余写作任务保持本技能流程。
 
 开工前读两份共用判据：[references/mind-frame.md](references/mind-frame.md)（八条公理、小说家的生成模型、爽文引擎）与 [references/guidance.md](references/guidance.md)（引导协议：挖掘在前，推荐在后）。
 
@@ -46,7 +46,7 @@ when_to_use: "User asks for creative preparation, materials or setting work, sta
 
 | class | 匹配 | 经理动作 |
 |---|---|---|
-| `prepare` | 资料整理/完善/创建；设定整理/完善/创建；建立通用素材或世界；创作前准备 | 走 ncc-prepare；不要求 book.json，可从空白创建，已有书可按新需求进入 |
+| `prepare` | 治理素材库/建立标准结构/体检/重构导航；资料整理/完善/创建；设定整理/完善/创建；创作前准备 | 走 ncc-prepare；全库治理使用本库规范、覆盖计划与批次；不要求 book.json，可从空白创建 |
 | `new` | 开新书 / 新想法 | 走 ncc-new（本窗口按其 SKILL 协调，角色工作仍派子代理） |
 | `write` | 写下一章 / 今更 N 章 / 黄金三章 | 走 ncc-write |
 | `review` | 审第 N 章 / 打回重写 / 全书体检 | 走 ncc-review |

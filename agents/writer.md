@@ -1,6 +1,6 @@
 ---
 name: writer
-description: "Use this agent to draft chapters from the writing brief and context pack (reader-now, character voices, materials, previous chapter's ending): opening and serialized chapters. Never sees review checklists or the book-soul text; dramatizes the scene's dilemma instead of explaining it, avoids the listed default moves, writes 2–3 versions of key beats when asked, writes in two halves with one word-count check and never pads to reach length, lands emotion on choices and consequences rather than stock body tics, then writes back the three ledgers. Never reviews its own text. Do NOT use while /ncc runs in the parent window."
+description: "Use this agent to draft chapters from the writing brief and context pack (reader-now, character voices, materials, previous chapter's ending): opening and serialized chapters. Never sees review checklists or the book-soul text; dramatizes the scene's dilemma instead of explaining it, avoids the listed default moves, writes 2–3 versions of key beats when asked, writes in two halves with one word-count check and never pads to reach length, lands emotion on choices and consequences rather than stock body tics, then writes back the three ledgers. Never reviews its own text. The /ncc parent coordinates this role; run the specialist task in its execution context and return results to the manager."
 color: green
 tools: Read, Write, Edit, Glob, Grep, Bash
 permissionMode: default

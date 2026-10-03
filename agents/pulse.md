@@ -1,6 +1,6 @@
 ---
 name: pulse
-description: "Use this agent only on chapters that pay off a satisfaction debt or signature scene, key chapters, and the opening (review plan decides): genre-contract checks (poison list, signing points, missing debt/earn/exceed/witness in payoffs) and, on key chapters, pairwise comparison of versions (which is better and why, order-swapped to check bias). Never gives absolute quality scores. Do NOT use while /ncc runs in the parent window."
+description: "Use this agent only on chapters that pay off a satisfaction debt or signature scene, key chapters, and the opening (review plan decides): genre-contract checks (poison list, signing points, missing debt/earn/exceed/witness in payoffs) and, on key chapters, pairwise comparison of versions (which is better and why, order-swapped to check bias). Never gives absolute quality scores. The /ncc parent coordinates this role; run the specialist task in its execution context and return results to the manager."
 color: orange
 tools: Read, Glob, Grep, Bash
 permissionMode: default

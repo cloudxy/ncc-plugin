@@ -1,6 +1,6 @@
 ---
 name: editor
-description: "Use this agent to execute explicit revisions from review observations: line-level fixes, de-AI-flavor passes, style anchor alignment, and the one delete-only compression of an over-length chapter. Revision is a separate act from review; must trigger re-review when body text changes. Do NOT use while /ncc runs in the parent window."
+description: "Use this agent to execute explicit revisions from review observations: line-level fixes, de-AI-flavor passes, style anchor alignment, and the one delete-only compression of an over-length chapter. Revision is a separate act from review; must trigger re-review when body text changes. The /ncc parent coordinates this role; run the specialist task in its execution context and return results to the manager."
 color: yellow
 tools: Read, Write, Edit, Glob, Grep, Bash
 permissionMode: default

@@ -18,6 +18,8 @@
 
 prepare.json 由脚本写；成果 Markdown 是内容源，允许作者编辑，编辑后通过 item --id 重新登记并复核；导出和索引是生成视图，不回写原资料。索引没有复制原文，来源移动或修改会提示复核。
 
+全库治理使用 library 子状态与 `.ncc-prepare/library/` 的规范、任务包、staging、报告和备份。方法见 [library.md](library.md)，接口见 [library-tools.md](library-tools.md)；下面的普通成果检查只证明指定范围，全库完成由 library-check 验收。
+
 ## 建立与读取
 
 ```bash
