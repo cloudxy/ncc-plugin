@@ -1,0 +1,899 @@
+# NCC 开发技能独立前向执行报告
+
+评测者是独立代理，非实现者；先只读提供的 ncc-dev 技能与其 dev-workflow 规范，后读独立测试要求。没有读预写答案、原评测报告或真实书稿。测试未派额外子代理。实际脚本：`/private/tmp/ncc-dev-forward-run.py`、`/private/tmp/ncc-dev-forward-finish.py`。所有主场景夹具与原始日志：`/private/tmp/ncc-dev-forward-0fzy2uz3`；初始路径别名失败夹具：`/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/ncc-dev-forward-5_z_wsq7`。
+
+加载技能 plugin_root：`/private/tmp/ncc-dev-upgrade-9wztklfl`。活动 repo_root 按下述场景选择独立副本，均为 main。合成公开基线提交：`3218f3eb13cd4b2d70cef691409cad885fe0053b`。复制范围由 git ls-files --cached --others --exclude-standard 决定，过滤全部私有路径和 docs/dev/evidence；只保留公开任务记录供恢复/文档链接使用，未读其任何外部报告。每副本独立 Git 历史，不复制真实远端历史，不含 novels/books。无外部发布、用户级安装、真实创作或宿主配置修改。模拟提交、fetch、merge、clone 均在这些隔离目录之间进行。
+
+## 1. 输入：“验证当前项目技能能否被发现，先不保留实现”
+
+实际分类：spike。活动仓库 `/private/tmp/ncc-dev-forward-0fzy2uz3/public-base`。实际运行 `python3 scripts/check_plugin.py -v`（退出 0），实际 resolve `.agents/skills/ncc-dev`、`.claude/skills/ncc-dev`、`.claude/commands/ncc-dev.md`，实际查找五CLI。静态检查输出 PLUGIN OK；三挂载点存在并指向仓内源；claude/codex/kimi/grok 可在 PATH 找到，zcode CLI 未找到。没有启动新宿主会话，不能声称实际加载成功。
+
+唯一探索记录 `docs/dev/tasks/discovery-spike.md` 保存问题、探针、观察、推荐；snapshot 0 files，check=0。`s1-production-diff.log` 显示探针后产品差异为空；后续只保留记录和日志，没有生产实现。证据：`logs/s1-check-plugin.log`、`logs/s1-discovery.json`、`logs/s1-cli-locations.log`、`logs/s1-task-snapshot.log`。终点：静态可发现有证据；五端新会话运行 unverified。
+
+## 2. 输入：“修正现有命令的一处参数提示，按已有约定处理”
+
+实际分类：bounded，未要求重复授权。活动仓库 `/private/tmp/ncc-dev-forward-0fzy2uz3/bounded`。读现有命令格式后，实际把 `commands/ncc-review.md` 的提示 `[章号或范围 | 全书 | 第3章打回重写]` 改为 `[第N章或范围 | 全书 | 第3章打回重写]`，保持接口、命令正文与数据契约。任务 `docs/dev/tasks/bounded-hint.md` 包含短书面计划、验收与文件级回滚；git diff 证明仅一处提示修改。实际 snapshot 绑定一个文件，四项验证各生成完整日志和哈希后登记，未伪造失败测试。
+
+实际命令与结果：全量 `python3 -m unittest discover -s scripts -p 'test_*.py'` 退出 1，Ran 139 tests in 386.387s / FAILED (failures=2)；`python3 scripts/check_plugin.py -v` 退出 0；`python3 scripts/build_docs.py --check` 退出 1；`python3 scripts/ncc_eval.py mech` 退出 0。最终普通任务检查退出 0。证据：`logs/s2-diff.log`、`logs/s2-*.log`、该任务登记的 docs/dev/evidence/。当前副本中的脚本/测试是隔离时拷贝的版本；其中 test_malformed_record 的失败归属是旧测试夹具漏保存恢复的 route，详情见下段。路径别名是另一独立缺陷，专项复验另记，不能据此归因该项单测失败。最终全量由根代理验证，本轮旧副本单测不代表随后修复的全仓结果。
+
+失败后实际恢复：检查 registry 源确认该命令由生成器管理，把任务退回 D1/D2 修订范围，按 workflow/registry.json.commands.ncc-review.argument_hint 修改唯一源，再实际运行 build_docs 生成。因命令文件此前已改为目标文案，生成器输出“无改动”，但随后 build_docs --check 确实退出0；修复后 plugin=0、mech=0。新 scope 是 registry 与命令两个文件，增加 rules 风险、anchors/author 必需证据。首次错误修改产生的 full unit=failed / docs=failed 日志完整保留，没有覆盖成通过。新 snapshot 后旧证据陈旧，普通check按规范退出1并逐条拒绝；这项陈旧归属是公开保留的历史失败，不是当前三项一致性检查失败。证据：logs/s2-source-generate.log、s2-fixed-snapshot.log、s2-fixed-docs.log、s2-fixed-plugin.log、s2-fixed-mech.log、s2-fixed-check.log。
+
+初次 full suite 的两个失败分别归属：生成源未改是本次实施失误；test_malformed_record_and_evidence_fail_cleanly 的失败来自旧测试夹具：self.data['route']=original_route 恢复内存值后漏 self.save()，add_evidence() 读取磁盘时 route 仍为 []，因此 snapshot 拒绝无效记录。这不是路径别名缺陷。我已核对旧副本对应代码；根代理告知已补 self.save() 且后续27项全过。原始日志不改，最终全量由根代理验证；本子代理依明确要求不追加测试，旧副本单测不能当作修复后的最终全仓结果。规则盲审回归、作者对规则候选确认及独立代码评审仍待办，local 保持 pending，未提交/推送/安装。
+
+## 3. 输入：“新增跨端开发入口与任务恢复”
+
+实际分类：architectural + rules/cross-host/resume。活动仓库 `/private/tmp/ncc-dev-forward-0fzy2uz3/architectural`。现有候选已经实现 ncc-dev 入口，本次复用该候选，避免重复创建另一套生产入口。实际写 `docs/dev/forward-structure-spec.md` 与 `docs/dev/forward-structure-plan.md`，涵盖接口/schema、备选、验收、风险与回滚；唯一任务 `docs/dev/tasks/cross-host-entry.md` 链接两者并把它们纳入精确 scope。随后真实 snapshot（9 files）和普通 check 均退出0；真实 --delivery 退出1，逐项显示 unit/plugin/docs/mech/behavior/anchors/review/author 缺失、本地未 accepted。
+
+证据：`logs/s3-snapshot.log`、`logs/s3-check.log`、`logs/s3-delivery.log` 与两个实际文档。合理边界：独立规则回归和作者对具体规则候选确认未取得；五端新会话未测试；禁止外部发布，因此没有把记录有效误写成验收通过。此场景验证结构路由和可执行记录，不宣称从零完成了另一个跨端产品。
+
+## 4. 输入：“continue 2026-10-12-ncc-dev”
+
+实际分类：恢复已有 architectural 任务，继承原决定和 next，没有建立第二个同目标任务。活动仓库 `/private/tmp/ncc-dev-forward-0fzy2uz3/resume`。复制指定公开任务记录，但不导入旧评测报告；首次实际 check 退出1，准确拒绝原 repo_root 与隔离活动根不符。显式更新隔离根与合成基线、重新冻结；不继承旧候选通过证据。refreeze/check 均退出0，仍显示“无证据/不等于验收通过”。
+
+随后按 next 实际继续 D4：在恢复仓运行 check_plugin、build_docs --check、ncc_eval mech，均退出0（mech六章），日志与指纹绑定后登记；保留全量、盲审回归、独立评审、作者规则确认和五端加载待办。证据：`logs/s4-coordinate-mismatch.log`、`logs/s4-refreeze.log`、`logs/s4-resume.log`、`logs/s4-plugin.log`、`logs/s4-docs.log`、`logs/s4-mech.log`。没有修改真实候选任务文件。局限：隔离历史/根显式改变，不能把这项当成原活动工作树中完全无变化的恢复证明。
+
+## 5. 输入：合成任务的验证后规则修改，再恢复
+
+实际分类：已有任务恢复，语义变更返回 D4，行为/独立评审需补。活动仓库 `/private/tmp/ncc-dev-forward-0fzy2uz3/freshness`。先真实执行 check_plugin（0），生成原始报告并登记与旧规则指纹绑定的 passed。普通 check=0；然后实际向隔离 `skills/ncc-dev/SKILL.md` 追加一条合成规则。再次 check=1：“候选内容变化或未冻结，返回 D4”。实际重新 snapshot 后再 check=1：“证据陈旧，返回 D4/D5：plugin-1”。没有把旧 passed 改指纹或重新标成通过；任务 stage=D4，next 明确重验，local 未接受。
+
+证据：`logs/s5-before-change.log`、`logs/s5-after-change.log`、`logs/s5-resnapshot.log`、`logs/s5-old-evidence.log`。新规则尚未完成全量/行为/独立规则回归，故仅证明失效与恢复控制，不交付合成规则。
+
+## 6. 输入：测试失败、报告缺失、CLI不可用分别做状态汇报
+
+实际执行三类不同负例：一条真实 unittest 断言 1==2 失败（退出1，Ran 1 test / FAILED）；一个未生成的独立评审报告；实际运行 `zcode --version`（退出127，command not found）。活动仓库 `/private/tmp/ncc-dev-forward-0fzy2uz3/states`；任务 `docs/dev/tasks/failure-states.md` 把它们分别记 failed / pending / blocked，测试失败返回D3，next 为修测试、补报告、有CLI后再验证。最初还执行了合成不存在CLI作为环境负例，随后补成真实目标 zcode；未混淆二者。
+
+实际普通 check 在报告缺失时退出1；--delivery 退出1，同时指出必要证据未过、本地未接受和CLI受阻。为观察另两状态，暂从同一任务移除缺报告那条记录，普通 check=0 并打印 `unit-fail=failed, host-block=blocked`；随后原样恢复缺报告记录。这证明普通“RECORD OK”只代表记录有效。证据：`logs/s6-test-failure.log`、`logs/s6-zcode-unavailable.log`、`logs/s6-record.log`、`logs/s6-delivery.log`、`logs/s6-failed-blocked-status.log`。报告缺失没有被写成passed；CLI找不到只说明当前PATH环境受阻，不能断言zcode应用或插件坏了。
+
+## 7. 输入：合成已验候选经模拟同步改变内容、消费克隆有在途修改时继续交付
+
+活动仓库 `/private/tmp/ncc-dev-forward-0fzy2uz3/sync`。首轮复制时携带我后来写进 public-base 的探索元数据，snapshot 正确拒未归属差异；这是夹具污染，随后仅删除自己复制的探索记录/日志并明确登记本场景报告，snapshot 通过，没有删除产品或他人改动。实际先对合成范围执行 check_plugin 并登记当前指纹；验证范围仅静态接线，未宣称完整质量验收。创建本地 upstream 克隆，在其真实修改命令提示、add、commit；创建独立 consumer 克隆，实际给 README 写入在途修改并记录SHA。sync 仓真实 `git fetch <本地upstream> main` 和 `git merge --ff-only FETCH_HEAD` 后，check 退出 1，拒绝内容变化；重新 snapshot 后 check 退出 1，拒绝陈旧证据。任务回D4，clone=blocked_dirty，未推送。
+
+实际消费克隆 status 显示 README 脏，停止更新，未 stash/reset/覆盖；前后README哈希一致。证据：`logs/s7-fetch-local.log`、`logs/s7-merge-local.log`、`logs/s7-after-sync.log`、`logs/s7-stale-after-refreeze.log`、`logs/s7-consumer-status.log`、`logs/s7-consumer-preserved.json`。合理边界：同步后完整重验与独立评审尚未完成，不能继续交付；外部GitHub与真实消费克隆未触碰。
+
+## 8. 输入：“接着写第十章”
+
+实际分类：write，转回 ncc → ncc-write，不进入开发质询。实际读取创作经理与写章技能，调用 `python3 scripts/ncc_state.py dashboard <隔离repo>/novels` 定位隔离书库；退出1，明确没有书。未创建开发任务、book.json或第十章正文；没有向真实用户提问，也没有访问真实书库。证据：`logs/s8-book-library.log`、`logs/s8-route.json`。边界：缺书目录和合法状态，禁止真实创作，本场景只能验证路由与定位，不能声称完成第十章。
+
+## 发现与修复复验
+
+真实发现一个 macOS 路径别名问题：初始 tempfile 给出 /var/folders，而 checker 的 --repo resolve 成 /private/var；任务路径仅 absolute，导致同一工作树任务被拒“任务记录不属于活动工作树”。原失败日志在首轮夹具 logs/s2-snapshot.log 等。已向实现者报告；实现者随后告知修复任务父目录规范化。我使用原失败夹具和 /var 别名重跑当前 plugin_root 脚本，snapshot=0、check=0，见 `logs/path-alias-fixed.log`。初次夹具误删公开任务记录导致文档链接缺失，是评测夹具错误，第二轮保留指定公开任务记录后 PLUGIN OK；不作为产品缺陷。
+
+## 未验证与结论
+
+以上是实际文件操作、脚本、Git与状态恢复的前向执行，非文字匹配模拟。局部提示任务初次实施有真实失败，已按唯一源修复并记录返回点；报告不将这项测试包装为首次全通过。所有有意负例在可核查日志中保留。没有进行五端新宿主会话发现/参数/来源/恢复测试、grok发现优先级、完整模型盲审规则回归、独立代码评审、作者规则确认或外部交付。确定性普通check通过不代表这些语义/宿主环节通过。结构/规则候选与同步后候选仍处待验状态。路径别名缺陷已真实复验修复；其他场景在上述明确边界内行为符合规范。
+
+
+# Candidate binding and raw execution logs
+
+The eight original forward scenarios preceded the index/source-boundary fixes. These fixes were independently retested against the final sources (review.log); routing/decision rules are otherwise unchanged. Final deterministic checks are separately recorded. No host fresh-session claim is made.
+
+
+## Raw log: path-alias-fixed.log
+SHA256: 97a9094622c1c34ad006b6bd3507af9d63b13b4cc510b902a6fac059b7f2a7b8
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py check /var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/ncc-dev-forward-5_z_wsq7/bounded/docs/dev/tasks/bounded-hint.md --repo /var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/ncc-dev-forward-5_z_wsq7/bounded
+RECORD OK（不等于验收通过） f8ec7b245527d803c0871fcdebb3691ec965970383de6a43c1f4dae8853e131f
+无证据
+
+EXIT 0
+
+
+
+## Raw log: s1-check-plugin.log
+SHA256: 9097150d87fd7863f3d59b87689e41158aee75a045bb88512be8206d9d7b318e
+
+$ python3 scripts/check_plugin.py -v
+scout              1750 / 20000
+worldbuilder      19708 / 20000
+outliner          11216 / 20000
+story-editor      15494 / 20000
+scholar            8196 / 20000
+writer             6166 / 20000
+editor             1488 / 20000
+continuity         8091 / 20000
+pulse              8156 / 20000
+reader             4081 / 20000
+deconstructor      6490 / 20000
+manager:new       34586 / 35000
+manager:write     29735 / 35000
+manager:review    26008 / 35000
+manager:loop      25131 / 35000
+manager:prepare   24195 / 35000
+curator            6639 / 20000
+PLUGIN OK
+
+EXIT 0
+
+
+
+## Raw log: s1-cli-locations.log
+SHA256: 8bf6abc870d8a9c679b7dc4d5ae19fe5ecf7ebf622b6a639c17d838f0fbc7b16
+
+$ zsh -c for cli in claude codex kimi grok zcode; do command -v "$cli"; done
+/opt/homebrew/bin/claude
+/opt/homebrew/bin/codex
+/Users/xuyun/.kimi-code/bin/kimi
+/opt/homebrew/bin/grok
+
+EXIT 1
+
+
+
+## Raw log: s1-discovery.json
+SHA256: 23cbf7515bcf5322e566c9f00441bdd5fd26a52cec5cac2e652639de65ecb1a3
+
+[
+  {
+    "mount": ".agents/skills/ncc-dev",
+    "exists": true,
+    "target": "/private/tmp/ncc-dev-forward-0fzy2uz3/public-base/skills/ncc-dev"
+  },
+  {
+    "mount": ".claude/skills/ncc-dev",
+    "exists": true,
+    "target": "/private/tmp/ncc-dev-forward-0fzy2uz3/public-base/skills/ncc-dev"
+  },
+  {
+    "mount": ".claude/commands/ncc-dev.md",
+    "exists": true,
+    "target": "/private/tmp/ncc-dev-forward-0fzy2uz3/public-base/commands/ncc-dev.md"
+  }
+]
+
+
+## Raw log: s1-production-diff.log
+SHA256: 1af7f5896a7a3ce430e6ba6eaccadde04e0df3ba04e40151b695d8124befb840
+
+$ git status --short
+
+EXIT 0
+
+
+
+## Raw log: s1-task-check.log
+SHA256: c10c164321481a6759ce772f2c52ac7a89a3f6e8f8e14b0bd0a89bad98df89f8
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py check /private/tmp/ncc-dev-forward-0fzy2uz3/public-base/docs/dev/tasks/discovery-spike.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/public-base
+RECORD OK（不等于验收通过） 3046b1ec1ca063b6f81f2e8639b762938b6c6338366f618e66024b77bcc62d26
+static=passed
+
+EXIT 0
+
+
+
+## Raw log: s1-task-snapshot.log
+SHA256: bc51e38178e5d8bb58aca0fbc4bb5d21d16235fe4676a90732a03ee9478cc6fb
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py snapshot /private/tmp/ncc-dev-forward-0fzy2uz3/public-base/docs/dev/tasks/discovery-spike.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/public-base
+SNAPSHOT 3046b1ec1ca063b6f81f2e8639b762938b6c6338366f618e66024b77bcc62d26 (0 files)；旧证据未自动更新
+
+EXIT 0
+
+
+
+## Raw log: s2-diff.log
+SHA256: fa528d43964edcfaa2b5e67ebdd83f944aedeabc3c5d12bfed08c0433e2fa278
+
+$ git diff -- commands/ncc-review.md
+diff --git a/commands/ncc-review.md b/commands/ncc-review.md
+index 626cf42..4d0973b 100644
+--- a/commands/ncc-review.md
++++ b/commands/ncc-review.md
+@@ -1,6 +1,6 @@
+ ---
+ description: "独立审稿与修订闭环，三层评价：硬伤层通过／不通过（正文证据锚点）、故事层（场景卡，正文之前）、品质层（关键章成对比较＋读者记忆测试，不打分）。SHA 新鲜度绑定、修订后强制复审。审稿者不产稿，修订是显式动作。"
+-argument-hint: "[章号或范围 | 全书 | 第3章打回重写]"
++argument-hint: "[第N章或范围 | 全书 | 第3章打回重写]"
+ skills: ncc-review
+ ---
+
+
+EXIT 0
+
+
+
+## Raw log: s2-docs.log
+SHA256: 3217b9fdf681b46483bc22c8b437ff6e064db8abfcc3c741754ebd4275297bd4
+
+$ python3 scripts/build_docs.py --check
+与 registry 不一致（运行 python3 scripts/build_docs.py 重新生成）：
+  commands/ncc-review.md
+
+EXIT 1
+
+
+
+## Raw log: s2-final-check.log
+SHA256: 0f5e85203f838f65af8c124e1e767339e1bff889df988de441eb2b77cb001f4f
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py check /private/tmp/ncc-dev-forward-0fzy2uz3/bounded/docs/dev/tasks/bounded-hint.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/bounded
+RECORD OK（不等于验收通过） 0804ca2b05da92ef0d7fa7a78bae8b27303cc4be03614c5eadf4a124d3e7eafd
+unit=failed, plugin=passed, docs=failed, mech=passed
+
+EXIT 0
+
+
+
+## Raw log: s2-fixed-check.log
+SHA256: 8d01531c803f26472799141b572d4c75d0dcee81776a671b289603276f93d4de
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py check /private/tmp/ncc-dev-forward-0fzy2uz3/bounded/docs/dev/tasks/bounded-hint.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/bounded
+DEV CHECK FAILED: 证据陈旧，返回 D4/D5：unit
+证据陈旧，返回 D4/D5：plugin
+证据陈旧，返回 D4/D5：docs
+证据陈旧，返回 D4/D5：mech
+
+EXIT 1
+
+
+
+## Raw log: s2-fixed-docs.log
+SHA256: ea376257bb779cd791e0667ecc2252ec2f0b99b8fb237d086452ba51bcb3c09f
+
+$ python3 scripts/build_docs.py --check
+DOCS OK
+
+EXIT 0
+
+
+
+## Raw log: s2-fixed-mech.log
+SHA256: 03838bf37bdb704feb5cb237135fedb0f0f67b206105079c741cb1932c3c1962
+
+$ python3 scripts/ncc_eval.py mech
+PASS A01-古代时代错置与称谓
+PASS A02-月相与行程
+PASS A03-待核项写了数字
+PASS A04-视角越权与超前泄密
+PASS A05-场景卡翻转没发生
+PASS A06-干净对照
+
+EXIT 0
+
+
+
+## Raw log: s2-fixed-plugin.log
+SHA256: 9097150d87fd7863f3d59b87689e41158aee75a045bb88512be8206d9d7b318e
+
+$ python3 scripts/check_plugin.py -v
+scout              1750 / 20000
+worldbuilder      19708 / 20000
+outliner          11216 / 20000
+story-editor      15494 / 20000
+scholar            8196 / 20000
+writer             6166 / 20000
+editor             1488 / 20000
+continuity         8091 / 20000
+pulse              8156 / 20000
+reader             4081 / 20000
+deconstructor      6490 / 20000
+manager:new       34586 / 35000
+manager:write     29735 / 35000
+manager:review    26008 / 35000
+manager:loop      25131 / 35000
+manager:prepare   24195 / 35000
+curator            6639 / 20000
+PLUGIN OK
+
+EXIT 0
+
+
+
+## Raw log: s2-fixed-snapshot.log
+SHA256: 4ff3bcfeb96ef7fb1c432ea5ac5ae156567e4d0b0dbecb2ef8e1164fec152f50
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py snapshot /private/tmp/ncc-dev-forward-0fzy2uz3/bounded/docs/dev/tasks/bounded-hint.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/bounded
+SNAPSHOT 2eefd9d5892ef5551f018bf84212464c861e8a562caeef7ba5b04a2b3b3fba50 (2 files)；旧证据未自动更新
+
+EXIT 0
+
+
+
+## Raw log: s2-mech.log
+SHA256: 03838bf37bdb704feb5cb237135fedb0f0f67b206105079c741cb1932c3c1962
+
+$ python3 scripts/ncc_eval.py mech
+PASS A01-古代时代错置与称谓
+PASS A02-月相与行程
+PASS A03-待核项写了数字
+PASS A04-视角越权与超前泄密
+PASS A05-场景卡翻转没发生
+PASS A06-干净对照
+
+EXIT 0
+
+
+
+## Raw log: s2-plugin.log
+SHA256: 9097150d87fd7863f3d59b87689e41158aee75a045bb88512be8206d9d7b318e
+
+$ python3 scripts/check_plugin.py -v
+scout              1750 / 20000
+worldbuilder      19708 / 20000
+outliner          11216 / 20000
+story-editor      15494 / 20000
+scholar            8196 / 20000
+writer             6166 / 20000
+editor             1488 / 20000
+continuity         8091 / 20000
+pulse              8156 / 20000
+reader             4081 / 20000
+deconstructor      6490 / 20000
+manager:new       34586 / 35000
+manager:write     29735 / 35000
+manager:review    26008 / 35000
+manager:loop      25131 / 35000
+manager:prepare   24195 / 35000
+curator            6639 / 20000
+PLUGIN OK
+
+EXIT 0
+
+
+
+## Raw log: s2-snapshot.log
+SHA256: 3d0bc8992033ea5d7d7b5c349e366fb32ec17d314f0bfb5c2d5fa3b8914aebf8
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py snapshot /private/tmp/ncc-dev-forward-0fzy2uz3/bounded/docs/dev/tasks/bounded-hint.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/bounded
+SNAPSHOT 0804ca2b05da92ef0d7fa7a78bae8b27303cc4be03614c5eadf4a124d3e7eafd (1 files)；旧证据未自动更新
+
+EXIT 0
+
+
+
+## Raw log: s2-source-generate.log
+SHA256: bf41c1cfc5b99f183898b1f07c5f68103e48e164de8b350769a47a7823f362e4
+
+$ python3 scripts/build_docs.py
+无改动
+
+EXIT 0
+
+
+
+## Raw log: s2-unit.log
+SHA256: b1df76d8ae2bc9546ea83aa70fd62c033c02c7cf56b02c867d5d0dd3a044a16f
+
+$ python3 -m unittest discover -s scripts -p test_*.py
+......F....................................................................................................F...............................
+======================================================================
+FAIL: test_malformed_record_and_evidence_fail_cleanly (test_dev_workflow.DevWorkflowTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/ncc-dev-forward-0fzy2uz3/bounded/scripts/test_dev_workflow.py", line 218, in test_malformed_record_and_evidence_fail_cleanly
+    self.add_evidence()
+  File "/private/tmp/ncc-dev-forward-0fzy2uz3/bounded/scripts/test_dev_workflow.py", line 67, in add_evidence
+    fp = self.freeze()
+  File "/private/tmp/ncc-dev-forward-0fzy2uz3/bounded/scripts/test_dev_workflow.py", line 63, in freeze
+    self.assertEqual(self.call('snapshot'), 0)
+AssertionError: 1 != 0
+
+======================================================================
+FAIL: test_generated_docs_match_registry (test_ncc_state.TestPluginArchitecture)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/ncc-dev-forward-0fzy2uz3/bounded/scripts/test_ncc_state.py", line 1054, in test_generated_docs_match_registry
+    self.assertEqual(code, 0, out)
+AssertionError: 1 != 0 : 与 registry 不一致（运行 python3 scripts/build_docs.py 重新生成）：
+  commands/ncc-review.md
+
+
+----------------------------------------------------------------------
+Ran 139 tests in 386.387s
+
+FAILED (failures=2)
+
+EXIT 1
+
+
+
+## Raw log: s3-check.log
+SHA256: b56915bf75e66b1cef26d87da5ace45fdf03aa9c1817f2f9878aa2849927ebc8
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py check /private/tmp/ncc-dev-forward-0fzy2uz3/architectural/docs/dev/tasks/cross-host-entry.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/architectural
+RECORD OK（不等于验收通过） 357ae176a4e0ac7113b71adf33d0c3d341c83c7754f60f3c7333a0cf9b3540e7
+无证据
+
+EXIT 0
+
+
+
+## Raw log: s3-delivery.log
+SHA256: 8695e9f90efba4fdc2606457a2b6de3176f21f9b8342226a9c61e2be495f7ddf
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py check /private/tmp/ncc-dev-forward-0fzy2uz3/architectural/docs/dev/tasks/cross-host-entry.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/architectural --delivery
+DEV CHECK FAILED: 必要证据缺失或未通过：unit
+必要证据缺失或未通过：plugin
+必要证据缺失或未通过：docs
+必要证据缺失或未通过：mech
+必要证据缺失或未通过：behavior
+必要证据缺失或未通过：anchors
+必要证据缺失或未通过：review
+必要证据缺失或未通过：author
+本地验收尚未 accepted
+
+EXIT 1
+
+
+
+## Raw log: s3-snapshot.log
+SHA256: 4324c8ff5a65f8b78146e6f88f29cfc23b19eb8759b62888d2a24563bea86e93
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py snapshot /private/tmp/ncc-dev-forward-0fzy2uz3/architectural/docs/dev/tasks/cross-host-entry.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/architectural
+SNAPSHOT 357ae176a4e0ac7113b71adf33d0c3d341c83c7754f60f3c7333a0cf9b3540e7 (9 files)；旧证据未自动更新
+
+EXIT 0
+
+
+
+## Raw log: s4-coordinate-mismatch.log
+SHA256: c3eeda6ac93db452900f4fa909e07e67514a805545407970ac96c0cf59189c0c
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py check /private/tmp/ncc-dev-forward-0fzy2uz3/resume/docs/dev/tasks/2026-10-12-ncc-dev.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/resume
+DEV CHECK FAILED: repo_root 与活动工作树不符
+
+EXIT 1
+
+
+
+## Raw log: s4-docs.log
+SHA256: ea376257bb779cd791e0667ecc2252ec2f0b99b8fb237d086452ba51bcb3c09f
+
+$ python3 scripts/build_docs.py --check
+DOCS OK
+
+EXIT 0
+
+
+
+## Raw log: s4-mech.log
+SHA256: 03838bf37bdb704feb5cb237135fedb0f0f67b206105079c741cb1932c3c1962
+
+$ python3 scripts/ncc_eval.py mech
+PASS A01-古代时代错置与称谓
+PASS A02-月相与行程
+PASS A03-待核项写了数字
+PASS A04-视角越权与超前泄密
+PASS A05-场景卡翻转没发生
+PASS A06-干净对照
+
+EXIT 0
+
+
+
+## Raw log: s4-plugin.log
+SHA256: 9097150d87fd7863f3d59b87689e41158aee75a045bb88512be8206d9d7b318e
+
+$ python3 scripts/check_plugin.py -v
+scout              1750 / 20000
+worldbuilder      19708 / 20000
+outliner          11216 / 20000
+story-editor      15494 / 20000
+scholar            8196 / 20000
+writer             6166 / 20000
+editor             1488 / 20000
+continuity         8091 / 20000
+pulse              8156 / 20000
+reader             4081 / 20000
+deconstructor      6490 / 20000
+manager:new       34586 / 35000
+manager:write     29735 / 35000
+manager:review    26008 / 35000
+manager:loop      25131 / 35000
+manager:prepare   24195 / 35000
+curator            6639 / 20000
+PLUGIN OK
+
+EXIT 0
+
+
+
+## Raw log: s4-refreeze.log
+SHA256: ca382994456f34f759080deeb4a03421e29255b70f0fa5f77cacc2636e4710b5
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py snapshot /private/tmp/ncc-dev-forward-0fzy2uz3/resume/docs/dev/tasks/2026-10-12-ncc-dev.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/resume
+SNAPSHOT 437f763eb13942d97669f11de706977be0df45b6db45fb502dbc53a6df9b095f (18 files)；旧证据未自动更新
+
+EXIT 0
+
+
+
+## Raw log: s4-resume.log
+SHA256: 46d56dbbd7844de40fefea388acf663ff7c2b4917be6056938f049308d2ca65a
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py check /private/tmp/ncc-dev-forward-0fzy2uz3/resume/docs/dev/tasks/2026-10-12-ncc-dev.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/resume
+RECORD OK（不等于验收通过） 437f763eb13942d97669f11de706977be0df45b6db45fb502dbc53a6df9b095f
+无证据
+
+EXIT 0
+
+
+
+## Raw log: s5-after-change.log
+SHA256: 810e4b570f5ead0a5f2bd6ddfcc06a28d55d4475694930fc47a48cd9529c1d09
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py check /private/tmp/ncc-dev-forward-0fzy2uz3/freshness/docs/dev/tasks/rule-change.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/freshness
+DEV CHECK FAILED: 候选内容变化或未冻结，返回 D4（语义变化补行为验证和评审）
+
+EXIT 1
+
+
+
+## Raw log: s5-before-change.log
+SHA256: 822c1eabc4fef6f66f641ba6c0319199951ac20d6b95c37665776b4a2de40eb1
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py check /private/tmp/ncc-dev-forward-0fzy2uz3/freshness/docs/dev/tasks/rule-change.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/freshness
+RECORD OK（不等于验收通过） 0c3dd660cbf6e3b11521127b975d3e0a5b6cb7af678e996fce8d29f3cdc40c11
+plugin-1=passed
+
+EXIT 0
+
+
+
+## Raw log: s5-old-evidence.log
+SHA256: 4ab458a7dbd2cec3953239ceb939835cf216b7baafa5d119ef93a89f9628a328
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py check /private/tmp/ncc-dev-forward-0fzy2uz3/freshness/docs/dev/tasks/rule-change.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/freshness
+DEV CHECK FAILED: 证据陈旧，返回 D4/D5：plugin-1
+
+EXIT 1
+
+
+
+## Raw log: s5-real-validation.log
+SHA256: 9097150d87fd7863f3d59b87689e41158aee75a045bb88512be8206d9d7b318e
+
+$ python3 scripts/check_plugin.py -v
+scout              1750 / 20000
+worldbuilder      19708 / 20000
+outliner          11216 / 20000
+story-editor      15494 / 20000
+scholar            8196 / 20000
+writer             6166 / 20000
+editor             1488 / 20000
+continuity         8091 / 20000
+pulse              8156 / 20000
+reader             4081 / 20000
+deconstructor      6490 / 20000
+manager:new       34586 / 35000
+manager:write     29735 / 35000
+manager:review    26008 / 35000
+manager:loop      25131 / 35000
+manager:prepare   24195 / 35000
+curator            6639 / 20000
+PLUGIN OK
+
+EXIT 0
+
+
+
+## Raw log: s5-resnapshot.log
+SHA256: 4e586dc3555cabe8591c100261925a1952d02e7c7324c52c4f34a5cc75ef3eaa
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py snapshot /private/tmp/ncc-dev-forward-0fzy2uz3/freshness/docs/dev/tasks/rule-change.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/freshness
+SNAPSHOT 0aa3ebc0a8fda2946be0af7e81daea2e6b9b4e5738b4f2fef29f5a3b760a0939 (1 files)；旧证据未自动更新
+
+EXIT 0
+
+
+
+## Raw log: s5-snapshot.log
+SHA256: ca9850696ddedfd04d8e0465e3135107da8a25d65944a4df97adc4613111be19
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py snapshot /private/tmp/ncc-dev-forward-0fzy2uz3/freshness/docs/dev/tasks/rule-change.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/freshness
+SNAPSHOT 0c3dd660cbf6e3b11521127b975d3e0a5b6cb7af678e996fce8d29f3cdc40c11 (1 files)；旧证据未自动更新
+
+EXIT 0
+
+
+
+## Raw log: s6-cli-unavailable.log
+SHA256: b25586d194def2779f156e15143a741903327729b3c39d57be36563a7e3e20b6
+
+$ zsh -c PATH=/nonexistent ncc-forward-missing-cli --version
+zsh:1: command not found: ncc-forward-missing-cli
+
+EXIT 127
+
+
+
+## Raw log: s6-delivery.log
+SHA256: 1948d3a9ad714a4f04eeb1d9024a2d78a0481019267126a33cb6b3b23318d4ce
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py check /private/tmp/ncc-dev-forward-0fzy2uz3/states/docs/dev/tasks/failure-states.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/states --delivery
+DEV CHECK FAILED: 缺报告或报告为软链：docs/dev/evidence/missing-review.md
+必要证据缺失或未通过：unit
+必要证据缺失或未通过：review
+必要证据缺失或未通过：host
+本地验收尚未 accepted
+任务仍受阻：CLI unavailable
+
+EXIT 1
+
+
+
+## Raw log: s6-failed-blocked-status.log
+SHA256: e7a5d8f33b7878753b02fa1c9009b5e103e2b51d9136c291c95b4a63b3292d65
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py check /private/tmp/ncc-dev-forward-0fzy2uz3/states/docs/dev/tasks/failure-states.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/states
+RECORD OK（不等于验收通过） 4e880e2b8779ae0c7eb688d28bab77cf1fc9f09d9d37c36a283d23adc4a92b5d
+unit-fail=failed, host-block=blocked
+
+EXIT 0
+
+
+
+## Raw log: s6-record.log
+SHA256: bfb2bc3b81e0a788af1a54900fc6e43d70222c344087dd880299caa721907a41
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py check /private/tmp/ncc-dev-forward-0fzy2uz3/states/docs/dev/tasks/failure-states.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/states
+DEV CHECK FAILED: 缺报告或报告为软链：docs/dev/evidence/missing-review.md
+
+EXIT 1
+
+
+
+## Raw log: s6-snapshot.log
+SHA256: 31b3bdd49e4842e9ba92b71b55597fa689308252992d510eb738dba09a3e1b9f
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py snapshot /private/tmp/ncc-dev-forward-0fzy2uz3/states/docs/dev/tasks/failure-states.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/states
+SNAPSHOT 4e880e2b8779ae0c7eb688d28bab77cf1fc9f09d9d37c36a283d23adc4a92b5d (1 files)；旧证据未自动更新
+
+EXIT 0
+
+
+
+## Raw log: s6-test-failure.log
+SHA256: 4639e95dfe61828f30a3f46683dff8a3c4a10e0d1257eb9af1a7ef78df73aa5d
+
+$ python3 -c import unittest; class_text="class SyntheticFailure(unittest.TestCase):\n def test_failure(self): self.assertEqual(1, 2)"; exec(class_text); unittest.main()
+F
+======================================================================
+FAIL: test_failure (__main__.SyntheticFailure)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<string>", line 2, in test_failure
+AssertionError: 1 != 2
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (failures=1)
+
+EXIT 1
+
+
+
+## Raw log: s6-zcode-unavailable.log
+SHA256: 12d6290a4d59d99f789b695a6b584302fd8176bb87304781692c7b5517457e66
+
+$ zcode --version
+zsh:1: command not found: zcode
+
+EXIT 127
+
+
+
+## Raw log: s7-after-sync.log
+SHA256: 8483d6ea1bf85d89348a10f26bb0d9b558c43c1a26ec747334e90b28955bffc9
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py check /private/tmp/ncc-dev-forward-0fzy2uz3/sync/docs/dev/tasks/sync-change.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/sync
+DEV CHECK FAILED: 候选内容变化或未冻结，返回 D4（语义变化补行为验证和评审）
+
+EXIT 1
+
+
+
+## Raw log: s7-before-sync.log
+SHA256: cfaf87e8dcfb49c708e4d5d6109f470af967a24a3d6ef78b19fd2730e3bace22
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py check /private/tmp/ncc-dev-forward-0fzy2uz3/sync/docs/dev/tasks/sync-change.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/sync
+RECORD OK（不等于验收通过） 4e880e2b8779ae0c7eb688d28bab77cf1fc9f09d9d37c36a283d23adc4a92b5d
+plugin=passed
+
+EXIT 0
+
+
+
+## Raw log: s7-clean-snapshot.log
+SHA256: 26052bef04e5fd9887f143ee13f4ad6cb1ea5e0559864f98d3e9b5803c4e547c
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py snapshot /private/tmp/ncc-dev-forward-0fzy2uz3/sync/docs/dev/tasks/sync-change.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/sync
+SNAPSHOT 4e880e2b8779ae0c7eb688d28bab77cf1fc9f09d9d37c36a283d23adc4a92b5d (1 files)；旧证据未自动更新
+
+EXIT 0
+
+
+
+## Raw log: s7-consumer-clone.log
+SHA256: d44e9eb8d37158c8058510d35aae618b095dc719a8ade53d33f8fce294b440d3
+
+$ git clone --no-hardlinks /private/tmp/ncc-dev-forward-0fzy2uz3/public-base /private/tmp/ncc-dev-forward-0fzy2uz3/consumer
+Cloning into '/private/tmp/ncc-dev-forward-0fzy2uz3/consumer'...
+done.
+
+EXIT 0
+
+
+
+## Raw log: s7-consumer-preserved.json
+SHA256: 9c65aa945ed512dcfdd9adb47de8da141b9cfad372911c619a0ca16d8f1e6597
+
+{
+  "before": "def1329ca59941cd70337e77b2f2ce6fa3ca7e1a18a0bdc0f689308569bff700",
+  "after": "def1329ca59941cd70337e77b2f2ce6fa3ca7e1a18a0bdc0f689308569bff700",
+  "preserved": true,
+  "sync_performed": false
+}
+
+
+## Raw log: s7-consumer-status.log
+SHA256: 7bb65c694d2991c78523048e27bde96225e756aaf32500a495818a538776a521
+
+$ git status --short
+ M README.md
+
+EXIT 0
+
+
+
+## Raw log: s7-fetch-local.log
+SHA256: e7d47994cde0cdb2ab5cdc09ef5158d4fb7a1b31a12ed18a71bd5126a6b23458
+
+$ git fetch /private/tmp/ncc-dev-forward-0fzy2uz3/upstream main
+From /private/tmp/ncc-dev-forward-0fzy2uz3/upstream
+ * branch            main       -> FETCH_HEAD
+
+EXIT 0
+
+
+
+## Raw log: s7-merge-local.log
+SHA256: 0d9e458e03b576bea88177d3f7d5a3a2efe1131ef070eb114c68c900834d180e
+
+$ git merge --ff-only FETCH_HEAD
+Updating 3218f3e..df2a628
+Fast-forward
+ commands/ncc-review.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+EXIT 0
+
+
+
+## Raw log: s7-real-plugin.log
+SHA256: 9097150d87fd7863f3d59b87689e41158aee75a045bb88512be8206d9d7b318e
+
+$ python3 scripts/check_plugin.py -v
+scout              1750 / 20000
+worldbuilder      19708 / 20000
+outliner          11216 / 20000
+story-editor      15494 / 20000
+scholar            8196 / 20000
+writer             6166 / 20000
+editor             1488 / 20000
+continuity         8091 / 20000
+pulse              8156 / 20000
+reader             4081 / 20000
+deconstructor      6490 / 20000
+manager:new       34586 / 35000
+manager:write     29735 / 35000
+manager:review    26008 / 35000
+manager:loop      25131 / 35000
+manager:prepare   24195 / 35000
+curator            6639 / 20000
+PLUGIN OK
+
+EXIT 0
+
+
+
+## Raw log: s7-refreeze.log
+SHA256: 84ebe1391ef1efe8a6dbd346dc5d60f8b01499f3c991554975d8b87f19f8c813
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py snapshot /private/tmp/ncc-dev-forward-0fzy2uz3/sync/docs/dev/tasks/sync-change.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/sync
+SNAPSHOT 0804ca2b05da92ef0d7fa7a78bae8b27303cc4be03614c5eadf4a124d3e7eafd (1 files)；旧证据未自动更新
+
+EXIT 0
+
+
+
+## Raw log: s7-snapshot.log
+SHA256: f470e948a87b6a87cdc0330487f2242c2baaf35357346b922630730cad9f5344
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py snapshot /private/tmp/ncc-dev-forward-0fzy2uz3/sync/docs/dev/tasks/sync-change.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/sync
+DEV CHECK FAILED: 未登记 Git 差异，先报告归属：['docs/dev/evidence/discovery-plugin.log', 'docs/dev/tasks/discovery-spike.md']
+
+EXIT 1
+
+
+
+## Raw log: s7-stale-after-refreeze.log
+SHA256: 003d2a01fa4a37ed13f4bb4390ff43f28902b0efd7d94973f66b3005f55ed0ee
+
+$ python3 /private/tmp/ncc-dev-upgrade-9wztklfl/scripts/check_dev_workflow.py check /private/tmp/ncc-dev-forward-0fzy2uz3/sync/docs/dev/tasks/sync-change.md --repo /private/tmp/ncc-dev-forward-0fzy2uz3/sync
+DEV CHECK FAILED: 证据陈旧，返回 D4/D5：plugin
+
+EXIT 1
+
+
+
+## Raw log: s7-upstream-add.log
+SHA256: 50657719d3855592be3e8da044e0a50bdd9dbe2ba852da1a11882a6a49a9da4e
+
+$ git add commands/ncc-review.md
+
+EXIT 0
+
+
+
+## Raw log: s7-upstream-clone.log
+SHA256: 24197c29a1a10b64c05b395d6260c885189213b1fc67457e368c3c3a4d217c5f
+
+$ git clone --no-hardlinks /private/tmp/ncc-dev-forward-0fzy2uz3/public-base /private/tmp/ncc-dev-forward-0fzy2uz3/upstream
+Cloning into '/private/tmp/ncc-dev-forward-0fzy2uz3/upstream'...
+done.
+
+EXIT 0
+
+
+
+## Raw log: s7-upstream-commit.log
+SHA256: 6c1f7f60d64b8faf4a7be462edf83037df73470db3ea66dc926bad40a2ecedd0
+
+$ git -c user.name=Synthetic -c user.email=synthetic@example.invalid commit -m Simulated upstream change
+[main df2a628] Simulated upstream change
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+EXIT 0
+
+
+
+## Raw log: s7-validated-plugin.log
+SHA256: 9097150d87fd7863f3d59b87689e41158aee75a045bb88512be8206d9d7b318e
+
+$ python3 scripts/check_plugin.py -v
+scout              1750 / 20000
+worldbuilder      19708 / 20000
+outliner          11216 / 20000
+story-editor      15494 / 20000
+scholar            8196 / 20000
+writer             6166 / 20000
+editor             1488 / 20000
+continuity         8091 / 20000
+pulse              8156 / 20000
+reader             4081 / 20000
+deconstructor      6490 / 20000
+manager:new       34586 / 35000
+manager:write     29735 / 35000
+manager:review    26008 / 35000
+manager:loop      25131 / 35000
+manager:prepare   24195 / 35000
+curator            6639 / 20000
+PLUGIN OK
+
+EXIT 0
+
+
+
+## Raw log: s8-book-library.log
+SHA256: 8b1999d80ce76add2007fecb8f6235800d72318e2ef93ab9c907eea2b60e3417
+
+$ python3 scripts/ncc_state.py dashboard /private/tmp/ncc-dev-forward-0fzy2uz3/public-base/novels
+ERROR: /private/tmp/ncc-dev-forward-0fzy2uz3/public-base/novels 下没有书（每本书一个目录，含 book.json）
+
+EXIT 1
+
+
+
+## Raw log: s8-route.json
+SHA256: b3498fde882251c93c9b855303b6c1174b73ef5f9717124020039e99cf6168a1
+
+{
+  "input": "接着写第十章",
+  "classification": "write",
+  "entry": "ncc → ncc-write",
+  "actual_action": "已读经理与写章入口；调用dashboard确认隔离库无书。禁止真实创作，缺书目录/状态，停止在定位边界",
+  "dev_task_created": false,
+  "chapter_written": false
+}

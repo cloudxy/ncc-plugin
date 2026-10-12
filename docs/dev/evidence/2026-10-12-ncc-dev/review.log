@@ -1,0 +1,232 @@
+# NCC 开发入口独立评审
+
+评审对象：`/private/tmp/ncc-dev-upgrade-9wztklfl`。评审者没有实现产品、没有修改产品文件、没有阅读私有书库或原作者会话、没有派出其他代理。读取设计、实施计划、新技能、唯一开发规范、检查器及新增测试；之后读取独立 forward-test 原始报告。按设计实际契约核查，没有把报告中的观察当作预设正确答案。
+
+本报告初轮绑定的文件 SHA-256 见 `/private/tmp/ncc-dev-independent-probes-initial.json` 的 `reviewed_sha256`；修复后绑定见 `/private/tmp/ncc-dev-independent-probes-retest.json`。根执行者修复了下面两个缺陷，评审者用同一原始探针独立复验，两项已关闭，当前没有未关闭的 blocking defect。整个最终候选的全量验收仍由根负责；下文保留发现经过和覆盖限制。
+
+## Blocking defects
+
+### B1（已修复并独立复验）：暂存区中的未验证内容及未归属新增文件可以通过交付检查
+
+位置：`scripts/check_dev_workflow.py:133`，尤其 135–139。`changed` 只取基线与工作树之间的净差异及未跟踪文件，未核对暂存区。工作树恢复成基线时，index 中仍待提交的不同内容从该集合消失。指纹也只读取工作树。
+
+真实复现一：合成仓冻结 `scripts/product.py`，登记当前指纹的有效 unit 证据，将本地状态设为 accepted；把该文件改为 `print("staged unverified")` 并 `git add scripts/product.py`，随后工作树恢复为冻结内容。`git show :scripts/product.py` 仍是未验证文本，`git diff --cached --name-only` 仍列出该文件；`check ... --delivery` 却退出 0，打印 `DELIVERY EVIDENCE OK`。
+
+真实复现二：同样有效的任务仅声明 `scope=["scripts/product.py"]`，新建 `scripts/unowned.py`、git add，然后删除其工作树文件。工作树对基线的 diff 为空，index 中保留未归属新增文件；`--delivery` 仍退出 0。此时检查器未兑现“实际 Git 差异与任务清单比对，未登记产品改动先报告归属”的契约。
+
+独立可复现命令：`python3 /private/tmp/ncc-dev-independent-probes.py`。初轮原始结果在 `/private/tmp/ncc-dev-independent-probes-initial.json` 的 `staged_unverified_scoped_file` 和 `staged_unowned_new_file`。探针只创建临时合成仓。
+
+建议修复：显式核对 index 的差异与归属，并禁止待提交 index 内容与已冻结工作树候选不一致，或建立同等严格的暂存内容绑定。增加这两个真实反例，不能只合并 path 集合后仍让 scope 内不同 index 内容沿用通过记录。发布规范中“精确暂存”是后续执行要求，但不能使当前检查器漏掉实际在途 Git 差异成为正确行为。
+
+### B2（已修复并独立复验）：静态接线检查可把仓外技能实现报告为合格
+
+位置：`scripts/check_plugin.py:91`，尤其 102。三个挂载点均为相对软链且 resolve 与名义 source 相等就通过；没有核对 source 的实际解析结果是否仍在仓内。
+
+真实复现：合成插件 `skills/entry` 改为指向另一个临时目录的软链，该外部目录含 SKILL.md；`.agents/skills/entry` 和 `.claude/skills/entry` 保持相对指向 `../../skills/entry`，命令软链保持正确。`check_registry` 返回 `[]`，但技能源 resolve 在 ROOT 外。结果在同一初轮 JSON 的 `static_external_skill_source`：`bad=[]`、`source_outside_root=true`。
+
+这与“三个仓内相对软链，引用已有唯一实现”的静态契约不符。候选指纹检查器在纳入该链接时会拒绝越界，但 check_plugin 自身的静态 passed 仍是错误结论。建议对技能、命令及所需规范的实际源解析结果核对 ROOT 边界，并增加该反例。
+
+## Nonblocking findings
+
+- 独立 forward-test 报告对首次 test_malformed_record 失败的归属最初不准确：原夹具恢复内存 route 后漏 save，导致磁盘仍为 route=[]；它与 macOS 路径别名缺陷是两件事。已复读更正后的报告，现明确分开归属并保留原失败日志，此项已关闭。本报告未依赖旧错误归属判定产品正确性。
+- 新增单测初轮缺 B1 的暂存区反例与 B2 的仓外 source 反例；修复后已增加 6 项有意义的失败/成功测试，分别覆盖隐藏暂存新文件、已暂存内容、正常暂存、mode/链接 target、仓外技能源目录与文件。测试在根的验证范围中；本评审另用原探针和独立边界探针复验。
+- 五端表的静态 passed 只表示此候选的接线/打包源状态，不证明已安装 zcode 克隆更新。正文已将新会话运行设为 unverified；最终报告应继续保持此界限。
+
+## Verified
+
+- 新 `skills/ncc-dev/SKILL.md` 是薄入口：发现和意图边界清楚、保留参数/已有授权、区分 plugin_root 和 repo_root、按当前任务读规范并定位检查器；没有第二张阶段表，也没有小说十二角色承担开发评审的要求。`quick_validate.py` 实际退出 0，输出 `Skill is valid!`。
+- `docs/dev-workflow.md` 定义了真正不同的 spike / bounded / architectural 工件和终点；包括局部短计划、结构 spec/plan、决定继承、D3/D4/D5 返回、规范/行为/宿主验证分层、作者规则确认、无授权不发布、脏克隆不覆盖及可审计 revert。没有要求安装或调用外部参考技能。
+- registry 的实际差异仅为 commands.ncc-dev 元数据新增；七个创作技能正文、创作阶段/闸门和十二角色不是此次实施的变更。命令生成物保留 `$ARGUMENTS`，三个项目级链接均指向唯一候选实现。真实宿主对该语法的执行仍属未验证。
+- 代码检查器没有模型调用、后台调度、发布、安装或自动同步逻辑；JSON 任务加 Markdown 日志符合设计边界。候选记录内容而非仅 HEAD，按排序路径、内容/链接目标、owner executable 位、删除项、基线计算指纹；报告内容另有哈希。产品与证据不互相递归哈希。
+- 定向执行了 8 个既有新增测试，覆盖规则变化及 refreeze 后陈旧证据拒绝、私有/忽略/上跳路径拒绝、软链目录源变化、断链/仓外/私有/循环软链拒绝、缺失/变化报告、failed/blocked/pending 必需证据不交付、未登记入口、普通复制替代链接拒绝。实际 `Ran 8 tests in 12.260s / OK`。未重复根负责的全量自测。
+- 独立 forward-test 报告提供了具体合成任务、真实脚本与 Git 操作、失败日志及受限结论，包含正确的“记录有效不等于验收通过”区分。其恢复场景显式改变 repo/base 后重新冻结，不能升级为“原活动工作树无变化、跨 CLI 新会话恢复”的证据；该限制已在报告披露。
+
+## Unavailable / unverified
+
+- 本评审未独立启动 claude、codex、kimi、grok、zcode 五端新会话，因此入口发现、参数传入、实际加载根/版本、缓存、grok 重复发现优先级、跨端恢复均不记通过。PATH 中存在 CLI 或当前会话读到新文件不能替代这些证据。
+- 本评审未重复执行完整锚定章基线/候选盲审和全量自测；最终结果须由根提供与最终候选绑定的原始日志、完整性和指标比较。机械层或 score 的退出码不能代替模型回归。
+- 作者对最终具体规则候选的确认尚未发生，不能记为通过。
+- 本地候选未获此评审的发布、远端同步、安装克隆更新或运行加载验收；这些未经执行，不能写作完成。
+
+初轮结论：两个真实边界缺陷阻止无条件接受本次检查器实现；其余已审接口与职责方向符合设计。修复后须重跑反例及受影响确定性验证，并以最终文件/候选指纹补记独立复验；不能沿用本轮文件哈希声明修复后全体通过。
+
+## 修复后独立复验与当前结论
+
+根执行者通知修复后，评审者重新读取改动并运行原封不动的 `/private/tmp/ncc-dev-independent-probes.py`。原始输出保存为 `/private/tmp/ncc-dev-independent-probes-retest.json`：
+
+- B1 原 scoped 文件反例从交付检查 0 变为 1，提示暂存内容与已验证候选不符。
+- B1 原 hidden 新文件反例从 0 变为 1，准确提示 `scripts/unowned.py` 未登记 Git 差异。
+- B2 原仓外技能目录反例从 `bad=[]` 变为包含 `技能源指向仓外：skills/entry/SKILL.md`。
+
+再做独立边界探针，输出在 `/private/tmp/ncc-dev-independent-boundary-retest.json`：含非 UTF-8 字节的已验证 blob 正常暂存后交付检查 0，index 中另有不同二进制 blob 时交付检查 1；已验证删除项正常暂存后检查 0；仓外命令源文件软链被明确拒绝。正反例共同证明修复没有用“只要暂存就失败”替代实际内容核对。
+
+复验后的关键文件 SHA-256：check_dev_workflow `5eee7ea25352f196df2c448e5f7faf4537428abfff6500554a4b8d4ba7d35141`；check_plugin `32e707f7eeaa3339eb9462b190aa81a9568a886e1d7290da2ff499a44e58a037`；test_dev_workflow `526aa395d9add47b6d5f7d47180e5a6742eee1a8321839d8ea2d25fbb5b73be3`；dev-workflow `819e0a427653092955f2c454fdadfbf85febf4f6b598ca12bcea2a475f062ade`；技能正文未变。完整值也在复验 JSON。若后续产品再改，本结论仅对应这些文件的复验版本，按规范重新绑定和核查。
+
+当前结论：已发现的两个实现缺陷均经根修复、经独立原反例和补充边界验证关闭；没有其他已证实的阻断实现缺陷。可以把这项记录为“独立代码/规范审查完成，已发现缺陷关闭”，但不能据此把最终全量、完整模型规则回归、作者规则确认、五端新会话或发布记为通过。上面的 unavailable / unverified 仍有效。
+
+
+# Raw review evidence: ncc-dev-independent-probes-initial.json
+SHA256: e2ca85259faee7c583c570b0473dbb55b96b6341b7e0cb0e7bfb55a434dc26f6
+
+{
+  "reviewed_sha256": {
+    "scripts/check_dev_workflow.py": "5309dd986d4b63575a48a0c380d6d2a97ecac8b69ff534e91f6322afe225908d",
+    "scripts/check_plugin.py": "0dc3cc260b8b0868b0cc7cab33bc424bd1f42e469179330488656ed8db338ed4",
+    "scripts/test_dev_workflow.py": "a4bd230f698a87baac72bb3a77ff329072f9acb2409011da0e02c1a0cf6d9b8a",
+    "skills/ncc-dev/SKILL.md": "24327e679a9ffa137ff6a3d1034e4e2fedf82f605269337b63ce35efbbe4ccc0",
+    "docs/dev-workflow.md": "8f9fcba35f9745dc33434f77c1f20e138408accff5463c1da69a53721cc6aa37"
+  },
+  "staged_unverified_scoped_file": {
+    "exit_code": 0,
+    "output": "DELIVERY EVIDENCE OK 0d8fb0a19c562c3fb292d89060d866fea6e0ef0a1011a58f7bef849cc0914ef8\nunit-1=passed\n",
+    "index_content": "print(\"staged unverified\")\n",
+    "worktree_vs_base": "",
+    "staged_names": "scripts/product.py\n"
+  },
+  "staged_unowned_new_file": {
+    "exit_code": 0,
+    "output": "DELIVERY EVIDENCE OK 7485030ea2621a958fe8cbcf445959d88f0108f39b1d449fa99b56970049fe5d\nunit-1=passed\n",
+    "scope": [
+      "scripts/product.py"
+    ],
+    "worktree_vs_base": "",
+    "staged_names": "scripts/unowned.py\n"
+  },
+  "static_external_skill_source": {
+    "bad": [],
+    "source_outside_root": true,
+    "mount_target": "../../skills/entry"
+  }
+}
+
+
+
+# Raw review evidence: ncc-dev-independent-probes-retest.json
+SHA256: 6db87bffa93f4261e66e9342d35270707ada6639fff7f11ac90040649addf9f6
+
+{
+  "reviewed_sha256": {
+    "scripts/check_dev_workflow.py": "5eee7ea25352f196df2c448e5f7faf4537428abfff6500554a4b8d4ba7d35141",
+    "scripts/check_plugin.py": "32e707f7eeaa3339eb9462b190aa81a9568a886e1d7290da2ff499a44e58a037",
+    "scripts/test_dev_workflow.py": "526aa395d9add47b6d5f7d47180e5a6742eee1a8321839d8ea2d25fbb5b73be3",
+    "skills/ncc-dev/SKILL.md": "24327e679a9ffa137ff6a3d1034e4e2fedf82f605269337b63ce35efbbe4ccc0",
+    "docs/dev-workflow.md": "819e0a427653092955f2c454fdadfbf85febf4f6b598ca12bcea2a475f062ade"
+  },
+  "staged_unverified_scoped_file": {
+    "exit_code": 1,
+    "output": "DEV CHECK FAILED: 暂存内容与已验证候选不符，重新精确暂存并核查：scripts/product.py\n",
+    "index_content": "print(\"staged unverified\")\n",
+    "worktree_vs_base": "",
+    "staged_names": "scripts/product.py\n"
+  },
+  "staged_unowned_new_file": {
+    "exit_code": 1,
+    "output": "DEV CHECK FAILED: 未登记 Git 差异，先报告归属：['scripts/unowned.py']\n",
+    "scope": [
+      "scripts/product.py"
+    ],
+    "worktree_vs_base": "",
+    "staged_names": "scripts/unowned.py\n"
+  },
+  "static_external_skill_source": {
+    "bad": [
+      "技能源指向仓外：skills/entry/SKILL.md"
+    ],
+    "source_outside_root": true,
+    "mount_target": "../../skills/entry"
+  }
+}
+
+
+
+# Raw review evidence: ncc-dev-independent-boundary-retest.json
+SHA256: 525baf992cfe7ce2016feb891e954fb800cff5836a8f57fb40577071fb4dd179
+
+{
+  "binary_match": {
+    "rc": 0,
+    "out": "DELIVERY EVIDENCE OK e9bec77bd6b5cf99af58e70512d423f0f590f3a9abbee3a7040e4284d8ff47ea\nunit-1=passed\n"
+  },
+  "binary_index_mismatch": {
+    "rc": 1,
+    "out": "DEV CHECK FAILED: 暂存内容与已验证候选不符，重新精确暂存并核查：scripts/product.py\n"
+  },
+  "matching_staged_deletion": {
+    "rc": 0,
+    "out": "DELIVERY EVIDENCE OK 4b8af5af8a0f823f1040612c5a811ee7810f12919e0cfe057414faa2334d266e\nunit-1=passed\n"
+  },
+  "external_command_source": [
+    "命令源指向仓外：commands/entry.md"
+  ]
+}
+
+
+# Original independent probe program
+
+"""Independent synthetic reproductions. Does not modify the product tree."""
+import contextlib
+import hashlib
+import io
+import json
+import sys
+import tempfile
+from pathlib import Path
+
+PRODUCT = Path('/private/tmp/ncc-dev-upgrade-9wztklfl')
+sys.path.insert(0, str(PRODUCT / 'scripts'))
+from test_dev_workflow import DevWorkflowTest, EntryRegistryTest
+import check_dev_workflow as dev
+
+def delivery(t):
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+        rc = dev.main(['check', str(t.task), '--repo', str(t.root), '--delivery'])
+    return {'exit_code': rc, 'output': out.getvalue()}
+
+results = {'reviewed_sha256': {
+    f: hashlib.sha256((PRODUCT / f).read_bytes()).hexdigest()
+    for f in ['scripts/check_dev_workflow.py', 'scripts/check_plugin.py',
+              'scripts/test_dev_workflow.py', 'skills/ncc-dev/SKILL.md', 'docs/dev-workflow.md']}}
+
+t = DevWorkflowTest(); t.setUp()
+try:
+    t.add_evidence()
+    t.write('scripts/product.py', 'print("staged unverified")\n')
+    t.run_git('add', 'scripts/product.py')
+    t.write('scripts/product.py', 'print("baseline")\n')
+    results['staged_unverified_scoped_file'] = {
+        **delivery(t), 'index_content': t.run_git('show', ':scripts/product.py'),
+        'worktree_vs_base': t.run_git('diff', '--name-only', t.data['base_commit'], '--'),
+        'staged_names': t.run_git('diff', '--cached', '--name-only')}
+finally:
+    t.doCleanups()
+
+t = DevWorkflowTest(); t.setUp()
+try:
+    t.add_evidence()
+    p = t.write('scripts/unowned.py', 'staged unowned\n')
+    t.run_git('add', 'scripts/unowned.py')
+    p.unlink()
+    results['staged_unowned_new_file'] = {
+        **delivery(t), 'scope': t.data['scope'],
+        'worktree_vs_base': t.run_git('diff', '--name-only', t.data['base_commit'], '--'),
+        'staged_names': t.run_git('diff', '--cached', '--name-only')}
+finally:
+    t.doCleanups()
+
+t = EntryRegistryTest(); t.setUp()
+try:
+    with tempfile.TemporaryDirectory() as ext:
+        extp = Path(ext)
+        (extp / 'SKILL.md').write_text('# external synthetic skill\n')
+        (t.root / 'skills/entry/SKILL.md').unlink()
+        (t.root / 'skills/entry').rmdir()
+        (t.root / 'skills/entry').symlink_to(extp, target_is_directory=True)
+        results['static_external_skill_source'] = {
+            'bad': t.check(),
+            'source_outside_root': not (t.root / 'skills/entry').resolve().is_relative_to(t.root.resolve()),
+            'mount_target': str((t.root / '.agents/skills/entry').readlink())}
+finally:
+    t.doCleanups()
+
+print(json.dumps(results, ensure_ascii=False, indent=2))

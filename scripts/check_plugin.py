@@ -69,6 +69,13 @@ def check_links(md, bad):
                 bad.append(f"路径不存在：{rel(p)} -> {m.group(1)}")
 
 
+def owned(path):
+    try:
+        return path.resolve().is_relative_to(ROOT.resolve())
+    except (OSError, RuntimeError):
+        return False
+
+
 def check_registry(bad):
     for role in REG["roles"]:
         if not (ROOT / "agents" / f"{role}.md").is_file():
@@ -77,10 +84,40 @@ def check_registry(bad):
     if extra:
         bad.append(f"agents 里有注册表没有的角色：{sorted(extra)}")
     for c, v in REG["commands"].items():
+        if not owned(ROOT / "commands" / f"{c}.md"):
+            bad.append(f"命令源指向仓外：commands/{c}.md")
+        if not owned(ROOT / "skills" / v["skill"] / "SKILL.md"):
+            bad.append(f"技能源指向仓外：skills/{v['skill']}/SKILL.md")
         if not (ROOT / "commands" / f"{c}.md").is_file():
             bad.append(f"缺 commands/{c}.md")
         if not (ROOT / "skills" / v["skill"] / "SKILL.md").is_file():
             bad.append(f"缺 skills/{v['skill']}/SKILL.md")
+    registered_skills = {v["skill"] for v in REG["commands"].values()}
+    extra_commands = {p.stem for p in (ROOT / "commands").glob("*.md")} - set(REG["commands"])
+    extra_skills = {p.name for p in (ROOT / "skills").iterdir() if p.is_dir()} - registered_skills
+    if extra_commands:
+        bad.append(f"commands 里有未登记入口：{sorted(extra_commands)}")
+    if extra_skills:
+        bad.append(f"skills 里有未登记入口：{sorted(extra_skills)}")
+    for command, meta in REG["commands"].items():
+        for mount, name, source in (
+            (".agents/skills", meta["skill"], ROOT / "skills" / meta["skill"]),
+            (".claude/skills", meta["skill"], ROOT / "skills" / meta["skill"]),
+            (".claude/commands", command + ".md", ROOT / "commands" / (command + ".md")),
+        ):
+            link = ROOT / mount / name
+            if not link.is_symlink():
+                bad.append(f"缺项目级软链：{mount}/{name}")
+                continue
+            try:
+                if Path(link.readlink()).is_absolute() or not link.exists() or link.resolve() != source.resolve():
+                    bad.append(f"项目级软链断裂或目标不符：{mount}/{name}")
+            except (OSError, RuntimeError):
+                bad.append(f"项目级软链无法解析：{mount}/{name}")
+    if "ncc-dev" in REG["commands"]:
+        flow = ROOT / "docs/dev-workflow.md"
+        if not flow.is_file() or not owned(flow):
+            bad.append("开发入口无法定位仓内 docs/dev-workflow.md")
     for f in WRITER_READABLE:
         s = (ROOT / f).read_text(encoding="utf-8")
         for w in REVIEW_WORDS:

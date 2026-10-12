@@ -11,7 +11,13 @@ ZCode 插件 · v3.2.0 · 个人本地插件
 
 **越写越懂这本书，但不越进化越歪。** 各写作角色有自己的本书记忆和跨书记忆；作者在会话里说的话记成交接卡，按角色切给子代理（审稿与试读读者不拿，保住新鲜的眼睛）。拆书不只喂设定，还学写法：剧情、爽点、暗线、情绪、大局、人物、设定、文笔写成技法卡，排大纲时按题材挑来参考，用过之后按结果升降。设定类目（门派、种族、血脉、企业……）按题材研判、可以新提。记忆与技法自动积累；审稿标准这类规则要改，先过锚定章回归、再由作者确认，随时能撤回。
 
-信息怎么放、谁能改、别处怎么用，按[信息架构七律](workflow/principles.md)：一事一源、副本只能生成、一处一主、按变化内聚、只经接口耦合、现状与历史分开、按需可见。架构说明见 [workflow/architecture.md](workflow/architecture.md)；设计全文（完善计划第七稿与架构审视）在作者的 `~/Documents/grok-files/ncc-workflow/`。
+信息怎么放、谁能改、别处怎么用，按[信息架构七律](workflow/principles.md)：一事一源、副本只能生成、一处一主、按变化内聚、只经接口耦合、现状与历史分开、按需可见。架构说明见 [workflow/architecture.md](workflow/architecture.md)，机器可读契约以 [workflow/registry.json](workflow/registry.json) 为准，实际使用见[使用指南](docs/usage.md)。
+
+## 插件开发与升级
+
+维护本插件使用 `/ncc-dev <升级目标或问题>`；`/ncc-dev continue <任务号>` 恢复开发任务。探索、局部修复与结构升级使用不同路径，计划、已有决定、候选指纹与证据保存在唯一任务记录中。流程规范见[开发工作流](docs/dev-workflow.md)，实现与验收状态见[本次升级任务](docs/dev/tasks/2026-10-12-ncc-dev.md)。开发入口不改变小说创作循环，也不要求安装第三方技能。
+
+命令登记和项目级软链由静态检查验证；五端发现、参数与实际加载须分别用新会话验收。当前开发候选、作者规则确认、发布与宿主运行状态分别记录，文件存在不等于运行通过。
 
 ## 通用创作前准备
 
@@ -168,7 +174,7 @@ ncc-workflow/
   workflow/architecture.md      # 五层决策·三本账·四循环·读者模型·引导层·记忆与进化
   workflow/memory-evolution-design.md  # 记忆、拆书学法与自进化的设计稿（已实现）
   workflow/preparation-design.md  # 通用创作前准备的设计与实现边界
-  commands/                     # /ncc /ncc-prepare /ncc-new /ncc-write /ncc-review /ncc-deconstruct /ncc-eval
+  commands/                     # 七个创作命令与 /ncc-dev
   agents/                       # 12 角色，含库治理 curator：scout worldbuilder outliner story-editor scholar writer
                                 #          editor continuity pulse reader deconstructor
   skills/
@@ -181,6 +187,7 @@ ncc-workflow/
     ncc-review/                 # 审稿：review-domains（三层评价细则+报告模板）
     ncc-deconstruct/            # 拆书：对接《小说拆分总纲 5.0》；拆完一段学写法、写技法卡
     ncc-eval/                   # 评测：锚定章回归、模型横评
+    ncc-dev/                    # 开发薄入口，读取单一开发规范
   scripts/
     ncc_prepare.py              # 独立准备工作区与库治理入口
     ncc_library.py              # 本库规范/覆盖计划/批次/体检/验收/交付与恢复
@@ -192,6 +199,8 @@ ncc-workflow/
     check_chapter.py            # 章节机械检查（钩子/AI味分级与放行/水章/退化与元信息/底蕴与规避点提醒/身体小动作/场景卡照搬；字数交作者定）
     ncc_eval.py                 # 评测：锚定章机械层回归、审稿派单包与打分、模型横评、规则改动的闸门、新锚定章骨架
     build_docs.py               # 由注册表生成文档里的表格（信息地图、词表、记忆与交接、类目、技法、进化）、frontmatter、版本行（--check 只比对）
+    check_dev_workflow.py        # 开发任务边界、候选指纹与证据新鲜度核查
+    test_dev_workflow.py         # 开发恢复、失败闭环与接线测试
     check_plugin.py             # 插件自查：链接与路径、注册表与文件一致、写手文件无审稿判据、按名称引用、
                                 #   版本只在 plugin.json、各角色读取量、手写词表列举与注册表一致
     test_ncc_state.py           # 主流程自测
@@ -199,7 +208,11 @@ ncc-workflow/
     test_ncc_prepare.py          # 无书创建、只读来源、版本失效、依赖与范围交接
     test_ncc_library.py          # 通用库治理、真实交付、覆盖、过期与中断恢复
   eval/anchors/                 # 锚定章：故意埋了错的评测样章＋一章干净对照（答案不进派单包）；格式见 eval/README.md
-  docs/usage.md                 # 使用指南（docs/完善计划.md 只是迁出说明）
+  docs/
+    usage.md                    # 使用指南
+    dev-workflow.md             # 开发路径、阶段、返回与证据的唯一规范
+    dev/                        # 实施计划、任务进度与验证证据
+    superpowers/specs/          # 开发流程设计依据与方案审查记录
   ACKNOWLEDGMENTS.md            # 设计出处与许可说明
 ```
 
@@ -210,7 +223,7 @@ ncc-workflow/
 | 机制 | 说明 | 出处 |
 |---|---|---|
 | 通用创作前准备 | 资料与设定各自整理、完善、创建；独立工作区、来源与成果版本、依赖和问题闭环、按范围检查与交接 | 本插件（v3.1） |
-| 书魂与类型契约 | 立书先答四问（主题之问、主角的答案、世界的不公、终局），可暂定；主契约＋毒点＋签约点 | 本插件（完善计划第五、六稿） |
+| 书魂与类型契约 | 立书先答四问（主题之问、主角的答案、世界的不公、终局），可暂定；主契约＋毒点＋签约点 | 本插件 |
 | 五层决策 | 书魂→骨架→单元→章→文字，按可逆度分层；下层只能提变更提议 | 本插件 |
 | 三本账 | 承诺账（欠读者什么）、知情账（谁知道什么）、世界账（状态事件＋知识台账） | Openwrite 伏笔义务 ＋ oh-story 作者真相/读者已知 ＋ 本插件 |
 | 水章判据 | 一章既没建立、推进也没兑现任何承诺 → 机械检查不过 | 本插件 |
@@ -290,4 +303,6 @@ ncc-workflow/
 
 ## 许可
 
-个人本地插件。融合设计来自多个开源项目——只借鉴设计思想与方法论，未复制任何源代码；详见 [ACKNOWLEDGMENTS.md](ACKNOWLEDGMENTS.md)。
+NCC 自己维护规则、技能和实现，设计参考来自多个开源项目与作者既有资产。第三方参考项目由使用者按需自行获取，NCC 的现有能力不要求安装它们，也不将其纳入受管依赖或发行包。
+
+来源、作者、借鉴机制、本项目的转化与落点，以及可复制的下载说明，集中见 [设计出处与致谢](ACKNOWLEDGMENTS.md)。其中思想借鉴与具体文字、词表等材料借用分别注明，实际借用按原材料许可保留相应声明。

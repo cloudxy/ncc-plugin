@@ -1,8 +1,58 @@
 # 设计出处与致谢
 
-本插件的方法论融合自三个开源项目与本人既有资产。**未复制任何源代码**；所有借鉴停留在设计思想、流程结构与规则层面（InkOS 为 AGPL-3.0，代码级借鉴会传染许可证，故严格只读思想）。
+感谢下列项目及作者公开分享设计、方法与实践。本文集中记录 NCC 的设计参考、相关自有项目和具体材料借用，说明参考了什么、怎样转化、落在何处。项目名与来源链接保留原作者归属。
 
-## [chinese-novelist-skill](https://github.com/PenglongHuang/chinese-novelist-skill)（MIT，⭐3.2k）
+## 参考关系与项目边界
+
+NCC 自己维护规则、技能、脚本和工作状态。外部项目提供设计参考，使用者无需下载或安装它们，就能使用 NCC 的现有能力。参考项目不进入 NCC 的受管依赖、插件打包、运行时必需项或 CI 安装要求，也不为它们建立 vendor 原件库、锁文件、更新监控或自动采用流程。
+
+| 参考方式 | 应说明的内容 | NCC 中的成果 |
+|---|---|---|
+| 核心思想与架构 | 解决什么问题、为何适合 NCC、保留和舍弃什么 | 本项目自行设计的协议、模块与职责 |
+| Skill 的设计能力 | 参考哪项技能、输入输出与推理步骤、怎样适配小说或开发领域 | 由 NCC 维护的本地方法与验证依据 |
+| 设计时实际调用外部能力 | 使用的项目/技能、可识别版本或内容指纹、调用目的、影响的决定与工件 | 当次方案中的使用记录；不成为后续使用者的必装项 |
+| 引用或改编具体文字、模板、词表等材料 | 原作者、原件位置、版本、借用范围、改写位置及适用许可 | 如实标注材料借用，不能概称为“只借思想” |
+
+开发者可以按当次任务授权使用自己已安装的外部技能辅助设计；外部项目的全局规则不因被参考而成为 NCC 的管控规则。讨论和设计结果回到 NCC 自己的文档与接口，后续执行不要求再次调用同一外部技能。是否安装、启用或更新第三方项目由使用者自行决定。
+
+本文是来源与致谢的唯一集中记录，具体方案补充当次参考范围、取舍、落点及验证结果，并链接本文对应条目。不为尚未采用的来源宣称“已借鉴”或“已验证”，也不以项目名气和星数代替设计证据。
+
+引用记录应能回查“项目/作者 → 具体组件与版本 → 学到的机制 → NCC 的转化 → 落点与验证”。只知道本地内容指纹时就记录指纹，不冒充上游 commit；上游出现新版本也不自动改变 NCC 的已定规则。
+
+致谢与许可分别处理：Skill 正文、模板、词表和代码的实际复制或改编，都应按相应材料的许可保留必要声明。没有明确许可不能仅凭公开可见推定可自由复制；参见 [GitHub 的仓库许可说明](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/licensing-a-repository)。本文末尾已明确记录 oh-story 词表清单的借用，不再用“全部仅为思想借鉴”概括所有来源。
+
+## 使用者自行获取参考项目
+
+本文本身就是可保存、下载的 Markdown 说明。以下各条提供上游项目链接：打开其仓库，使用 Code → Download ZIP，或将仓库克隆到自己选择的**NCC 仓库以外**的目录；下载供阅读与对照，不会自动安装技能。
+
+通用命令模板（替换 URL 和目标路径后自行运行）：
+
+```bash
+git clone <上游仓库URL> <仓库外的目标目录>
+git -C <目标目录> rev-parse HEAD
+```
+
+例如，选择自己本机的学习资料目录后，可分别获取开发设计参考：
+
+```bash
+git clone https://github.com/obra/superpowers.git /path/to/reference-projects/superpowers
+git clone https://github.com/mattpocock/skills.git /path/to/reference-projects/mattpocock-skills
+```
+
+这些命令仅为使用者按需执行的下载文本，本项目不执行批量下载。克隆当前默认分支获得的是下载时的版本，不等于 NCC 曾参考的版本；要复现某次设计，应依其记录选择对应 commit/tag，或核对记录中的文件指纹。若需要启用上游技能，再按上游自己的安装文档和本机宿主选择办理，下载说明不替使用者进行安装或改变项目配置。
+
+## 开发设计参考（2026-10-12）
+
+以下参考用于开发工作流的设计，已转化为 ncc-dev 开发入口、[本地流程规范](docs/dev-workflow.md)与候选证据检查器；本次状态见[升级任务](docs/dev/tasks/2026-10-12-ncc-dev.md)。参考范围与取舍见[开发工作流设计](docs/superpowers/specs/2026-10-12-dev-workflow-design.md)；本机所读技能的内容指纹见[方案审查记录](docs/superpowers/specs/2026-10-12-dev-workflow-audit.md)。后者只记录来源阅读，未调用这些外部技能执行任务。
+
+| 项目与作者 | 具体参考 | NCC 的转化与取舍 | 来源依据 |
+|---|---|---|---|
+| [superpowers — Jesse Vincent / obra](https://github.com/obra/superpowers) | brainstorming 的意图澄清与任务分流，writing-plans 的可验收计划，verification 的证据纪律 | 分为探索、局部、结构三条路径；保留已有授权，按变更性质验证；不移植全部审批仪式 | 本机 brainstorming 内容指纹见审查记录；[上游 MIT 许可](https://github.com/obra/superpowers/blob/main/LICENSE) 于 2026-10-12 核对 |
+| [skills — Matt Pocock](https://github.com/mattpocock/skills) | codebase-design 的深模块与删除测试；grilling 的决定依赖；grill-with-docs 的讨论落档；to-spec 的上下文综合 | 按调用者所需知识评估接口，关键决定有依据，设计取舍留档；质询只进开发分支，不要求运行上游技能 | 本机相关文件指纹见审查记录；[上游 MIT 许可](https://github.com/mattpocock/skills/blob/main/LICENSE) 于 2026-10-12 核对 |
+
+这次设计未复制上述技能正文，也未建立对它们的运行调用。下面的创作机制出处保留原有来源说明；历史版本标签只表示当时参照范围，不表示上游当前版本或兼容承诺。
+
+## [chinese-novelist-skill](https://github.com/PenglongHuang/chinese-novelist-skill)（MIT）
 
 | 借鉴 | 落点 |
 |---|---|
@@ -14,13 +64,13 @@
 | 确定性字数脚本（只数汉字、剔 Markdown） | check_chapter.py |
 | 自动化边界：决策点人确认、执行段禁停顿 | 各 SKILL 的边界节 |
 
-并修正了它的已知薄弱点：共享词典并发写冲突（本插件单章串行回写）、偏好无限增长（50 条滚动裁剪）、章节下限口径矛盾（统一 3000）。
+NCC 按自己的执行方式补充了单章串行回写、偏好滚动裁剪和统一的章节长度口径；具体阈值与现行规则以本项目注册表和技能为准。
 
-## [Openwrite / dsh-Openwrite](https://github.com/LiPu-jpg/Openwrite)（Apache-2.0，⭐765）
+## [Openwrite / dsh-Openwrite](https://github.com/LiPu-jpg/Openwrite)（Apache-2.0）
 
 | 借鉴 | 落点 |
 |---|---|
-| 审稿累加分制：只有带正文证据的准则计分、问题不扣分、覆盖率独立、critical 只 block | review-domains.md |
+| 审稿以正文证据为锚，缺陷、严重度与覆盖分别表达 | review-domains.md；NCC 当前采用三层评价，不移植原累加分制 |
 | 评审 SHA 绑定正文：正文一变评审即 stale，修订后强制复评 | book-state.md、ncc-review |
 | 写前上下文包预检（可审计、可留档） | context-pack.md ＋ .ncc/写手包/ |
 | 伏笔义务清单（due/overdue/to_plant）进工作简报 | v0.2 扩为承诺台账（ncc_state.py promise）、情节承诺域 |
@@ -29,7 +79,7 @@
 
 按其经验做了减法：47 节点物化 DAG 与六域并行（约 7 次模型调用）收敛为两次派单（continuity＋pulse），适配 CLI 插件成本。v0.2 按 D11 扩为八域，派单次数不变。
 
-## [InkOS](https://github.com/Narcooo/inkos)（AGPL-3.0，⭐10k）
+## [InkOS](https://github.com/Narcooo/inkos)（AGPL-3.0）
 
 **仅借鉴架构思想，零代码引用。**
 
@@ -49,7 +99,8 @@
 | 资产 | 落点 |
 |---|---|
 | 《小说拆分总纲 5.0》（~/Documents/word_wx/ai-skills/） | ncc-deconstruct 的字段口径；事件溯源台账；量纲定义；设定词典与底卡分级 |
-| sdlc-workflow 插件 | 目录骨架、经理窗口＋角色帽、registry 唯一事实源、闸门与铁律文体、G-fresh 思想（→ reader/continuity 的 fresh 上下文） |
+| [sdlc-workflow](https://github.com/cloudxy/sdlc-plugins)（作者自有相关项目） | 目录骨架、经理窗口＋角色帽、registry 唯一事实源、闸门与铁律文体、G-fresh 思想（→ reader/continuity 的 fresh 上下文）；2026-10-12 进一步参照其来源声明、原件与本地实现分离的组织方式，不引入其 vendor 安装与依赖管理 |
+| [VSC / video_wk](https://github.com/cloudxy/vsc-plugin)（作者自有相关项目） | 项目级接线、扁平开发现场；2026-10-12 参照其区分阅读参考与实际依赖、记录来源及使用方式的思想；NCC 采用文档引用，不引入其本地组件、锁文件与更新器 |
 | 主流网文工业流（黄金三章/存稿/日更/爽点节奏的大众共识） | 阶段主线、golden-three.md、连载节奏 |
 | novel_guide（~/Documents/Obsidian_files/novel_guide/） | 爽点通用结构（压迫→误判→吃亏→破口→反打→善后→新责任）是欠·挣·超·证的来源；卡文五问进卡文协议；v0.6：「12 代入感」「13 规避点」整理成判据（review-domains.md 的"代入感与规避点"、check_chapter.py 规避点告警、故事审的主角在场与章尾落点、人物卡标志细节、新手档推荐偏稳） |
 | novel_sources/小说底盘（~/Documents/Obsidian_files/novel_sources/） | v0.6：玄幻、仙侠类力量体系与资源设定的底料（`setting_base_candidates`）；底盘自己的铁律（数值可回查、不跳境界上限、突破有代价、称号不冒充境界）与本插件的量纲、越级例外一致 |
@@ -88,17 +139,17 @@
 |---|---|
 | W3C EPUB 3.3（容器、包文档、导航文档规范） | `ncc_state.py export --format epub`：mimetype 首项且不压缩、`META-INF/container.xml`、`content.opf`（EPUB 3）、`nav.xhtml`；另附 EPUB 2 的 `toc.ncx` 以兼容老阅读器。按规范自写，未用第三方库 |
 
-## v0.2 引导层参照（GitHub 高星项目，星数为 2026-09-30 数据）
+## v0.2 引导层参照
 
 只借做法，未复制任何代码。
 
 | 项目 | 许可 | 借鉴 | 落点 |
 |---|---|---|---|
-| [obra/superpowers](https://github.com/obra/superpowers)（约 29.3 万星） | MIT | brainstorming：一次一问、尽量给选择题、2–3 种方案且推荐在前 | guidance.md 第 3 步 |
-| [github/spec-kit](https://github.com/github/spec-kit)（约 13.9 万星） | MIT | clarify：按影响排序、最多 5 问、"为什么要紧"、推荐项置顶、回答立即写回 | guidance.md 第 1–3、5 步 |
-| [bmad-code-org/BMAD-METHOD](https://github.com/bmad-code-org/BMAD-METHOD)（约 5.4 万星） | 见其仓库（GitHub 未识别为标准许可） | 高级启发：选一种推理方法（事前复盘等）二次审视已有方案 | guidance.md 第 7 步 |
-| [zenstory-ai/oh-story-claudecode](https://github.com/zenstory-ai/oh-story-claudecode)（约 7200 星） | MIT | 候选真相带最晚可改章；作者真相与读者已知分开记录；一句话路由 | 暂定决策的 deadline、知情台账、一句话入口 |
-| [ExplosiveCoderflome/AI-Novel-Writing-Assistant](https://github.com/ExplosiveCoderflome/AI-Novel-Writing-Assistant)（约 3000 星） | AGPL-3.0（据其 README；只借思想） | 面向新手：一句灵感生成多套整本方向与书名组、附推荐理由、可只重做某一套；简易/专业两种模式 | scout 的整本方向候选、定向重做、引导档位 |
+| [superpowers](#开发设计参考2026-10-12) | MIT | brainstorming：一次一问、尽量给选择题、2–3 种方案且推荐在前 | guidance.md 第 3 步 |
+| [github/spec-kit](https://github.com/github/spec-kit) | MIT | clarify：按影响排序、最多 5 问、"为什么要紧"、推荐项置顶、回答立即写回 | guidance.md 第 1–3、5 步 |
+| [bmad-code-org/BMAD-METHOD](https://github.com/bmad-code-org/BMAD-METHOD) | 许可按所参考版本的原件核对 | 高级启发：选一种推理方法（事前复盘等）二次审视已有方案 | guidance.md 第 7 步 |
+| [zenstory-ai/oh-story-claudecode](https://github.com/zenstory-ai/oh-story-claudecode) | MIT | 候选真相带最晚可改章；作者真相与读者已知分开记录；一句话路由 | 暂定决策的 deadline、知情台账、一句话入口 |
+| [ExplosiveCoderflome/AI-Novel-Writing-Assistant](https://github.com/ExplosiveCoderflome/AI-Novel-Writing-Assistant) | AGPL-3.0（据其 README；只借思想） | 面向新手：一句灵感生成多套整本方向与书名组、附推荐理由、可只重做某一套；简易/专业两种模式 | scout 的整本方向候选、定向重做、引导档位 |
 
 ## v0.3 上限引擎的依据（研究与创作理论）
 
