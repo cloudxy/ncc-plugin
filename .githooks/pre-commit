@@ -1,22 +1,45 @@
 #!/bin/sh
-# 私有内容守卫：书稿与素材是 ncc-workflow 的调试数据，绝不进仓库。
-# 模式层（.gitignore）挡默认路径；这里挡任意命名的书目录/准备工作区/评测目录。
+# 先拉后提交 + 私有内容守卫（参考 vsc_pre_commit.py 的纪律）：
+# 1) 提交前 fetch origin/main，远端领先则阻止，要求先 git pull 合并；
+# 2) 拦截书稿与素材（调试数据，绝不进仓库）。
 # 启用：git config core.hooksPath .githooks
 root="$(git rev-parse --show-toplevel)" || exit 1
 exec python3 - "$root" <<'PY'
-import subprocess, sys, os
+import os, subprocess, sys
 
 root = sys.argv[1]
-# -z + quotepath=false：拿原始未转义路径（中文书名不会被引号/八进制转义破坏匹配）
-out = subprocess.run(
-    ["git", "-C", root, "-c", "core.quotepath=false",
-     "diff", "--cached", "--name-only", "-z", "--diff-filter=ACMR"],
-    capture_output=True).stdout
-staged = [p for p in out.decode("utf-8").split("\0") if p]
+env = os.environ.copy()
+env.pop("GIT_INDEX_FILE", None)          # commit -a/--only 的临时索引不能用于 fetch/merge-base
+env["GIT_TERMINAL_PROMPT"] = "0"
+
+def git(*args):
+    return subprocess.run(["git", "-C", root, *args], env=env, text=True, capture_output=True)
+
+def fail(msg):
+    print("✘ " + msg, file=sys.stderr)
+    return 1
+
+# ---- 1. 先拉取校验：远端 main 必须已包含在本地 ----
+if git("rev-parse", "--verify", "-q", "HEAD").returncode == 0:
+    fetched = git("fetch", "--no-tags", "origin", "+refs/heads/main:refs/remotes/origin/main")
+    if fetched.returncode:
+        sys.stderr.write(fetched.stderr.strip() + "\n")
+        return_or_exit = fail("获取 origin/main 失败，本次提交已阻止：先确认网络或手动 git pull。")
+        sys.exit(return_or_exit)
+    ahead = git("merge-base", "--is-ancestor", "refs/remotes/origin/main", "HEAD")
+    if ahead.returncode not in (0, 1):
+        sys.exit(fail("无法比较本地与 origin/main：" + ahead.stderr.strip()))
+    if ahead.returncode == 1:
+        sys.exit(fail("远端 main 领先于本地：必须先 git pull 把远端合并进本地，再提交。"))
+else:
+    print("（首提或无 HEAD，跳过拉取校验）")
+
+# ---- 2. 私有内容守卫：中文路径须 -z + quotepath=false 取原始路径 ----
+out = git("-c", "core.quotepath=false", "diff", "--cached", "--name-only", "-z", "--diff-filter=ACMR").stdout
+staged = [p for p in out.split("\0") if p]
 if not staged:
     sys.exit(0)
 
-# 书项目/准备工作区/拆书库的固定标记：命中任意一个即视为私有内容
 DIR_MARKERS = (
     "_拆书库/", "_作者/",
     "02-大纲/", "03-文风/", "04-正文/", "05-审稿/", "06-台账/", "07-导出/",
@@ -24,16 +47,15 @@ DIR_MARKERS = (
 FILE_MARKERS = ("book.json", "prepare.json")
 ROOT_PREFIXES = ("novels/", "books/")
 
-blocked = []
-for p in staged:
-    if p.startswith(ROOT_PREFIXES) or any(m in p for m in DIR_MARKERS) or os.path.basename(p) in FILE_MARKERS:
-        blocked.append(p)
-
+blocked = [p for p in staged
+           if p.startswith(ROOT_PREFIXES)
+           or any(m in p for m in DIR_MARKERS)
+           or os.path.basename(p) in FILE_MARKERS]
 if blocked:
-    print("✘ 提交被私有内容守卫拦截：书稿与素材是调试数据，不能上传到 ncc-plugin 仓库。", file=sys.stderr)
-    print("  涉及文件：", file=sys.stderr)
+    print("✘ 提交被私有内容守卫拦截：书稿与素材是调试数据，不能上传到仓库。", file=sys.stderr)
     for p in blocked:
         print("   - " + p, file=sys.stderr)
-    print("  如确属误拦（非书稿/素材），用 git commit --no-verify 跳过，并在 .githooks/pre-commit 修正标记。", file=sys.stderr)
+    print("  如确属误拦，git commit --no-verify 跳过并修正 .githooks/pre-commit 标记。", file=sys.stderr)
     sys.exit(1)
+sys.exit(0)
 PY

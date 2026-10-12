@@ -1,3 +1,11 @@
 .DS_Store
 __pycache__/
 *.pyc
+.idea/
+.video_agent/
+
+# ===== 私有创作内容：书稿与素材是调试与完善 ncc-workflow 的数据，绝不进仓库 =====
+novels/
+books/
+_作者/
+_拆书库/

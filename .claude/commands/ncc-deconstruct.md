@@ -1,0 +1,1 @@
+../../commands/ncc-deconstruct.md
