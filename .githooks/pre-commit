@@ -1,0 +1,39 @@
+#!/bin/sh
+# 私有内容守卫：书稿与素材是 ncc-workflow 的调试数据，绝不进仓库。
+# 模式层（.gitignore）挡默认路径；这里挡任意命名的书目录/准备工作区/评测目录。
+# 启用：git config core.hooksPath .githooks
+root="$(git rev-parse --show-toplevel)" || exit 1
+exec python3 - "$root" <<'PY'
+import subprocess, sys, os
+
+root = sys.argv[1]
+# -z + quotepath=false：拿原始未转义路径（中文书名不会被引号/八进制转义破坏匹配）
+out = subprocess.run(
+    ["git", "-C", root, "-c", "core.quotepath=false",
+     "diff", "--cached", "--name-only", "-z", "--diff-filter=ACMR"],
+    capture_output=True).stdout
+staged = [p for p in out.decode("utf-8").split("\0") if p]
+if not staged:
+    sys.exit(0)
+
+# 书项目/准备工作区/拆书库的固定标记：命中任意一个即视为私有内容
+DIR_MARKERS = (
+    "_拆书库/", "_作者/",
+    "02-大纲/", "03-文风/", "04-正文/", "05-审稿/", "06-台账/", "07-导出/",
+)
+FILE_MARKERS = ("book.json", "prepare.json")
+ROOT_PREFIXES = ("novels/", "books/")
+
+blocked = []
+for p in staged:
+    if p.startswith(ROOT_PREFIXES) or any(m in p for m in DIR_MARKERS) or os.path.basename(p) in FILE_MARKERS:
+        blocked.append(p)
+
+if blocked:
+    print("✘ 提交被私有内容守卫拦截：书稿与素材是调试数据，不能上传到 ncc-plugin 仓库。", file=sys.stderr)
+    print("  涉及文件：", file=sys.stderr)
+    for p in blocked:
+        print("   - " + p, file=sys.stderr)
+    print("  如确属误拦（非书稿/素材），用 git commit --no-verify 跳过，并在 .githooks/pre-commit 修正标记。", file=sys.stderr)
+    sys.exit(1)
+PY

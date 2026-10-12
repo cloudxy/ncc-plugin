@@ -1,0 +1,15 @@
+#!/bin/sh
+# 先拉后推：远端 main 有本地没有的提交时，拒绝推送。
+# 流程：git pull（合并远端）→ git add/commit → git push。
+zero="0000000000000000000000000000000000000000"
+while read local_ref local_sha remote_ref remote_sha; do
+  [ "$remote_ref" = "refs/heads/main" ] || continue
+  [ "$local_sha" = "$zero" ] && exit 0
+  git fetch origin main || { echo "✘ 无法访问远端 origin/main，推送中止。" >&2; exit 1; }
+  if ! git merge-base --is-ancestor origin/main "$local_sha"; then
+    echo "✘ 远端 main 领先于本地要推的提交：必须先 git pull 把远端合并进本地，再推送。" >&2
+    echo "  正确顺序：git pull → 解决冲突（如有）→ git add/commit → git push" >&2
+    exit 1
+  fi
+done
+exit 0

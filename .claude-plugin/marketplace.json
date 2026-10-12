@@ -1,0 +1,19 @@
+{
+  "name": "ncc-plugin",
+  "description": "ncc-workflow 本地插件市场（Novel Create Center，中文长篇网文创作工作流）",
+  "owner": {
+    "name": "xuyun"
+  },
+  "plugins": [
+    {
+      "name": "ncc-workflow",
+      "source": "./",
+      "description": "Novel Create Center：长篇网文从立书到收束的工作流插件。十二个专职角色、三本账、质量闸门、锚定章回归评测、EPUB 导出。",
+      "author": {
+        "name": "xuyun"
+      },
+      "category": "writing",
+      "version": "3.2.0"
+    }
+  ]
+}
