@@ -1,17 +1,17 @@
 # AGENTS.md — ncc-workflow 工作区
 
-Novel Create Center（ncc-workflow）：长篇网文从立书到收束的创作工作流插件，v3.2.0。本目录既是日常创作工作区，也是 ncc-workflow 的**开发与编辑现场**——流程文件（skills/agents/commands/scripts/workflow）就在这里更新。上游 https://github.com/cloudxy/ncc-plugin 是唯一共同源；zcode 已安装插件在 `~/.zcode/local-plugins/ncc-workflow`（独立 git 克隆，与本目录区分开，两边改动都经 GitHub 互通）。
+Novel Create Center（ncc-workflow）：长篇网文从立书到收束的创作工作流插件，v3.2.0。本目录既是日常创作工作区，也是 ncc-workflow 的**开发与编辑现场**——流程文件（skills/agents/commands/scripts/workflow）就在这里更新。上游 https://github.com/cloudxy/ncc-plugin 是唯一共同源；zcode 经 `~/.zcode/cli/config.json` 的 `plugins.dirs` 直接注册本目录加载（2026-10-17 起替代 `~/.zcode/local-plugins/ncc-workflow` 独立克隆；其他机器仍可注册该克隆，两边改动经 GitHub 互通）。
 
 ## 目录
 
 ```
 ncc-workflow/
-├── workflow/      工作流唯一事实源 registry.json（状态机/闸门/决策点）+ principles/architecture
+├── workflow/      registry/ 分片事实源 + registry.json 兼容生成视图；principles/architecture
 ├── skills/        七个创作技能与 ncc-dev 开发入口
 ├── commands/      对应斜杠命令
 ├── agents/        十二角色：scout、worldbuilder、outliner、writer、editor、story-editor、continuity、pulse、reader、scholar、deconstructor、curator
-├── scripts/       ncc_state.py、ncc_prepare.py、check_chapter.py、ncc_eval.py 等
-├── docs/          usage.md 使用指南；dev-workflow.md 开发规范；dev/ 任务与证据；superpowers/specs/ 设计依据
+├── scripts/       运行入口与 ncclib/；dev/ 开发工具；tests/ 测试（顶层保留旧工具薄入口）
+├── docs/          README.md 导航；guides/ 使用指南；engineering/ 工程规范；designs/ 按模块设计；tasks/ 活动任务；evidence/ 验证证据
 ├── eval/          anchors/ 锚定章样章与评测说明
 ├── novels/        书库根目录：书项目、准备工作区、拆书库都放这里（私有，绝不进仓库）
 ├── .claude/ .agents/ .grok/                          各 CLI 项目级软链 → 仓内 skills/commands/agents
@@ -32,7 +32,7 @@ ncc-workflow/
 | codex | `.agents/skills`（官方项目级约定） | `/` 菜单技能，或直接描述意图 |
 | kimi | `.agents/skills`、`.agents/agents` | `/skill:ncc`、`/skill:ncc-write` |
 | grok | `.claude/skills`+`.claude/commands`（claude 兼容）、`.agents/skills`、`.grok/agents` | `/` 菜单命令与技能 |
-| zcode | `~/.zcode/local-plugins/ncc-workflow`（独立克隆，`git pull` 更新） | `/ncc`、`/ncc-new`、`/ncc-write`、`/ncc-review`、`/ncc-prepare`、`/ncc-deconstruct`、`/ncc-eval`、`/ncc-dev` |
+| zcode | 本目录（`plugins.dirs` 直注册；其他机器可用独立克隆 `~/.zcode/local-plugins/ncc-workflow`，`git pull` 更新） | `/ncc`、`/ncc-new`、`/ncc-write`、`/ncc-review`、`/ncc-prepare`、`/ncc-deconstruct`、`/ncc-eval`、`/ncc-dev` |
 
 被当作子代理派单时，按 `agents/<role>.md` 的角色定义执行并回报，不越界（写手不看审稿清单、审稿不写稿、试读读者盲读）。
 
@@ -46,7 +46,7 @@ git add … && git commit -m "…"   # 2. 提交（钩子自动验拉取与私�
 git push                         # 3. 推 main
 ```
 
-zcode 插件副本更新：`cd ~/.zcode/local-plugins/ncc-workflow && git pull`；在那边的改动同样要走 pull→commit→push 回 GitHub。
+zcode 插件更新：本机直注册本目录，源文件改完开新会话即加载，无副本同步；其他机器的独立克隆仍走 `cd ~/.zcode/local-plugins/ncc-workflow && git pull`，在那边的改动同样要走 pull→commit→push 回 GitHub。
 
 ## 私有内容（硬约束）
 
@@ -54,17 +54,20 @@ zcode 插件副本更新：`cd ~/.zcode/local-plugins/ncc-workflow && git pull`�
 
 ## 常用意图
 
-开书 `/ncc-new <一句话想法>`；进度 `/ncc status`；续写 `/ncc-write 接着写`；攒稿 `/ncc-write 今更3章`；审稿 `/ncc-review 第N章`；全书体检 `/ncc-review 全书`；准备（无需建书）`/ncc-prepare …`；拆书 `/ncc-deconstruct <原著路径>`；评测 `/ncc-eval 回归`。完整对照表见 `docs/usage.md`。
+开书 `/ncc-new <一句话想法>`；进度 `/ncc status`；续写 `/ncc-write 接着写`；攒稿 `/ncc-write 今更3章`；审稿 `/ncc-review 第N章`；全书体检 `/ncc-review 全书`；准备（无需建书）`/ncc-prepare …`；拆书 `/ncc-deconstruct <原著路径>`；评测 `/ncc-eval 回归`。完整对照表见 `docs/guides/usage.md`。
 
 ## 插件开发
 
-升级或修复插件使用 `/ncc-dev <目标>`，恢复用 `/ncc-dev continue <任务号>`。开发路径、阶段、证据与交付规范唯一见 [docs/dev-workflow.md](docs/dev-workflow.md)；小说创作继续使用原七技能。规则候选先隔离验证，完成回归后呈作者确认。
+升级或修复插件使用 `/ncc-dev <目标>`，恢复用 `/ncc-dev continue <任务号>`。开发路径、阶段、证据与交付规范唯一见 [docs/engineering/workflow.md](docs/engineering/workflow.md)；小说创作继续使用原七技能。规则候选先隔离验证，完成回归后呈作者确认。
 
 ## 自测
 
 ```bash
-python3 -m unittest discover -s scripts -p 'test_*.py'   # 全量（实际数量以当次输出为准）
-python3 scripts/check_plugin.py -v                       # 一致性
+python3 -m unittest discover -s scripts/tests -t scripts -p 'test_*.py'   # 全量（实际数量以当次输出为准）
+python3 scripts/dev/build_registry.py --check            # 分片与兼容视图
+python3 scripts/dev/check_plugin.py -v                       # 一致性
 ```
 
-改动后必须跑全量自测；`workflow/registry.json`、`skills/`、`agents/` 属工作流规则变更，需过 `ncc-eval 回归` 再由作者确认。
+测试按实际影响范围选择：纯文档、注释、排版或不改变功能的路径调整，只检查内容、链接与必要接线；局部修复和新增功能，只测试受影响部分及相邻接口；大范围重构、跨模块行为或核心数据契约变化，才运行全量自测。上面的命令是全量检查入口，不是每次编辑的必跑清单。
+
+`workflow/registry/`（源）、`workflow/registry.json`（生成视图）、`skills/`、`agents/` 的修改按语义影响判断：只改文字、链接或目录定位不触发模型回归；改变创作标准、闸门、角色职责或审稿判据时，做对应行为回归，涉及审稿判据再运行 `ncc-eval`。规则候选完成相应验证后由作者确认。任务记录写明影响范围、所选检查及结果，不因文件名或目录归属机械扩大测试。

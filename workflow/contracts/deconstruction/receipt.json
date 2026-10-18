@@ -1,0 +1,127 @@
+{
+  "format": "ncc-structure-1",
+  "name": "receipt",
+  "structure": {
+    "type": "object",
+    "fields": {
+      "schema_version": {
+        "type": "integer",
+        "description": "验收收据版本",
+        "const": 1
+      },
+      "chapter": {
+        "type": "integer",
+        "description": "本章seq",
+        "minimum": 1
+      },
+      "chapter_hash": {
+        "type": "string",
+        "description": "正文hash"
+      },
+      "index_fingerprint": {
+        "type": "string",
+        "description": "索引指纹"
+      },
+      "packet_fingerprint": {
+        "type": "string",
+        "description": "派单包指纹"
+      },
+      "vocab_fingerprint": {
+        "type": "string",
+        "description": "词表及契约指纹"
+      },
+      "receipt_fingerprint": {
+        "type": "string",
+        "description": "原子提交点的完整收据指纹"
+      },
+      "base_complete": {
+        "type": "boolean",
+        "description": "必要集合与有效事实已满足"
+      },
+      "scene_complete": {
+        "type": "boolean",
+        "description": "场次另行满足"
+      },
+      "independent": {
+        "type": "boolean",
+        "description": "章内独立范围"
+      },
+      "payload": {
+        "type": "object",
+        "description": "原始章对象，扩展字段保留但不自动生效"
+      },
+      "ledgers": {
+        "type": "object",
+        "description": "经过语义验收的全书事实"
+      },
+      "chapter_facts": {
+        "type": "object",
+        "description": "经过语义验收的章内事实，独立模式保留在此"
+      },
+      "collection_status": {
+        "type": "object",
+        "description": "各集合 verified/partial/uncollected"
+      },
+      "dependencies": {
+        "type": "array",
+        "description": "实际依赖的前章seq",
+        "items": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "context_sources": {
+        "type": "array",
+        "description": "上下文真实路径与指纹"
+      },
+      "scenes": {
+        "type": "array",
+        "description": "有效场次"
+      },
+      "errors": {
+        "type": "array",
+        "description": "基础缺项"
+      },
+      "scene_errors": {
+        "type": "array",
+        "description": "场次缺项"
+      },
+      "rejected": {
+        "type": "array",
+        "description": "丢弃条目与原因"
+      },
+      "pending": {
+        "type": "array",
+        "description": "待校验条目与原因"
+      },
+      "conflicts": {
+        "type": "array",
+        "description": "冲突全部断言"
+      }
+    },
+    "required": [
+      "schema_version",
+      "chapter",
+      "chapter_hash",
+      "index_fingerprint",
+      "packet_fingerprint",
+      "vocab_fingerprint",
+      "receipt_fingerprint",
+      "base_complete",
+      "scene_complete",
+      "independent",
+      "payload",
+      "ledgers",
+      "chapter_facts",
+      "collection_status",
+      "dependencies",
+      "context_sources",
+      "scenes",
+      "errors",
+      "scene_errors",
+      "rejected",
+      "pending",
+      "conflicts"
+    ]
+  }
+}

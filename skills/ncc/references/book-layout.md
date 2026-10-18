@@ -1,6 +1,6 @@
 # 书项目的目录契约与词表
 
-<!-- 整份由 scripts/build_docs.py 从 workflow/registry.json 的 layout 与 vocab 生成，勿手改；要改就改注册表再运行 build_docs.py。 -->
+<!-- 整份由 scripts/dev/build_docs.py 从 workflow/registry/ 的 layout 与 vocab 生成，勿手改；要改就改分片，再依次运行 build_registry.py 与 build_docs.py。 -->
 
 信息的源头、写者与视图见 [book-state.md](book-state.md) 的"信息地图"。
 
@@ -76,7 +76,7 @@
     进化/
       覆盖.json    # [源头] 作者覆盖层：通过闸门的规则改动（阈值、词表增删、新类目、新技法类别）；插件默认 < 书库配置 < 作者覆盖 < 本书配置｜evolve apply/revert
       提议.jsonl    # [历史] 进化提议：提出、评测、作者确认、生效、撤回｜evolve propose/eval/apply/reject/revert
-  _拆书库/    # [角色] 拆书库：每本对标书一个目录（原文、索引、实体、台账、报告，进度在 _progress.json）｜deconstructor；decon index/mark/stats｜如 <书名>/索引/chapter_index.json、<书名>/台账/伏笔.jsonl、<书名>/报告/基线.json
+  _拆书库/    # [角色] 拆书库：每本对标书一个目录（原文、索引与计划、验收章、实体台账、场次和报告，分层进度在 _progress.json）｜deconstructor 交章文件；经理经 decon index/plan/packet/ingest/stats 写入；mark 只作兼容或显式豁免｜如 <书名>/索引/chapter_index.json、<书名>/台账/伏笔.jsonl、<书名>/报告/基线.json
 ```
 
 ## 词表

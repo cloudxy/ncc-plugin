@@ -1,0 +1,12 @@
+{
+  "eval": {
+    "anchors": "eval/anchors/（6 章：底蕴 3、连贯 1、承诺 1、干净对照 1；答案在 answers.json，不进派单包）",
+    "mech": "ncc_eval.py mech：check_chapter 的提醒命中埋的错、干净章零误报（确定性，进自测）",
+    "judge": "ncc_eval.py prepare → 经理逐包派 continuity → score：检出率、定级到位、结论准确率、干净章误报、多次稳定性",
+    "bench": "ncc_eval.py bench init|add|blind|vote|score：冻结写手包 SHA，各模型同包写一版，盲稿成对比较，揭盲算胜率与机械指标",
+    "when": "改了审稿判据或换了审稿、写作模型之后",
+    "method": "skills/ncc-eval/SKILL.md"
+  },
+  "dashboard": "ncc_state.py dashboard <书库根目录> [--bucket 10] [--html 文件]：各书阶段、进度、存稿、承诺健康度与承诺热力图",
+  "export": "ncc_state.py export <书目录> --format md|txt|epub：只收已定稿的章，去掉修订注记，epub 为 EPUB 3（附 NCX）"
+}

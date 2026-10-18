@@ -132,10 +132,18 @@
   setting list|check <book>              check：研判做了没有、选用的类目有没有卡、必填字段、进没进词典、卡里的数字
 
 拆书与技法（M9：拆完一段学写法）
-  decon index <拆书库/书名> [--source 原文/文件] [--force]   章节索引（唯一真源）；跳号、重号、空章先停下
-  decon mark <拆书库/书名> --done A-B | --skip N --why W     进度
-  decon coverage <拆书库/书名>                               覆盖率闸门：索引章数 = 已拆 + 显式跳过
-  decon stats <拆书库/书名> [--range A-B] [--write]          对标基线：伏笔等待、爽点密度、压抑与释放、钩子、实体类目
+  decon index <拆书库/书名> [--source 原文/文件] [--config 配置] [--accept-reindex]
+                                         唯一 seq/span/hash；跳号/短章警告，结构阻塞不可 force 绕过
+  decon plan <拆书库/书名> [--goal structure|technique|full|transfer] [--select A-B,C --reason 理由] [--screenplay A-B|none]
+                                         骨架、默认最多27关键章、明确全章或只读转化；无参数查看已有计划
+  decon packet <拆书库/书名> [seq] [--layer L2|L3] [--framework 总纲文件] [--context 上下文] [--independent]
+  decon ingest <拆书库/书名> [章JSON] [--layer L2|L3] [--recover]
+                                         文件/条目/场次验收入库；从原子验收收据恢复台账和逐章进度
+  decon mark <拆书库/书名> --done A-B | --skip N --why W [--layer L2|screenplay]
+                                         旧库记 legacy；新层不绕过产物验收
+  decon coverage <拆书库/书名> [--layer L0|L1|L2|L3|screenplay|legacy]
+  decon stats <拆书库/书名> [--range A-B] [--layer L1|L2] [--write]
+                                         全书/连续范围/稀疏样本分开；局部报告不覆盖全书基线
   decon link <book> <对标书名>                               本书的对标书（单元复盘拿它的基线作参照）
   technique add <书库或书目录> --kind {technique_kinds} --method 手法 --how 怎么做 --evidence "拆:书名 第N章「定位词」"...
                 --applies "题材=a,b；阶段={technique_stages}；契约=…；承诺=…" --cost 代价与失效 --confidence {confidence}
@@ -173,21 +181,10 @@ import json
 import os
 import sys
 from pathlib import Path
-from .core import GATES, MODES, OPLOG, SCHEMA, V, cmd_sha, now, read_json
-from .ledgers import cmd_event, cmd_fact, cmd_know, cmd_promise, cmd_reader_now, cmd_water
-from .materials import cmd_material
-from .scenes import cmd_brief, cmd_era, cmd_knowledge, cmd_pack, cmd_review, cmd_scene, cmd_study, cmd_words
-from .learning import cmd_craft, cmd_heat, cmd_pref, cmd_style
-from .memory import cmd_handoff, cmd_memory, cmd_recall
-from .settings import cmd_setting
-from .decon import cmd_decon
-from .techniques import cmd_technique
-from .views import cmd_check, cmd_render, render
-from .loops import cmd_feedback, cmd_finale, cmd_report, cmd_team, cmd_unit, cmd_volume
-from .delivery import cmd_dashboard, cmd_export
-from .evolve import cmd_evolve
-from .book import (cmd_chapter, cmd_complete, cmd_contract, cmd_gate, cmd_init, cmd_level, cmd_migrate, cmd_mode, cmd_next, cmd_sign, cmd_soul, cmd_status)
+from .core import MODES, OPLOG, SCHEMA, V, now, read_json
+from .views import render
 
+from .cli_parsers import COMMAND_ORDER, REGISTRARS
 
 RENDER_SKIP = {"render", "check", "sha", "dashboard", "export", "words"}
 
@@ -210,254 +207,19 @@ def auto_render(a):
             render(b)
 
 
-def main():
+def build_parser():
     words = {k: "|".join(v) for k, v in V.items() if isinstance(v, list)}   # 词表只在注册表里写一份
     words.update(modes="|".join(MODES), colors=",".join(V["colors"]), scene_batch="、".join(f"{m} {n}" for m, n in V["scene_batch"].items()))
     ap = argparse.ArgumentParser(description=__doc__.format(**words), formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    p = sub.add_parser("init"); p.add_argument("book_dir"); p.add_argument("--title", required=True)
-    p.add_argument("--genre", default=""); p.add_argument("--chapters", type=int, default=300)
-    p.add_argument("--level", default="新手"); p.add_argument("--mode", default="混合"); p.set_defaults(fn=cmd_init)
-    for name, fn in (("status", cmd_status), ("next", cmd_next), ("migrate", cmd_migrate)):
-        p = sub.add_parser(name); p.add_argument("book_dir"); p.set_defaults(fn=fn)
+    for name in COMMAND_ORDER:
+        REGISTRARS[name](sub)
+    return ap
 
-    p = sub.add_parser("gate"); p.add_argument("book_dir"); p.add_argument("name", choices=list(GATES))
-    p.add_argument("--action", choices=["check", "pass", "reject"], default="check")
-    p.add_argument("--quote", default=""); p.add_argument("--force", action="store_true")
-    p.set_defaults(fn=cmd_gate)
 
-    p = sub.add_parser("level"); p.add_argument("book_dir"); p.add_argument("level"); p.set_defaults(fn=cmd_level)
-    p = sub.add_parser("mode"); p.add_argument("book_dir"); p.add_argument("mode"); p.set_defaults(fn=cmd_mode)
-    p = sub.add_parser("soul"); p.add_argument("book_dir")
-    for k in ("question", "answer", "injustice", "ending", "status", "deadline", "arc"):
-        p.add_argument(f"--{k}")
-    p.set_defaults(fn=cmd_soul)
-    p = sub.add_parser("contract"); p.add_argument("book_dir"); p.add_argument("--main")
-    p.add_argument("--extra", action="append"); p.add_argument("--poison"); p.add_argument("--audience"); p.set_defaults(fn=cmd_contract)
-    p = sub.add_parser("sign"); p.add_argument("book_dir"); p.add_argument("point")
-    p.add_argument("--ch", type=int, required=True); p.set_defaults(fn=cmd_sign)
-
-    p = sub.add_parser("scene"); ss = p.add_subparsers(dest="action", required=True)
-    q = ss.add_parser("next"); q.add_argument("book_dir")
-    q = ss.add_parser("check"); q.add_argument("book_dir"); q.add_argument("seq", type=int, nargs="+")
-    q = ss.add_parser("review"); q.add_argument("book_dir"); q.add_argument("seq", type=int, nargs="+")
-    q.add_argument("--result", choices=["pass", "revise"], required=True); q.add_argument("--by", required=True)
-    q.add_argument("--note")
-    p.set_defaults(fn=cmd_scene)
-
-    p = sub.add_parser("chapter"); cs = p.add_subparsers(dest="action", required=True)
-    q = cs.add_parser("add"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
-    q.add_argument("--file", required=True); q.add_argument("--key", action="store_true")
-    q = cs.add_parser("key"); q.add_argument("book_dir"); q.add_argument("seq", type=int); q.add_argument("--off", action="store_true")
-    q = cs.add_parser("hook"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
-    q.add_argument("--type", required=True); q.add_argument("--intensity", type=int, required=True); q.add_argument("--line")
-    q = cs.add_parser("mark"); q.add_argument("book_dir"); q.add_argument("seq", type=int); q.add_argument("status")
-    q = cs.add_parser("mood"); q.add_argument("book_dir"); q.add_argument("seq", type=int); q.add_argument("tension")
-    q.add_argument("--colors")
-    q = cs.add_parser("pick"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
-    q.add_argument("--version", required=True); q.add_argument("--note")
-    q = cs.add_parser("end"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
-    q.add_argument("--time"); q.add_argument("--place"); q.add_argument("--next")
-    q = cs.add_parser("length"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
-    q.add_argument("--accept", action="store_true"); q.add_argument("--compressed", action="store_true")
-    q.add_argument("--force", action="store_true"); q.add_argument("--note"); q.add_argument("--tentative", action="store_true")
-    q = cs.add_parser("retry"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
-    q = cs.add_parser("publish"); q.add_argument("book_dir"); q.add_argument("--upto", type=int, required=True)
-    p.set_defaults(fn=cmd_chapter)
-
-    p = sub.add_parser("unit"); us = p.add_subparsers(dest="action", required=True)
-    q = us.add_parser("open"); q.add_argument("book_dir"); q.add_argument("--start", type=int, required=True); q.add_argument("--title")
-    q = us.add_parser("close"); q.add_argument("book_dir"); q.add_argument("--end", type=int, required=True)
-    q = us.add_parser("list"); q.add_argument("book_dir")
-    p.set_defaults(fn=cmd_unit)
-    p = sub.add_parser("volume"); vs = p.add_subparsers(dest="action", required=True)
-    q = vs.add_parser("end"); q.add_argument("book_dir"); q.add_argument("--end", type=int, required=True)
-    p.set_defaults(fn=cmd_volume)
-    p = sub.add_parser("finale"); fns = p.add_subparsers(dest="action", required=True)
-    q = fns.add_parser("begin"); q.add_argument("book_dir")
-    p.set_defaults(fn=cmd_finale)
-    p = sub.add_parser("report"); p.add_argument("book_dir"); p.add_argument("kind", choices=["unit", "volume", "finale"])
-    p.add_argument("--write", action="store_true")
-    p.set_defaults(fn=cmd_report)
-    p = sub.add_parser("feedback"); fbs = p.add_subparsers(dest="action", required=True)
-    q = fbs.add_parser("add"); q.add_argument("book_dir"); q.add_argument("--ch", type=int, required=True)
-    q.add_argument("--source", required=True); q.add_argument("--kind", required=True); q.add_argument("--value", required=True)
-    q.add_argument("--note"); q.add_argument("--persona")
-    q = fbs.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--ch", type=int)
-    p.set_defaults(fn=cmd_feedback)
-    p = sub.add_parser("team"); ts = p.add_subparsers(dest="action", required=True)
-    q = ts.add_parser("set"); q.add_argument("book_dir"); q.add_argument("position"); q.add_argument("name")
-    q = ts.add_parser("list"); q.add_argument("book_dir")
-    p.set_defaults(fn=cmd_team)
-
-    p = sub.add_parser("complete"); p.add_argument("book_dir"); p.add_argument("seq", type=int)
-    p.add_argument("--words", type=int, required=True); p.add_argument("--hard", choices=["pass", "fail"], required=True)
-    p.add_argument("--decidable", type=float); p.add_argument("--report", default=""); p.set_defaults(fn=cmd_complete)
-    p = sub.add_parser("water"); p.add_argument("book_dir"); p.add_argument("seq", type=int); p.set_defaults(fn=cmd_water)
-
-    p = sub.add_parser("promise"); ps = p.add_subparsers(dest="action", required=True)
-    q = ps.add_parser("add"); q.add_argument("book_dir"); q.add_argument("--type", required=True)
-    q.add_argument("--content", required=True); q.add_argument("--ch", type=int, required=True)
-    q.add_argument("--strength", type=int, default=3); q.add_argument("--window"); q.add_argument("--deadline")
-    q.add_argument("--desire")
-    for act in ("touch", "resolve"):
-        q = ps.add_parser(act); q.add_argument("book_dir"); q.add_argument("id")
-        q.add_argument("--ch", type=int, required=True); q.add_argument("--note")
-    q = ps.add_parser("reschedule"); q.add_argument("book_dir"); q.add_argument("id")
-    q.add_argument("--window", required=True); q.add_argument("--note", required=True); q.add_argument("--ch", type=int)
-    q = ps.add_parser("drop"); q.add_argument("book_dir"); q.add_argument("id")
-    q.add_argument("--ch", type=int, required=True); q.add_argument("--compensation", required=True)
-    q = ps.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--open", action="store_true"); q.add_argument("--type")
-    p.set_defaults(fn=cmd_promise)
-
-    p = sub.add_parser("know"); ks = p.add_subparsers(dest="action", required=True)
-    q = ks.add_parser("add"); q.add_argument("book_dir"); q.add_argument("--fact", required=True)
-    q.add_argument("--ch", type=int, required=True); q.add_argument("--known-by"); q.add_argument("--unknown-to")
-    q = ks.add_parser("learn"); q.add_argument("book_dir"); q.add_argument("id")
-    q.add_argument("--who", required=True); q.add_argument("--ch", type=int, required=True)
-    q = ks.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--who")
-    p.set_defaults(fn=cmd_know)
-
-    p = sub.add_parser("fact"); fs = p.add_subparsers(dest="action", required=True)
-    q = fs.add_parser("set"); q.add_argument("book_dir"); q.add_argument("key"); q.add_argument("value")
-    q.add_argument("--ch", type=int, required=True); q.add_argument("--source"); q.add_argument("--category")
-    q.add_argument("--override", action="store_true")
-    q = fs.add_parser("get"); q.add_argument("book_dir"); q.add_argument("key")
-    q = fs.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--category")
-    p.set_defaults(fn=cmd_fact)
-
-    p = sub.add_parser("knowledge"); kns = p.add_subparsers(dest="action", required=True)
-    q = kns.add_parser("plan"); q.add_argument("book_dir"); q.add_argument("seq", type=int, nargs="+")
-    q = kns.add_parser("check"); q.add_argument("book_dir"); q.add_argument("seq", type=int, nargs="+")
-    p.set_defaults(fn=cmd_knowledge)
-    p = sub.add_parser("era"); p.add_argument("book_dir"); p.add_argument("era"); p.set_defaults(fn=cmd_era)
-    p = sub.add_parser("study"); p.add_argument("book_dir"); p.add_argument("--add"); p.set_defaults(fn=cmd_study)
-    p = sub.add_parser("material"); ms = p.add_subparsers(dest="action", required=True)
-    q = ms.add_parser("add"); q.add_argument("book_dir"); q.add_argument("--content", required=True)
-    q.add_argument("--source", required=True); q.add_argument("--use", required=True); q.add_argument("--trust")
-    q.add_argument("--domain"); q.add_argument("--genre"); q.add_argument("--title"); q.add_argument("--shared", action="store_true")
-    q = ms.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--domain"); q.add_argument("--unused", action="store_true")
-    q = ms.add_parser("check"); q.add_argument("book_dir")
-    p.set_defaults(fn=cmd_material)
-    p = sub.add_parser("style"); p.add_argument("book_dir"); p.add_argument("--sample", nargs="+")
-    p.add_argument("--from-chapters"); p.set_defaults(fn=cmd_style)
-    p = sub.add_parser("heat"); p.add_argument("book_dir"); p.add_argument("--ch"); p.set_defaults(fn=cmd_heat)
-    p = sub.add_parser("pref"); prs = p.add_subparsers(dest="action", required=True)
-    q = prs.add_parser("show"); q.add_argument("path"); q.add_argument("--key")
-    for act in ("like", "confirm", "reject"):
-        q = prs.add_parser(act); q.add_argument("path"); q.add_argument("--key", required=True)
-        q.add_argument("--value", required=True); q.add_argument("--note")
-    q = prs.add_parser("dislike"); q.add_argument("path"); q.add_argument("--value", required=True); q.add_argument("--key")
-    p.set_defaults(fn=cmd_pref)
-    p = sub.add_parser("craft"); crs = p.add_subparsers(dest="action", required=True)
-    q = crs.add_parser("init"); q.add_argument("book_dir")
-    q = crs.add_parser("read"); q.add_argument("book_dir"); q.add_argument("--top", type=int, default=12)
-    p.set_defaults(fn=cmd_craft)
-    p = sub.add_parser("memory"); mms = p.add_subparsers(dest="action", required=True)
-    q = mms.add_parser("add"); q.add_argument("book_dir"); q.add_argument("--role", required=True)
-    q.add_argument("--kind", required=True); q.add_argument("--text", required=True)
-    q.add_argument("--evidence", action="append"); q.add_argument("--ch", type=int)
-    q = mms.add_parser("reinforce"); q.add_argument("book_dir"); q.add_argument("--role", required=True); q.add_argument("id")
-    q.add_argument("--shared", action="store_true")
-    q.add_argument("--evidence", action="append"); q.add_argument("--ch", type=int)
-    q = mms.add_parser("merge"); q.add_argument("book_dir"); q.add_argument("--role", required=True)
-    q.add_argument("--shared", action="store_true")
-    q.add_argument("--into", required=True); q.add_argument("ids", nargs="+"); q.add_argument("--text")
-    for act in ("archive", "restore"):
-        q = mms.add_parser(act); q.add_argument("book_dir"); q.add_argument("--role", required=True); q.add_argument("id")
-        q.add_argument("--note")
-        q.add_argument("--shared", action="store_true")
-    q = mms.add_parser("edit"); q.add_argument("book_dir"); q.add_argument("--role", required=True); q.add_argument("id")
-    q.add_argument("--text", required=True); q.add_argument("--note"); q.add_argument("--shared", action="store_true")
-    q = mms.add_parser("promote"); q.add_argument("book_dir"); q.add_argument("--role", required=True)
-    q.add_argument("ids", nargs="*"); q.add_argument("--genre")
-    q = mms.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--role"); q.add_argument("--all", action="store_true")
-    q.add_argument("--shared", action="store_true")
-    q = mms.add_parser("consolidate"); q.add_argument("book_dir"); q.add_argument("--role"); q.add_argument("--apply", action="store_true")
-    q.add_argument("--shared", action="store_true")
-    p.set_defaults(fn=cmd_memory)
-    p = sub.add_parser("handoff"); hs = p.add_subparsers(dest="action", required=True)
-    q = hs.add_parser("add"); q.add_argument("book_dir"); q.add_argument("--kind", required=True); q.add_argument("--text", required=True)
-    q.add_argument("--layer"); q.add_argument("--ch")
-    q = hs.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--open", action="store_true"); q.add_argument("--role")
-    q.add_argument("--ch", type=int)
-    q = hs.add_parser("close"); q.add_argument("book_dir"); q.add_argument("id"); q.add_argument("--to", required=True); q.add_argument("--note")
-    p.set_defaults(fn=cmd_handoff)
-    p = sub.add_parser("recall"); p.add_argument("book_dir"); p.add_argument("words", nargs="+"); p.add_argument("--role")
-    p.add_argument("--from", dest="from_ch", type=int); p.add_argument("--to", dest="to_ch", type=int)
-    p.add_argument("--top", type=int, default=10); p.set_defaults(fn=cmd_recall)
-    p = sub.add_parser("brief"); p.add_argument("book_dir"); p.add_argument("--role", required=True)
-    p.add_argument("--seq", type=int, nargs="*"); p.add_argument("--task"); p.add_argument("--persona"); p.add_argument("--note")
-    p.set_defaults(fn=cmd_brief)
-
-    p = sub.add_parser("setting"); sts = p.add_subparsers(dest="action", required=True)
-    for act in ("catalog", "list", "check"):
-        q = sts.add_parser(act); q.add_argument("book_dir")
-    q = sts.add_parser("use"); q.add_argument("book_dir"); q.add_argument("names", nargs="+"); q.add_argument("--why", required=True)
-    q = sts.add_parser("new"); q.add_argument("book_dir"); q.add_argument("name"); q.add_argument("--required", required=True)
-    q.add_argument("--optional"); q.add_argument("--alias"); q.add_argument("--why", required=True); q.add_argument("--gap", required=True)
-    q = sts.add_parser("none"); q.add_argument("book_dir"); q.add_argument("--why", required=True)
-    q = sts.add_parser("drop"); q.add_argument("book_dir"); q.add_argument("name")
-    q = sts.add_parser("add"); q.add_argument("book_dir"); q.add_argument("cat"); q.add_argument("name")
-    p.set_defaults(fn=cmd_setting)
-
-    p = sub.add_parser("decon"); dcs = p.add_subparsers(dest="action", required=True)
-    q = dcs.add_parser("index"); q.add_argument("lib"); q.add_argument("--source"); q.add_argument("--force", action="store_true")
-    q = dcs.add_parser("mark"); q.add_argument("lib"); q.add_argument("--done"); q.add_argument("--skip", type=int); q.add_argument("--why")
-    q = dcs.add_parser("coverage"); q.add_argument("lib")
-    q = dcs.add_parser("stats"); q.add_argument("lib"); q.add_argument("--range"); q.add_argument("--write", action="store_true")
-    q = dcs.add_parser("link"); q.add_argument("book_dir"); q.add_argument("name")
-    p.set_defaults(fn=cmd_decon)
-    p = sub.add_parser("technique"); tcs = p.add_subparsers(dest="action", required=True)
-    q = tcs.add_parser("add"); q.add_argument("path"); q.add_argument("--kind", required=True); q.add_argument("--method", required=True)
-    q.add_argument("--how", required=True); q.add_argument("--evidence", action="append", required=True)
-    q.add_argument("--applies", required=True); q.add_argument("--cost", required=True); q.add_argument("--confidence", required=True)
-    q.add_argument("--source", required=True); q.add_argument("--data"); q.add_argument("--title")
-    q = tcs.add_parser("check"); q.add_argument("path")
-    q = tcs.add_parser("list"); q.add_argument("path"); q.add_argument("--kind")
-    q = tcs.add_parser("match"); q.add_argument("path"); q.add_argument("--role", required=True); q.add_argument("--seq", type=int, nargs="*")
-    q = tcs.add_parser("result"); q.add_argument("path"); q.add_argument("id"); q.add_argument("--outcome", choices=["good", "bad"], required=True)
-    q.add_argument("--note"); q.add_argument("--ch", type=int); q.add_argument("--book")
-    for act in ("retire", "restore"):
-        q = tcs.add_parser(act); q.add_argument("path"); q.add_argument("id"); q.add_argument("--note")
-    p.set_defaults(fn=cmd_technique)
-    p = sub.add_parser("evolve"); evs_ = p.add_subparsers(dest="action", required=True)
-    q = evs_.add_parser("propose"); q.add_argument("path"); q.add_argument("--key", required=True); q.add_argument("--value", required=True)
-    q.add_argument("--parent", help="新技法类别继承的内置父类（默认剧情规划）")
-    q.add_argument("--why", required=True); q.add_argument("--evidence", action="append")
-    for act in ("eval", "apply", "reject", "revert"):
-        q = evs_.add_parser(act); q.add_argument("path"); q.add_argument("id"); q.add_argument("--quote"); q.add_argument("--note")
-    q = evs_.add_parser("list"); q.add_argument("path"); q.add_argument("--open", action="store_true")
-    q = evs_.add_parser("rules"); q.add_argument("path")
-    q = evs_.add_parser("scan"); q.add_argument("path"); q.add_argument("--propose", action="store_true")
-    p.set_defaults(fn=cmd_evolve)
-    p = sub.add_parser("dashboard"); p.add_argument("book_root"); p.add_argument("--bucket", type=int, default=10)
-    p.add_argument("--html"); p.set_defaults(fn=cmd_dashboard)
-    p = sub.add_parser("export"); p.add_argument("book_dir"); p.add_argument("--format", choices=["md", "txt", "epub"], default="md")
-    p.add_argument("--from", dest="from_ch", type=int); p.add_argument("--to", dest="to_ch", type=int); p.add_argument("--author")
-    p.set_defaults(fn=cmd_export)
-    p = sub.add_parser("pack"); p.add_argument("book_dir"); p.add_argument("seq", type=int); p.add_argument("--note")
-    p.set_defaults(fn=cmd_pack)
-    p = sub.add_parser("review"); rs = p.add_subparsers(dest="action", required=True)
-    q = rs.add_parser("plan"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
-    q = rs.add_parser("delta"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
-    p.set_defaults(fn=cmd_review)
-    p = sub.add_parser("words"); p.add_argument("book_dir"); p.add_argument("seq", type=int); p.add_argument("--file")
-    p.set_defaults(fn=cmd_words)
-    p = sub.add_parser("render"); p.add_argument("book_dir"); p.set_defaults(fn=cmd_render)
-    p = sub.add_parser("check"); p.add_argument("book_dir"); p.set_defaults(fn=cmd_check)
-    p = sub.add_parser("event"); evs = p.add_subparsers(dest="action", required=True)
-    q = evs.add_parser("add"); q.add_argument("book_dir"); q.add_argument("--entity", required=True)
-    q.add_argument("--ch", type=int, required=True); q.add_argument("--attr", required=True)
-    q.add_argument("--old"); q.add_argument("--new"); q.add_argument("--reason"); q.add_argument("--evidence")
-    q = evs.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--entity")
-    p.set_defaults(fn=cmd_event)
-    p = sub.add_parser("reader-now"); p.add_argument("book_dir"); p.add_argument("seq", type=int)
-    p.add_argument("--top", type=int, default=5); p.set_defaults(fn=cmd_reader_now)
-    p = sub.add_parser("sha"); p.add_argument("file"); p.set_defaults(fn=cmd_sha)
-
-    a = ap.parse_args()
+def main():
+    a = build_parser().parse_args()
     a.fn(a)
     log_op(a)
     auto_render(a)

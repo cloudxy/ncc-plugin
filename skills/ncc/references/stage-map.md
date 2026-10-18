@@ -1,6 +1,6 @@
 # 阶段图（registry 的人类可读视图）
 
-唯一事实源：`workflow/registry.json`。本文件是派单时查的速览表；表格由 `scripts/build_docs.py` 从 registry 生成，勿手改。阶段编号按决定 D10。
+唯一规则源：`workflow/registry/`，`workflow/registry.json` 是兼容生成视图。本文件是派单速览；表格由 `scripts/dev/build_docs.py` 生成，勿手改。阶段编号按决定 D10。
 
 ## 主线
 
@@ -9,7 +9,7 @@ S0 立书 ─G0书魂闸─▶ S1 立骨(设定 ─G1─▶ 大纲 ─G2─) ─
                                     └─ ncc-deconstruct 随时喂设定库 ─┘
 ```
 
-<!-- ncc:gen stages 开始（scripts/build_docs.py 由 workflow/registry.json 生成，勿手改） -->
+<!-- ncc:gen stages 开始（scripts/dev/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
 | 阶段 | 层 | 主责角色 | 参与角色 | 产物 | 闸门 |
 |---|---|---|---|---|---|
 | P 创作前准备（可独立、可重入） | 通用资产 / 世界或作品设定 | ncc-prepare | curator（素材库治理）、worldbuilder（设定与虚构素材）、scholar（事实资料），按宿主授权执行 | 资料与设定的整理、完善、创建成果；来源、关系、采用决定、缺项与范围检查；独立 prepare.json；本库规范、全库处置与批次、实际整理库和取用验证 | 范围内准备检查；不替代 G0–G5 |
@@ -37,7 +37,7 @@ book.json 的 `stage`：`founding → settings → outline → opening → seria
   → ncc_state.py complete --hard pass
 ```
 
-<!-- ncc:gen batch 开始（scripts/build_docs.py 由 workflow/registry.json 生成，勿手改） -->
+<!-- ncc:gen batch 开始（scripts/dev/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
 每批场景卡的章数：建筑师 5 章、混合 3 章、园丁 2 章。
 <!-- ncc:gen batch 结束 -->
 
@@ -45,7 +45,7 @@ book.json 的 `stage`：`founding → settings → outline → opening → seria
 
 ## 角色分工速查
 
-<!-- ncc:gen roles 开始（scripts/build_docs.py 由 workflow/registry.json 生成，勿手改） -->
+<!-- ncc:gen roles 开始（scripts/dev/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
 | 角色 | 一句话职责 | 绝不做 |
 |---|---|---|
 | scout | 扫榜、对标、briefing、从作者种子出 2–3 套整本方向候选 | 写设定 |
@@ -58,7 +58,7 @@ book.json 的 `stage`：`founding → settings → outline → opening → seria
 | continuity | 硬伤层主审（常规章唯一审稿人，含毒点）：设定冲突/时间线/承诺义务/场景卡是否落地/知情越权/知识台账，只产 observation；复审只看改动 | 改稿、评好坏 |
 | pulse | 只在兑现章、关键章、开篇：契约与欠·挣·超·证；关键章的版本成对比较 | 改稿、打绝对分 |
 | reader | 按画像盲评（不给大纲设定）：追读意愿、弃读与略读点、记忆测试、在等什么；懂行读者报出戏点 | 看任何生产材料 |
-| deconstructor | 按总纲5.0拆对标书，喂设定库；质感细节与机制样本、对标书的书魂与契约；拆完一段学写法，写技法卡 | 写本书正文 |
+| deconstructor | 按层和已选范围抽取有证据事实、场次或写作方法，返回经理验收入库 | 不扩大阅读范围，不手写进度或跨章台账，不写作者书大纲和正文 |
 | curator | 通用素材库治理：诊断、组织规范、内容与结构整理、补全、导航、全库验收和写作取用 | 编造事实、擅定冲突口径、以样本或报告冒充全库治理 |
 
 fresh 标记：continuity、pulse、reader 为无记忆新上下文——派单包不含生产材料。

@@ -35,7 +35,7 @@
 
 类目卡不进写手包（卡里有秘密和完整真相）；写手看到的是设定词典的"读者已知"一栏。拆书时 deconstructor 按同一套类目给实体归类，拆出来的能直接并入类目卡。
 
-<!-- ncc:gen setting-catalog 开始（scripts/build_docs.py 由 workflow/registry.json 生成，勿手改） -->
+<!-- ncc:gen setting-catalog 开始（scripts/dev/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
 | 类目 | 别名 | 常见题材 | 必填字段 |
 |---|---|---|---|
 | 门派 | 宗门、宗派、帮派 | 仙侠、玄幻、武侠、高武 | 定位、地盘、传承与功法、门规（含一条不合理却存在的）、晋升路径、资源来源、和主角的关系、秘密 |

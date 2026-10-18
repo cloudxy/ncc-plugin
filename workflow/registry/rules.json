@@ -1,0 +1,183 @@
+{
+  "axioms": [
+    "书魂先于情节，情节先于知识。",
+    "一切叙事元素都是对读者的承诺。",
+    "决定按可逆度分层：越难撤回，越早做、越少人做、闸门越严。",
+    "读者始终在场：写每一章前，先知道读者此刻知道什么、在等什么、情绪在哪。",
+    "AI 扩展选项，人做选择。",
+    "好钢用在刀刃上：文学投入按章节分量分配。",
+    "作者可持续。",
+    "模糊之处给推荐，不把空白题丢给作者；推荐从作者种子里长出来。"
+  ],
+  "iron_rules": [
+    "写这章的帽不审这章；审稿帽只产带证据的 observation，不改稿。",
+    "book.json 与 06-台账 是状态权威；markdown 投影与正文永不回写状态。",
+    "修订是显式独立动作；正文 SHA 一变，旧评审即作废，必须复评。",
+    "每章动笔前必由 ncc_state.py pack 组装并留档写手包（写作简报＋读者此刻），无包不写；场景卡没过故事审不写正文。",
+    "创作决策点（G0–G5）作者拍板；执行阶段（写作/审稿循环）禁停顿——循环内的决策按推荐项执行、记为暂定，单元复盘时集中呈给作者。",
+    "宁可记「待定/文本未明确」，不可编造设定；场景用到的学科知识须有出处。",
+    "审稿三层：硬伤层只判通过／不通过，每条带正文引用；故事层在正文之前审场景卡；品质层只在关键章做成对比较与读者记忆测试，不打绝对分。",
+    "每个要作者决定的地方，都给推荐、理由和备选；作者可以先用推荐、以后再改。",
+    "写作简报与质检清单分离：写手的上下文里不放审稿清单、分数阈值与书魂原文。"
+  ],
+  "scene_cards": {
+    "per_chapter": "1–3",
+    "tool": "ncc_state.py scene next|check|review（可一次审一批）",
+    "rule": "场景卡过故事审之后才能标 drafting 与 complete；审后改动须重审；关键章须作者过目",
+    "layout": "scene_dir",
+    "batch": "见 vocab.scene_batch"
+  },
+  "principle": "下限靠系统，上限靠作者与选择。",
+  "review_plan": {
+    "常规章": "continuity 一人（含契约与毒点）",
+    "加 pulse": "本章兑现爽点欠账或名场面、关键章、开篇",
+    "复审": "review delta 只看改动段落，由原审稿人复审",
+    "tool": "ncc_state.py review plan|delta"
+  },
+  "avoidance": {
+    "source": "作者 novel_guide「12 代入感」「13 规避点」",
+    "script": "check_chapter.py 规避点告警：长段（para_max）、长句（sentence_commas_max）、对白流（dialogue_run_max）；对话占比只作参考",
+    "criteria": "skills/ncc-review/references/review-domains.md 的「代入感与规避点」"
+  },
+  "reader_personas": {
+    "personas": [
+      "目标读者",
+      "老白",
+      "小白",
+      "懂行读者"
+    ],
+    "opening": "至少 2 个画像，各一次独立盲评（G3 查）",
+    "key_chapter": "目标读者 1 个",
+    "heat": "feedback add --persona 登记；ncc_state.py heat 合成追读、弃读与略读热点、划线、出戏",
+    "reader_now_check": "各画像的\"我在等什么\"与 reader-now 对照，校验承诺台账",
+    "method": "skills/ncc-review/references/reader-personas.md"
+  },
+  "length": {
+    "band": "场景卡「字数范围：A-B」，否则 ncc.config.yaml 的 words_min/words_max",
+    "writer": "分两段写，前半段后用 ncc_state.py words 量一次；写完简报里的事就停，不为凑字数加内容",
+    "under": "needs_decision：不少于下限一半按推荐先收（--tentative），不到一半当场问作者",
+    "over": "editor 一次只删不加的压缩（--compressed），仍超按推荐先收",
+    "source": "借鉴 oh-story v0.8.4：欠字不补、超字只删一次、分组写作与中途字数检查"
+  },
+  "principles": {
+    "doc": "workflow/principles.md",
+    "laws": [
+      "一事一源",
+      "副本只能生成",
+      "一处一主",
+      "按变化内聚",
+      "只经接口耦合",
+      "现状与历史分开",
+      "按需可见"
+    ],
+    "constraint": "规则有成本：新增规则先说证据与它取代了什么",
+    "information_map": "由 layout 生成：skills/ncc/references/book-state.md「信息地图」",
+    "tools": "ncc_state.py render（生成视图）、check（视图一致、历史只追加、旧布局残留）、event add、chapter end、report --write"
+  },
+  "review_words": {
+    "what": "审稿判据词：check_plugin.py 查写手能读的插件文件；写手与 editor 的记忆、文笔技法及完整写手包统一检查（另加 memory_extra）",
+    "values": [
+      "可判定率",
+      "critical",
+      "典型硬伤",
+      "诊断问句",
+      "para_max"
+    ],
+    "memory_extra": [
+      "硬伤",
+      "判据",
+      "阈值",
+      "评分",
+      "打分",
+      "扣分",
+      "审稿清单"
+    ]
+  },
+  "check_words": {
+    "what": "章节机械检查的词表（check_chapter.py 读；作者覆盖层可增删，见 evolution.keys）",
+    "level1": [
+      "仿佛",
+      "犹如",
+      "宛若",
+      "一丝",
+      "一抹",
+      "些许",
+      "几不可闻",
+      "微不可察",
+      "毫无征兆",
+      "深吸一口气",
+      "不禁",
+      "眉头微皱",
+      "瞳孔微缩",
+      "瞳孔一缩",
+      "指节泛白",
+      "心中一动",
+      "心头一震",
+      "心下了然",
+      "心中暗道",
+      "心中一凛",
+      "不由得",
+      "不容置疑",
+      "不容置喙",
+      "不易察觉",
+      "显而易见",
+      "毫无疑问",
+      "不可否认",
+      "不由自主",
+      "情不自禁",
+      "话锋一转",
+      "取而代之的是"
+    ],
+    "anachronism": [
+      "手机",
+      "电话",
+      "电脑",
+      "电视",
+      "网络",
+      "上网",
+      "汽车",
+      "火车",
+      "飞机",
+      "地铁",
+      "公交",
+      "OK",
+      "拜拜",
+      "哈喽",
+      "沙发",
+      "咖啡",
+      "巧克力",
+      "冰箱",
+      "空调",
+      "手表",
+      "分钟",
+      "秒钟",
+      "公里",
+      "厘米",
+      "星期",
+      "周末",
+      "上班",
+      "下班",
+      "加班",
+      "打卡",
+      "效率",
+      "经理",
+      "员工",
+      "拍照",
+      "照片",
+      "信号",
+      "细胞",
+      "基因",
+      "病毒",
+      "维生素",
+      "卡路里",
+      "概率",
+      "智商",
+      "情商",
+      "颜值",
+      "吐槽",
+      "内卷",
+      "躺平",
+      "靠谱"
+    ]
+  }
+}

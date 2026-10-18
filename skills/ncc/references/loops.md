@@ -53,7 +53,7 @@ S5 收束过了 G5 之后（见 `finale.md`），做全书复盘，写入跨书*
 
 系统要越写越好，但不能越进化越歪：会给自己沉淀经验的智能体，很容易把一次侥幸成功的坏做法固化成套路。所以改动分四档，越难撤回、影响越大的，闸门越严。
 
-<!-- ncc:gen evolution 开始（scripts/build_docs.py 由 workflow/registry.json 生成，勿手改） -->
+<!-- ncc:gen evolution 开始（scripts/dev/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
 | 档 | 改什么 | 怎么生效 |
 |---|---|---|
 | 自动 | 记忆的新增、强化、合并、归档；技法卡的状态与权重；技法使用结果的结算 | 脚本直接执行并留日志，单元复盘用白话列出；可撤回（memory restore、technique restore） |

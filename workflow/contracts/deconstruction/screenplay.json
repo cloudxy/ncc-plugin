@@ -1,0 +1,27 @@
+{
+  "format": "ncc-structure-1",
+  "name": "screenplay",
+  "structure": {
+    "type": "object",
+    "required": [
+      "act",
+      "logline",
+      "scenes"
+    ],
+    "fields": {
+      "act": {
+        "type": "string",
+        "description": "索引 act_ranges 命中幕名，无则空"
+      },
+      "logline": {
+        "type": "string",
+        "description": "自写戏剧任务",
+        "min_length": 1
+      },
+      "scenes": {
+        "type": "array",
+        "description": "逐场验收；不在文件层丢弃整章"
+      }
+    }
+  }
+}

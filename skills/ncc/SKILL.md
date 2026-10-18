@@ -20,7 +20,7 @@ when_to_use: "User asks for library governance or creative preparation, material
 
 ## 铁律（来自 registry，冲突时以 registry 为准）
 
-<!-- ncc:gen iron-rules 开始（scripts/build_docs.py 由 workflow/registry.json 生成，勿手改） -->
+<!-- ncc:gen iron-rules 开始（scripts/dev/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
 1. 写这章的帽不审这章；审稿帽只产带证据的 observation，不改稿。
 2. book.json 与 06-台账 是状态权威；markdown 投影与正文永不回写状态。
 3. 修订是显式独立动作；正文 SHA 一变，旧评审即作废，必须复评。

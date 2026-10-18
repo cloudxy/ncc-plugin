@@ -1,0 +1,1008 @@
+{
+  "format": "ncc-structure-1",
+  "name": "chapter",
+  "structure": {
+    "type": "object",
+    "required": [
+      "schema_version",
+      "chapter",
+      "chapter_hash",
+      "packet_fingerprint"
+    ],
+    "fields": {
+      "schema_version": {
+        "type": "integer",
+        "description": "本次附加契约版本",
+        "const": 1
+      },
+      "chapter": {
+        "type": "integer",
+        "description": "章节索引 seq"
+      },
+      "chapter_hash": {
+        "type": "string",
+        "description": "索引正文 hash"
+      },
+      "packet_fingerprint": {
+        "type": "string",
+        "description": "派单包指纹"
+      },
+      "summary": {
+        "type": "string",
+        "description": "自写概括，可缺省"
+      },
+      "empty_reason": {
+        "type": "string",
+        "description": "所有事实均不适用时的明确说明"
+      },
+      "entities": {
+        "type": "array",
+        "description": "总纲 5.0 对应条目，逐条语义验证，未给出时不伪造",
+        "entry": {
+          "type": "object",
+          "required": [
+            "evidence",
+            "confidence",
+            "name"
+          ],
+          "fields": {
+            "evidence": {
+              "type": "any",
+              "description": "5–15 字定位词，或含 locator 的对象；语义校验必做"
+            },
+            "confidence": {
+              "type": "string",
+              "description": "事实置信级",
+              "vocab": "confidence"
+            },
+            "chapter": {
+              "type": "integer",
+              "description": "必须为本章 seq",
+              "minimum": 1
+            },
+            "description": {
+              "type": "string",
+              "description": "自写说明"
+            },
+            "content": {
+              "type": "string",
+              "description": "自写内容"
+            },
+            "entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "entity_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "subject": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "object": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "source_entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "target_entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "source_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "target_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "participants": {
+              "type": "array",
+              "description": "实体 ID / local_id 数组",
+              "items": {
+                "type": "string"
+              }
+            },
+            "characters": {
+              "type": "array",
+              "description": "实体 ID / local_id 数组",
+              "items": {
+                "type": "string"
+              }
+            },
+            "name": {
+              "type": "string",
+              "description": "实体专名或章内称呼",
+              "min_length": 1
+            },
+            "id": {
+              "type": "string",
+              "description": "已知 ID；新实体留空/null",
+              "nullable": true
+            },
+            "local_id": {
+              "type": "string",
+              "description": "本章唯一局部引用"
+            },
+            "category": {
+              "type": "string",
+              "description": "setting_categories 类目或别名；未知归未归类"
+            },
+            "aliases": {
+              "type": "array",
+              "description": "专名/同指证据候选，逐个验收"
+            },
+            "is_new": {
+              "type": "boolean",
+              "description": "同名不同实体时显式为 true"
+            },
+            "power_source": {
+              "type": "any",
+              "description": "可缺省；有值转状态事件，不作为底卡冲突"
+            },
+            "power_mode": {
+              "type": "string",
+              "description": "同点多源并存须标 coexist",
+              "enum": [
+                "change",
+                "coexist"
+              ]
+            }
+          }
+        }
+      },
+      "relations": {
+        "type": "array",
+        "description": "总纲 5.0 对应条目，逐条语义验证，未给出时不伪造",
+        "entry": {
+          "type": "object",
+          "required": [
+            "evidence",
+            "confidence",
+            "subject",
+            "object",
+            "type"
+          ],
+          "fields": {
+            "evidence": {
+              "type": "any",
+              "description": "5–15 字定位词，或含 locator 的对象；语义校验必做"
+            },
+            "confidence": {
+              "type": "string",
+              "description": "事实置信级",
+              "vocab": "confidence"
+            },
+            "chapter": {
+              "type": "integer",
+              "description": "必须为本章 seq",
+              "minimum": 1
+            },
+            "description": {
+              "type": "string",
+              "description": "自写说明"
+            },
+            "content": {
+              "type": "string",
+              "description": "自写内容"
+            },
+            "entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "entity_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "subject": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "object": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "source_entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "target_entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "source_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "target_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "participants": {
+              "type": "array",
+              "description": "实体 ID / local_id 数组",
+              "items": {
+                "type": "string"
+              }
+            },
+            "characters": {
+              "type": "array",
+              "description": "实体 ID / local_id 数组",
+              "items": {
+                "type": "string"
+              }
+            },
+            "type": {
+              "type": "string",
+              "description": "关系说明",
+              "min_length": 1
+            }
+          }
+        }
+      },
+      "events": {
+        "type": "array",
+        "description": "总纲 5.0 对应条目，逐条语义验证，未给出时不伪造",
+        "entry": {
+          "type": "object",
+          "required": [
+            "evidence",
+            "confidence",
+            "description"
+          ],
+          "fields": {
+            "evidence": {
+              "type": "any",
+              "description": "5–15 字定位词，或含 locator 的对象；语义校验必做"
+            },
+            "confidence": {
+              "type": "string",
+              "description": "事实置信级",
+              "vocab": "confidence"
+            },
+            "chapter": {
+              "type": "integer",
+              "description": "必须为本章 seq",
+              "minimum": 1
+            },
+            "description": {
+              "type": "string",
+              "description": "本章事件概括",
+              "min_length": 1
+            },
+            "content": {
+              "type": "string",
+              "description": "自写内容"
+            },
+            "entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "entity_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "subject": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "object": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "source_entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "target_entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "source_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "target_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "participants": {
+              "type": "array",
+              "description": "实体 ID / local_id 数组",
+              "items": {
+                "type": "string"
+              }
+            },
+            "characters": {
+              "type": "array",
+              "description": "实体 ID / local_id 数组",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "state_events": {
+        "type": "array",
+        "description": "总纲 5.0 对应条目，逐条语义验证，未给出时不伪造",
+        "entry": {
+          "type": "object",
+          "required": [
+            "evidence",
+            "confidence",
+            "entity",
+            "attribute",
+            "new"
+          ],
+          "fields": {
+            "evidence": {
+              "type": "any",
+              "description": "5–15 字定位词，或含 locator 的对象；语义校验必做"
+            },
+            "confidence": {
+              "type": "string",
+              "description": "事实置信级",
+              "vocab": "confidence"
+            },
+            "chapter": {
+              "type": "integer",
+              "description": "必须为本章 seq",
+              "minimum": 1
+            },
+            "description": {
+              "type": "string",
+              "description": "自写说明"
+            },
+            "content": {
+              "type": "string",
+              "description": "自写内容"
+            },
+            "entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "entity_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "subject": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "object": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "source_entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "target_entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "source_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "target_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "participants": {
+              "type": "array",
+              "description": "实体 ID / local_id 数组",
+              "items": {
+                "type": "string"
+              }
+            },
+            "characters": {
+              "type": "array",
+              "description": "实体 ID / local_id 数组",
+              "items": {
+                "type": "string"
+              }
+            },
+            "attribute": {
+              "type": "string",
+              "description": "状态属性",
+              "min_length": 1
+            },
+            "new": {
+              "type": "any",
+              "description": "新值；数值必须给 unit"
+            },
+            "old": {
+              "type": "any",
+              "description": "可缺省，不臆造前值"
+            },
+            "unit": {
+              "type": "string",
+              "description": "量纲或无量纲",
+              "min_length": 1
+            },
+            "time": {
+              "type": "any",
+              "description": "明确时点；缺省按本章比较"
+            },
+            "mode": {
+              "type": "string",
+              "description": "change 或显式并存 coexist",
+              "enum": [
+                "change",
+                "coexist"
+              ]
+            }
+          }
+        }
+      },
+      "foreshadows": {
+        "type": "array",
+        "description": "总纲 5.0 对应条目，逐条语义验证，未给出时不伪造",
+        "entry": {
+          "type": "object",
+          "required": [
+            "evidence",
+            "confidence",
+            "id",
+            "op"
+          ],
+          "fields": {
+            "evidence": {
+              "type": "any",
+              "description": "5–15 字定位词，或含 locator 的对象；语义校验必做"
+            },
+            "confidence": {
+              "type": "string",
+              "description": "事实置信级",
+              "vocab": "confidence"
+            },
+            "chapter": {
+              "type": "integer",
+              "description": "必须为本章 seq",
+              "minimum": 1
+            },
+            "description": {
+              "type": "string",
+              "description": "自写说明"
+            },
+            "content": {
+              "type": "string",
+              "description": "自写内容"
+            },
+            "entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "entity_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "subject": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "object": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "source_entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "target_entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "source_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "target_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "participants": {
+              "type": "array",
+              "description": "实体 ID / local_id 数组",
+              "items": {
+                "type": "string"
+              }
+            },
+            "characters": {
+              "type": "array",
+              "description": "实体 ID / local_id 数组",
+              "items": {
+                "type": "string"
+              }
+            },
+            "id": {
+              "type": "string",
+              "description": "伏笔稳定 ID",
+              "min_length": 1
+            },
+            "op": {
+              "type": "string",
+              "description": "registry.decon.foreshadow_ops"
+            }
+          }
+        }
+      },
+      "emotion_points": {
+        "type": "array",
+        "description": "总纲 5.0 对应条目，逐条语义验证，未给出时不伪造",
+        "entry": {
+          "type": "object",
+          "required": [
+            "evidence",
+            "confidence",
+            "tension",
+            "colors"
+          ],
+          "fields": {
+            "evidence": {
+              "type": "any",
+              "description": "5–15 字定位词，或含 locator 的对象；语义校验必做"
+            },
+            "confidence": {
+              "type": "string",
+              "description": "事实置信级",
+              "vocab": "confidence"
+            },
+            "chapter": {
+              "type": "integer",
+              "description": "必须为本章 seq",
+              "minimum": 1
+            },
+            "description": {
+              "type": "string",
+              "description": "自写说明"
+            },
+            "content": {
+              "type": "string",
+              "description": "自写内容"
+            },
+            "entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "entity_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "subject": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "object": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "source_entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "target_entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "source_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "target_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "participants": {
+              "type": "array",
+              "description": "实体 ID / local_id 数组",
+              "items": {
+                "type": "string"
+              }
+            },
+            "characters": {
+              "type": "array",
+              "description": "实体 ID / local_id 数组",
+              "items": {
+                "type": "string"
+              }
+            },
+            "tension": {
+              "type": "string",
+              "description": "张力",
+              "vocab": "tension"
+            },
+            "colors": {
+              "type": "array",
+              "description": "情绪色彩",
+              "items": {
+                "type": "string",
+                "description": "色彩",
+                "vocab": "colors"
+              }
+            }
+          }
+        }
+      },
+      "information_gaps": {
+        "type": "array",
+        "description": "总纲 5.0 对应条目，逐条语义验证，未给出时不伪造",
+        "entry": {
+          "type": "object",
+          "required": [
+            "evidence",
+            "confidence",
+            "description"
+          ],
+          "fields": {
+            "evidence": {
+              "type": "any",
+              "description": "5–15 字定位词，或含 locator 的对象；语义校验必做"
+            },
+            "confidence": {
+              "type": "string",
+              "description": "事实置信级",
+              "vocab": "confidence"
+            },
+            "chapter": {
+              "type": "integer",
+              "description": "必须为本章 seq",
+              "minimum": 1
+            },
+            "description": {
+              "type": "string",
+              "description": "读者/人物知情差",
+              "min_length": 1
+            },
+            "content": {
+              "type": "string",
+              "description": "自写内容"
+            },
+            "entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "entity_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "subject": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "object": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "source_entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "target_entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "source_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "target_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "participants": {
+              "type": "array",
+              "description": "实体 ID / local_id 数组",
+              "items": {
+                "type": "string"
+              }
+            },
+            "characters": {
+              "type": "array",
+              "description": "实体 ID / local_id 数组",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "payoffs": {
+        "type": "array",
+        "description": "总纲 5.0 对应条目，逐条语义验证，未给出时不伪造",
+        "entry": {
+          "type": "object",
+          "required": [
+            "evidence",
+            "confidence",
+            "parts"
+          ],
+          "fields": {
+            "evidence": {
+              "type": "any",
+              "description": "5–15 字定位词，或含 locator 的对象；语义校验必做"
+            },
+            "confidence": {
+              "type": "string",
+              "description": "事实置信级",
+              "vocab": "confidence"
+            },
+            "chapter": {
+              "type": "integer",
+              "description": "必须为本章 seq",
+              "minimum": 1
+            },
+            "description": {
+              "type": "string",
+              "description": "自写说明"
+            },
+            "content": {
+              "type": "string",
+              "description": "自写内容"
+            },
+            "entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "entity_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "subject": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "object": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "source_entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "target_entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "source_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "target_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "participants": {
+              "type": "array",
+              "description": "实体 ID / local_id 数组",
+              "items": {
+                "type": "string"
+              }
+            },
+            "characters": {
+              "type": "array",
+              "description": "实体 ID / local_id 数组",
+              "items": {
+                "type": "string"
+              }
+            },
+            "parts": {
+              "type": "array",
+              "description": "registry.decon.payoff_parts 中的构件",
+              "items": {
+                "type": "string"
+              }
+            },
+            "setup": {
+              "type": "integer",
+              "description": "铺垫起始 seq，可空",
+              "nullable": true,
+              "minimum": 1
+            }
+          }
+        }
+      },
+      "hooks": {
+        "type": "array",
+        "description": "总纲 5.0 对应条目，逐条语义验证，未给出时不伪造",
+        "entry": {
+          "type": "object",
+          "required": [
+            "evidence",
+            "confidence",
+            "type",
+            "intensity"
+          ],
+          "fields": {
+            "evidence": {
+              "type": "any",
+              "description": "5–15 字定位词，或含 locator 的对象；语义校验必做"
+            },
+            "confidence": {
+              "type": "string",
+              "description": "事实置信级",
+              "vocab": "confidence"
+            },
+            "chapter": {
+              "type": "integer",
+              "description": "必须为本章 seq",
+              "minimum": 1
+            },
+            "description": {
+              "type": "string",
+              "description": "自写说明"
+            },
+            "content": {
+              "type": "string",
+              "description": "自写内容"
+            },
+            "entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "entity_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "subject": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "object": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "source_entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "target_entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "source_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "target_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "participants": {
+              "type": "array",
+              "description": "实体 ID / local_id 数组",
+              "items": {
+                "type": "string"
+              }
+            },
+            "characters": {
+              "type": "array",
+              "description": "实体 ID / local_id 数组",
+              "items": {
+                "type": "string"
+              }
+            },
+            "type": {
+              "type": "string",
+              "description": "章尾钩子类型",
+              "min_length": 1
+            },
+            "intensity": {
+              "type": "integer",
+              "description": "强度",
+              "minimum": 1,
+              "maximum": 5
+            }
+          }
+        }
+      },
+      "units": {
+        "type": "array",
+        "description": "总纲 5.0 对应条目，逐条语义验证，未给出时不伪造",
+        "entry": {
+          "type": "object",
+          "required": [
+            "evidence",
+            "confidence",
+            "start",
+            "end"
+          ],
+          "fields": {
+            "evidence": {
+              "type": "any",
+              "description": "5–15 字定位词，或含 locator 的对象；语义校验必做"
+            },
+            "confidence": {
+              "type": "string",
+              "description": "事实置信级",
+              "vocab": "confidence"
+            },
+            "chapter": {
+              "type": "integer",
+              "description": "必须为本章 seq",
+              "minimum": 1
+            },
+            "description": {
+              "type": "string",
+              "description": "自写说明"
+            },
+            "content": {
+              "type": "string",
+              "description": "自写内容"
+            },
+            "entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "entity_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "subject": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "object": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "source_entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "target_entity": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "source_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "target_id": {
+              "type": "string",
+              "description": "已有实体 ID 或本章 local_id"
+            },
+            "participants": {
+              "type": "array",
+              "description": "实体 ID / local_id 数组",
+              "items": {
+                "type": "string"
+              }
+            },
+            "characters": {
+              "type": "array",
+              "description": "实体 ID / local_id 数组",
+              "items": {
+                "type": "string"
+              }
+            },
+            "start": {
+              "type": "integer",
+              "description": "单元起 seq",
+              "minimum": 1
+            },
+            "end": {
+              "type": "integer",
+              "description": "单元终 seq",
+              "minimum": 1
+            }
+          }
+        }
+      },
+      "screenplay": {
+        "type": "object",
+        "description": "可选章内场次；计划选中时必须提供，单独按 screenplay/scene 契约验收"
+      },
+      "empty_collections": {
+        "type": "object",
+        "description": "空集合名到不适用/未出现依据；也可用全局 empty_reason"
+      }
+    }
+  }
+}

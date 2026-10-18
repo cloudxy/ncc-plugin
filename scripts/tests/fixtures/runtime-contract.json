@@ -1,0 +1,79 @@
+[
+  {
+    "name": "init",
+    "code": 0,
+    "stdout": "OK init $WORK/book stage=founding level=新手 mode=混合\n",
+    "stderr": "",
+    "files_sha256": "29ace5939e32b45d6726bc9d4f36f576cfe7e91ed0a566d7d586a1c2349502f5"
+  },
+  {
+    "name": "status",
+    "code": 0,
+    "stdout": "书: 合成兼容测试  标签:   引导档位: 新手  写作模式: 混合\n阶段: founding  更新方式: serial\n书魂: 未填  主角弧光: 未定  主契约: 未填  签约点: 0/5\n闸门 soul: waiting\n闸门 settings_frozen: waiting\n闸门 outline_frozen: waiting\n闸门 opening_accepted: waiting\n章节: 0/0 done\n承诺: 开放0 已兑现0 作废0 逾期0 期权0 母题0 暂定决策0\n卷: 第1卷（open，自第1章）   单元: 无进行中的单元\n底蕴: 时代背景 未设  一书一深学 未选  待核知识点 0\n文风指纹: 未生成（style --sample 旧文，或第 1 章定稿后 --from-chapters 1）\n更新于: <TIME>\n",
+    "stderr": "",
+    "files_sha256": "29ace5939e32b45d6726bc9d4f36f576cfe7e91ed0a566d7d586a1c2349502f5"
+  },
+  {
+    "name": "chapter",
+    "code": 0,
+    "stdout": "OK chapter add ch1 → 04-正文/ch-0001.md（关键章）\n",
+    "stderr": "",
+    "files_sha256": "b94da40b40f0596f2c5d488c314dd774aa646141c0352c39414991020ab0b937"
+  },
+  {
+    "name": "promise",
+    "code": 0,
+    "stdout": "OK P-0001 [悬念] 第1章建立\n",
+    "stderr": "",
+    "files_sha256": "02057ddf5cde483c19e62bd78649aaa8c480d81e90ce81863f09eb85493012ac"
+  },
+  {
+    "name": "promise-list",
+    "code": 0,
+    "stdout": "P-0001 [悬念] 强度3 开放 第1章起  工牌是谁留下的\n",
+    "stderr": "",
+    "files_sha256": "02057ddf5cde483c19e62bd78649aaa8c480d81e90ce81863f09eb85493012ac"
+  },
+  {
+    "name": "gate-check",
+    "code": 1,
+    "stdout": "GATE soul: FAIL\n  - 书魂缺「主题之问」（可写候选并标暂定，见 guidance.md）\n  - 书魂缺「主角的答案」（可写候选并标暂定，见 guidance.md）\n  - 书魂缺「世界的不公」（可写候选并标暂定，见 guidance.md）\n  - 书魂缺「终局的回答」（可写候选并标暂定，见 guidance.md）\n  - 书魂状态未标暂定或确定\n  - 类型契约缺主契约\n  - 类型契约缺毒点清单\n",
+    "stderr": "",
+    "files_sha256": "02057ddf5cde483c19e62bd78649aaa8c480d81e90ce81863f09eb85493012ac"
+  },
+  {
+    "name": "invalid-value",
+    "code": 2,
+    "stdout": "",
+    "stderr": "usage: ncc_state.py gate [-h] [--action {check,pass,reject}] [--quote QUOTE]\n                         [--force]\n                         book_dir\n                         {soul,settings,outline,opening,volume,finale}\nncc_state.py gate: error: argument name: invalid choice: 'unknown' (choose from 'soul', 'settings', 'outline', 'opening', 'volume', 'finale')\n",
+    "files_sha256": "02057ddf5cde483c19e62bd78649aaa8c480d81e90ce81863f09eb85493012ac"
+  },
+  {
+    "name": "missing-argument",
+    "code": 2,
+    "stdout": "",
+    "stderr": "usage: ncc_state.py chapter add [-h] --file FILE [--key] book_dir seq\nncc_state.py chapter add: error: the following arguments are required: seq, --file\n",
+    "files_sha256": "02057ddf5cde483c19e62bd78649aaa8c480d81e90ce81863f09eb85493012ac"
+  },
+  {
+    "name": "decon-coverage",
+    "code": 1,
+    "stdout": "COVERAGE FAIL\n  - 还没有章节索引（decon index）\n",
+    "stderr": "",
+    "files_sha256": "02057ddf5cde483c19e62bd78649aaa8c480d81e90ce81863f09eb85493012ac"
+  },
+  {
+    "name": "prepare-init",
+    "code": 0,
+    "stdout": "OK 准备工作区：$WORK/prep（无需建书；可从空白创建资料或设定）\n",
+    "stderr": "",
+    "files_sha256": "4ca1adb13f75d2b68a75fe150c9f92434bd3b172a4312563ef55dae1490f6cb3"
+  },
+  {
+    "name": "prepare-status",
+    "code": 0,
+    "stdout": "合成准备｜目标：接口验证｜默认范围：当前主题\n任务：资料整理、资料完善、资料创建、设定整理、设定完善、设定创建\n索引：尚未扫描；{}\n",
+    "stderr": "",
+    "files_sha256": "4ca1adb13f75d2b68a75fe150c9f92434bd3b172a4312563ef55dae1490f6cb3"
+  }
+]

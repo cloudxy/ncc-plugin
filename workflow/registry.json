@@ -90,7 +90,7 @@
     "ncc-deconstruct": {
       "skill": "ncc-deconstruct",
       "mode": "deconstruct",
-      "description": "按《小说拆分总纲 5.0》拆对标书：章节索引唯一真源、逐章抽取带证据与置信级、事件溯源状态台账，产出喂给设定库与设定词典；拆完一段学写法，技法卡进跨书技法库；脚本建索引、查覆盖率、算对标基线。",
+      "description": "按目标拆书：可信索引与机械骨架、关键章技法、可选场次及只读转化；验收入库后记录分层进度。",
       "argument_hint": "[原著路径或拆书库目录 | continue]"
     },
     "ncc-eval": {
@@ -283,12 +283,12 @@
     "deconstructor": {
       "skill": "ncc-deconstruct",
       "task": "deconstruct",
-      "description": "Use this agent to deconstruct benchmark novels per the 5.0 framework: chapter index as the single slicing source, evidence-and-confidence-tagged extraction, event-sourced state ledger, entities tagged with the setting categories. Feeds the setting vault and lexicon, plus texture-detail and social-mechanism samples and the benchmark's inferred book soul and genre contract. After each segment it runs the learning pass: technique cards on overall design, plot and payoff planning, hidden lines and foreshadowing, emotion, character, setting construction and prose, each with evidence, applicability and cost, in its own words. The /ncc parent coordinates this role; run the specialist task in its execution context and return results to the manager.",
+      "description": "按 L1/L2/L3 派单包拆解对标书：使用索引、证据与置信级，提交章内事实、可选场次或方法模块；由经理通过 ingest 验收，不直接修改台账、进度或作者书。",
       "color": "gray",
       "fresh": false,
       "function": "策划",
-      "duty": "按总纲5.0拆对标书，喂设定库；质感细节与机制样本、对标书的书魂与契约；拆完一段学写法，写技法卡",
-      "never": "写本书正文"
+      "duty": "按层和已选范围抽取有证据事实、场次或写作方法，返回经理验收入库",
+      "never": "不扩大阅读范围，不手写进度或跨章台账，不写作者书大纲和正文"
     },
     "curator": {
       "skill": "ncc-prepare",
@@ -1601,9 +1601,9 @@
     "decon_lib": {
       "path": "_拆书库",
       "kind": "角色",
-      "what": "拆书库：每本对标书一个目录（原文、索引、实体、台账、报告，进度在 _progress.json）",
-      "writer": "deconstructor；decon index/mark/stats",
-      "view": "decon coverage；报告/基线.md",
+      "what": "拆书库：每本对标书一个目录（原文、索引与计划、验收章、实体台账、场次和报告，分层进度在 _progress.json）",
+      "writer": "deconstructor 交章文件；经理经 decon index/plan/packet/ingest/stats 写入；mark 只作兼容或显式豁免",
+      "view": "decon coverage --layer；分层、范围与样本报告",
       "scope": "root",
       "dir": true,
       "eg": "<书名>/索引/chapter_index.json、<书名>/台账/伏笔.jsonl、<书名>/报告/基线.json"
@@ -1721,7 +1721,12 @@
       ],
       "deconstructor": [
         "agents/deconstructor.md",
-        "skills/ncc-deconstruct/SKILL.md"
+        "skills/ncc-deconstruct/SKILL.md",
+        "skills/ncc-deconstruct/references/layers.md",
+        "skills/ncc-deconstruct/references/packet.md",
+        "skills/ncc-deconstruct/references/ingest.md",
+        "skills/ncc-deconstruct/references/screenplay.md",
+        "skills/ncc-deconstruct/references/transfer.md"
       ],
       "manager:new": [
         "skills/ncc/SKILL.md",
@@ -1770,6 +1775,15 @@
         "agents/curator.md",
         "skills/ncc-prepare/references/library.md",
         "skills/ncc-prepare/references/library-tools.md"
+      ],
+      "manager:deconstruct": [
+        "skills/ncc/SKILL.md",
+        "skills/ncc-deconstruct/SKILL.md",
+        "skills/ncc-deconstruct/references/layers.md",
+        "skills/ncc-deconstruct/references/packet.md",
+        "skills/ncc-deconstruct/references/ingest.md",
+        "skills/ncc-deconstruct/references/screenplay.md",
+        "skills/ncc-deconstruct/references/transfer.md"
       ]
     },
     "note": "domains:N 表示按场景读的 N 张底蕴卡，按最长的 N 张计。agents/<角色>.md 里写了全路径要读的规则文件，必须列在这里（自测会查）。"
@@ -2494,7 +2508,11 @@
       "情绪": "台账/情绪点.jsonl",
       "钩子": "台账/钩子.jsonl",
       "实体": "实体/实体.jsonl",
-      "单元": "台账/单元.jsonl"
+      "单元": "台账/单元.jsonl",
+      "关系": "台账/关系.jsonl",
+      "事件": "台账/事件.jsonl",
+      "状态事件": "台账/状态事件.jsonl",
+      "信息差": "台账/信息差.jsonl"
     },
     "baseline": "报告/基线.json",
     "baseline_view": "报告/基线.md",
@@ -2504,10 +2522,74 @@
       "兑现",
       "超额",
       "见证"
-    ]
+    ],
+    "schema_version": 2,
+    "plan": "索引/研究计划.json",
+    "plan_history": "索引/计划历史",
+    "packets": "工作/派单包",
+    "contexts": "工作/上下文快照",
+    "receipts": "章节/已验收",
+    "chapter_dir": "章节",
+    "raw_backups": "章节/恢复备份",
+    "legacy_snapshot": "工作/legacy快照.json",
+    "lock": ".decon.lock",
+    "skeleton": "报告/L1-骨架.json",
+    "scenes": "剧本/场次.jsonl",
+    "scene_views": "剧本/章节",
+    "ingest_report": "报告/入库",
+    "rejections": "报告/丢弃.jsonl",
+    "pending": "报告/待校验.jsonl",
+    "conflicts": "报告/冲突.jsonl",
+    "alias_index": "实体/别名索引.json",
+    "transfer_packet": "工作/L3派单包.json",
+    "transfer_report": "报告/L3-方法模块.json",
+    "range_reports": "报告/范围",
+    "sample_reports": "报告/样本",
+    "diagnostics": "索引/诊断.json",
+    "reindex_report": "索引/重建影响.json",
+    "index_backup": "索引/备份",
+    "active_entity_window": 50,
+    "foreshadow_ops": [
+      "埋",
+      "强化",
+      "回收"
+    ],
+    "descriptive_aliases": [
+      "女尸",
+      "山神",
+      "那人",
+      "老人",
+      "少年",
+      "男人",
+      "女人"
+    ],
+    "references": [
+      "layers",
+      "packet",
+      "ingest",
+      "screenplay",
+      "transfer"
+    ],
+    "int_ext": [
+      "内",
+      "外",
+      "内/外",
+      "未知",
+      ""
+    ],
+    "transfer_inputs": "报告/L3-输入",
+    "scene_references": "报告/对标场景卡",
+    "index_rules": {
+      "version": 2,
+      "chapter": "^第([〇零一二两三四五六七八九十百千万0-9]+)[章回](.*)$",
+      "volume": "^(?:第[〇零一二两三四五六七八九十百千万0-9]+[卷部篇]|卷[〇零一二两三四五六七八九十百千万0-9]+)(?:\\s.*|[^\\s]*)$",
+      "special": "^(?:序|引子|楔子|序章|前言)(?:\\s.*)?$",
+      "part": "[（(]([上中下])[）)]\\s*$|\\s([上中下])\\s*$"
+    },
+    "index_config": "索引/index_config.json"
   },
   "techniques": {
-    "method": "skills/ncc-deconstruct/SKILL.md",
+    "method": "skills/ncc-deconstruct/references/transfer.md",
     "required": [
       "类别",
       "手法",

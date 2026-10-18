@@ -1,0 +1,223 @@
+{
+  "format": "ncc-structure-1",
+  "name": "packet",
+  "structure": {
+    "type": "object",
+    "required": [
+      "schema_version",
+      "layer",
+      "index_fingerprint",
+      "fingerprint",
+      "plan_fingerprint",
+      "vocab_fingerprint"
+    ],
+    "fields": {
+      "schema_version": {
+        "type": "integer",
+        "description": "本契约格式版本，不能把旧版本当新验收",
+        "const": 1
+      },
+      "layer": {
+        "type": "string",
+        "description": "本次执行层",
+        "enum": [
+          "L2",
+          "L3"
+        ]
+      },
+      "index_fingerprint": {
+        "type": "string",
+        "description": "绑定唯一索引"
+      },
+      "chapter": {
+        "type": "object",
+        "required": [
+          "seq",
+          "no",
+          "volume",
+          "part",
+          "title",
+          "start",
+          "end",
+          "hash",
+          "han"
+        ],
+        "fields": {
+          "seq": {
+            "type": "integer",
+            "description": "连续唯一序号",
+            "minimum": 1
+          },
+          "no": {
+            "type": "integer",
+            "description": "原号；特殊序为0，未知为null",
+            "nullable": true,
+            "minimum": 0
+          },
+          "volume": {
+            "type": "string",
+            "description": "原书卷名，不等于戏剧幕"
+          },
+          "part": {
+            "type": "string",
+            "description": "同号分章标记"
+          },
+          "title": {
+            "type": "string",
+            "description": "原始标题"
+          },
+          "start": {
+            "type": "integer",
+            "description": "1基含章题起始行",
+            "minimum": 1
+          },
+          "end": {
+            "type": "integer",
+            "description": "1基含正文末行",
+            "minimum": 1
+          },
+          "hash": {
+            "type": "string",
+            "description": "正文 LF 规范化 SHA256 前16位"
+          },
+          "han": {
+            "type": "integer",
+            "description": "正文汉字数",
+            "minimum": 0
+          }
+        },
+        "description": "L2 本章唯一索引条目；L3 不提供"
+      },
+      "context": {
+        "type": "object",
+        "description": "带来源的前情、实体和未回收伏笔，仅 L2",
+        "required": [
+          "available",
+          "mode",
+          "sources"
+        ],
+        "fields": {
+          "available": {
+            "type": "boolean"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "previous": {
+            "type": "string",
+            "nullable": true
+          },
+          "entities": {
+            "type": "array",
+            "nullable": true
+          },
+          "foreshadows": {
+            "type": "array",
+            "nullable": true
+          },
+          "unread": {
+            "type": "array"
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "sha256"
+              ],
+              "fields": {
+                "path": {
+                  "type": "string"
+                },
+                "sha256": {
+                  "type": "string"
+                },
+                "field": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "fingerprint": {
+        "type": "string",
+        "description": "除自身外的规范 JSON SHA256"
+      },
+      "artifacts": {
+        "type": "array",
+        "description": "L3 仅包含已验报告与结构化产物",
+        "items": {
+          "type": "object",
+          "required": [
+            "path",
+            "sha256",
+            "data"
+          ],
+          "fields": {
+            "path": {
+              "type": "string"
+            },
+            "sha256": {
+              "type": "string"
+            },
+            "data": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "plan_fingerprint": {
+        "type": "string",
+        "description": "绑定选章及场次计划"
+      },
+      "vocab_fingerprint": {
+        "type": "string",
+        "description": "词表、设定类目和机器契约共同指纹"
+      },
+      "text": {
+        "type": "string",
+        "description": "仅 L2 本章正文；L3 无此字段"
+      },
+      "independent": {
+        "type": "boolean",
+        "description": "章内独立，不写全书事实台账"
+      },
+      "requires_screenplay": {
+        "type": "boolean",
+        "description": "本章是否在场次计划内"
+      },
+      "act": {
+        "type": "string",
+        "description": "显式戏剧幕；无则空"
+      },
+      "framework": {
+        "type": "object",
+        "description": "实际总纲文件的 path 与 sha256，仅 L2",
+        "required": [
+          "path",
+          "sha256"
+        ],
+        "fields": {
+          "path": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          }
+        }
+      },
+      "sources_fingerprint": {
+        "type": "string",
+        "description": "L3 全部有效验收收据集合指纹，新增冲突也使旧包失效"
+      }
+    }
+  }
+}

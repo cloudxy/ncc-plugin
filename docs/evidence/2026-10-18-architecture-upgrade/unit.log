@@ -1,0 +1,21 @@
+# Final candidate
+python3 -m unittest discover -s scripts/tests -t scripts -p 'test_*.py'
+................................/private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmpm_eg0nfm/workflow/registry.json: 聚合视图陈旧；运行 python3 scripts/dev/build_registry.py
+..../private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmpkupev9jc/workflow/registry.json: 聚合视图陈旧；运行 python3 scripts/dev/build_registry.py
+....................
+----------------------------------------------------------------------
+Ran 180 tests in 295.687s
+
+OK
+已更新 /private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmpndy1yngp/workflow/registry.json
+REGISTRY OK
+REGISTRY OK
+已更新 /private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmpndy1yngp/workflow/registry.json
+REGISTRY OK
+REGISTRY OK
+已更新 /private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmpndy1yngp/workflow/registry.json
+REGISTRY OK
+REGISTRY OK
+已更新 /private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmpm_eg0nfm/workflow/registry.json
+
+

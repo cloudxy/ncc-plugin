@@ -1,6 +1,6 @@
 # NCC 架构
 
-五层决策 · 三本账 · 四循环 · 读者模型 · 引导层 · 上限引擎。**下限靠系统，上限靠作者与选择。**本文件说明当前架构与实现边界，机器可读契约以 [registry.json](registry.json) 为准，执行方法由各技能及其参考文档定义。
+五层决策 · 三本账 · 四循环 · 读者模型 · 引导层 · 上限引擎。**下限靠系统，上限靠作者与选择。**本文件说明当前架构与实现边界，机器可读契约由 [registry 分片](registry/) 维护，[registry.json](registry.json) 是可校验的兼容生成视图，执行方法由各技能及其参考文档定义。
 
 ## 创作前准备（可独立、可重入）
 
@@ -8,7 +8,7 @@
 
 `scripts/ncc_prepare.py` 直接读取注册表的 preparation 契约；准备目录的 prepare.json 是目标、成果元数据、采用决定、问题与检查的源头，成果 Markdown 是内容源。来源索引与交接文档由脚本生成，历史单独保存。原始资料默认只读，书项目 schema 不变；不接管外部写作状态。
 
-模型负责整理、查证、创造、关系与语义检查，脚本负责来源定位、版本、依赖和检查新鲜度。准备检查只覆盖声明的范围，不替代下文 G0–G5。进入书项目的素材、设定与数值按现有分工接入，完整准备成果不直接给写手。六类过程与脚本边界见 [preparation-design.md](preparation-design.md)，执行入口见 [../skills/ncc-prepare/SKILL.md](../skills/ncc-prepare/SKILL.md)。
+模型负责整理、查证、创造、关系与语义检查，脚本负责来源定位、版本、依赖和检查新鲜度。准备检查只覆盖声明的范围，不替代下文 G0–G5。进入书项目的素材、设定与数值按现有分工接入，完整准备成果不直接给写手。六类过程与脚本边界见[准备设计](../docs/designs/preparation/preparation-design.md)，执行入口见 [../skills/ncc-prepare/SKILL.md](../skills/ncc-prepare/SKILL.md)。
 
 ## 一、五层决策（按可逆度）
 
@@ -217,16 +217,16 @@ A2 再改插件自己：
 | 改了什么 | 落地 |
 |---|---|
 | 词表与目录布局 | 注册表新增 `vocab`（承诺类型、情绪色、签约点、每批章数等 28 张）与 `layout`（书项目里每个文件的位置、类别、是什么、谁写、在哪看）；`scripts/ncclib/core.py` 从注册表读，模块里不再写死路径与取值；命令帮助里的取值也由词表填 |
-| 生成的文档 | `scripts/build_docs.py`：书项目的信息地图与视图清单、`book-layout.md`（目录契约与词表，整份生成）、阶段图的三张表、经理技能的铁律、agents 与 commands 的 frontmatter、README 版本行；`--check` 进自测 |
+| 生成的文档 | `scripts/dev/build_docs.py`：书项目的信息地图与视图清单、`book-layout.md`（目录契约与词表，整份生成）、阶段图的三张表、经理技能的铁律、agents 与 commands 的 frontmatter、README 版本行；`--check` 进自测 |
 | 状态脚本分模块 | `ncc_state.py` 只做入口，实现按领域分在 `ncclib/`：core → ledgers、materials、learning → scenes → views → loops、delivery → book → cli，依赖单向 |
 | 规则只讲一次 | 每条规则有一个家，别处一句话指过去：铁律 9 的清单与理由在 `writing-brief.md` 的"不进写手上下文的东西"；禁停顿在 guidance；字数的处理在 ncc-write 的"Step 5 — 机械检查" |
-| 按名称引用 | 文档之间写 某文件 的"标题"，不写章节序号；`scripts/check_plugin.py` 查序号并查标题存在 |
-| 版本号一处 | 只在 `.zcode-plugin/plugin.json`；文档标题与脚本说明不写版本 |
+| 按名称引用 | 文档之间写 某文件 的"标题"，不写章节序号；`scripts/dev/check_plugin.py` 查序号并查标题存在 |
+| 版本权威来源 | 权威来源为 `.zcode-plugin/plugin.json`，五份打包/市场清单的分发字段由检查器校验；文档标题与脚本说明不写版本 |
 | 读取上限 | 注册表 `load_budget`：每个角色每次调用读的规则文件与上限（子代理 2 万、经理 3.5 万非空白字符）；`check_plugin.py` 统计并查 agents 里要读的文件都已列入 |
 
 ## 十七、记忆、设定类目、拆书学法与自进化（M8–M11，v3.0）
 
-设计与取舍见 `workflow/memory-evolution-design.md`。作者 2026-10-01 定了三条：子代理按角色切片继承会话、不全量继承；记忆自动积累，规则改动设闸门；先审设计稿再实现。状态脚本的模块依赖随之变为：core → ledgers、materials、learning、memory、settings、decon → techniques → scenes → views → loops、delivery、evolve → book → cli。
+设计与取舍见 `docs/designs/memory/memory-evolution-design.md`。作者 2026-10-01 定了三条：子代理按角色切片继承会话、不全量继承；记忆自动积累，规则改动设闸门；先审设计稿再实现。状态脚本的模块依赖随之变为：core → ledgers、materials、learning、memory、settings、decon → techniques → scenes → views → loops、delivery、evolve → book → cli。
 
 | 部件 | 落地 |
 |---|---|
@@ -235,7 +235,7 @@ A2 再改插件自己：
 | 派单头（M8） | `brief`：写手以外的角色由脚本组装派单头到 `.ncc/派单/`（本角色记忆、跨书经验、交接切片、技法参考）；写手包多"本书经验""作者刚说的"两节，组装时再查一遍判据词 |
 | 检索（M8） | `recall`：记忆、记忆日志、交接、场景卡、审稿与复盘报告、台账的全文检索，`--role` 按可见范围过滤来源 |
 | 设定类目（M10） | `scripts/ncclib/settings.py`；注册表 `setting_categories`（首批 16 类，各带字段模板）；`setting catalog/use/new/none/drop/add/list/check`；本书的选择在 `book.json` 的 `setting_categories`，卡在 `01-设定/类目/`；`gate settings` 查研判做了没有、选用的类目有没有卡、必填字段 |
-| 拆书脚本支撑（M9） | `scripts/ncclib/decon.py`：`decon index/mark/coverage/stats/link`；拆书库里统计用的台账统一成 jsonl（伏笔、爽点、情绪点、钩子、单元、实体）；对标基线写 `报告/基线.json`，本书链接对标书后进单元复盘底稿 |
+| 拆书脚本支撑（M9） | `scripts/ncclib/decon.py` 保留兼容接口，`scripts/ncclib/deconstruction/` 承载有限契约、索引、计划与派单、可信入库恢复、分层统计及 L3 转化；新增 `decon plan/packet/ingest`，旧入口继续可读 legacy。全书、连续范围与样本报告分开，场次参照只留拆书库。契约与验收依据见[拆书方案](../docs/designs/deconstruction/upgrade.md)，当前测试状态见实施任务 |
 | 技法库（M9） | `scripts/ncclib/techniques.py`；`{书库}/_作者/技法库/<类别>/T-NNNN.md`；`technique add/check/list/match/result/retire/restore`；状态由证据数与使用结果推出（使用记录只追加）；卡片和原文连续重合超过上限拒绝写入；按角色可见（注册表 `techniques.per_role`），审稿与 reader 不拿；场景卡"技法："引用，`unit close` 自动结算好坏 |
 | 自进化（M11） | `scripts/ncclib/evolve.py`；四档在注册表 `evolution`；规则改动写进作者覆盖层 `{书库}/_作者/进化/覆盖.json`（插件默认 < 书库配置 < 作者覆盖 < 本书配置），提议日志只追加；`evolve propose/eval/apply/reject/revert/list/rules/scan`；`ncc_eval.py gate` 当闸门（改动前后各跑一遍锚定章，变差就拒绝），`ncc_eval.py anchor new` 让漏检变锚定章；章节检查的阈值默认值与一级词、时代错置词两份词表挪进注册表 |
 | 迁移 | 书项目 schema 3 → 4：`migrate` 补 `setting_categories`、`benchmarks` 字段，手写的 `memory/<角色>.md` 转成条目（原文件移到迁移备份） |
@@ -250,4 +250,13 @@ A2 再改插件自己：
 
 ## 插件开发入口
 
-`ncc-dev` 负责插件维护与升级，与小说创作分开；阶段与证据唯一规范见 [开发工作流](../docs/dev-workflow.md)。开发命令仍通过 registry.commands 登记、build_docs 生成元数据，以三个项目级相对软链复用唯一技能与命令。任务记录只持有当次决定和进度，check_dev_workflow 只检查边界、候选和证据，不创建第二套创作状态或常驻任务引擎。
+`ncc-dev` 负责插件维护与升级，与小说创作分开；阶段与证据唯一规范见 [开发工作流](../docs/engineering/workflow.md)。开发命令仍通过 registry.commands 登记、build_docs 生成元数据，以三个项目级相对软链复用唯一技能与命令。任务记录只持有当次决定和进度，check_dev_workflow 只检查边界、候选和证据，不创建第二套创作状态或常驻任务引擎。
+
+
+## 注册表与工具分层
+
+注册表的 41 个顶层键按七个领域分片，所有权与原键顺序由 `scripts/ncclib/registry.py` 定义；业务值只在 `workflow/registry/` 维护。`workflow/registry.json` 是 `scripts/dev/build_registry.py` 生成的兼容视图，不能手改。core、准备工具、检查器与文档生成器共用 load_registry；分片缺失、未知/重复键、归属错配或视图陈旧会在派发命令前停止，不回退旧文件。
+
+依赖方向是 registry → core → 领域实现 → CLI 参数注册/派发。`book.py` 负责书生命周期与闸门，`loops.py` 负责单元、卷与完本业务；cli_parsers 只定义参数并绑定 handler，cli 保留派发后日志及视图编排。领域代码不导入 CLI，运行代码不依赖 scripts/dev，AST 边界用例与完整 CLI 契约检查约束这些关系。
+
+开发实现位于 scripts/dev，测试位于 scripts/tests。原 check_plugin/check_dev_workflow/build_docs 脚本路径保留薄入口，旧发现命令仍能收集同一组测试；待后续发布及受影响宿主新会话验证完成后再决定退役。注册表 schema 仍为 2、书项目 schema 仍为 4，本次架构变化不迁移书数据。实施证据见[架构升级任务](../docs/tasks/2026-10-18-architecture-upgrade.md)。

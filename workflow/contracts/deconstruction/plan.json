@@ -1,0 +1,69 @@
+{
+  "format": "ncc-structure-1",
+  "name": "plan",
+  "structure": {
+    "type": "object",
+    "required": [
+      "schema_version",
+      "goal",
+      "index_fingerprint",
+      "selected",
+      "groups",
+      "screenplay",
+      "fingerprint"
+    ],
+    "fields": {
+      "schema_version": {
+        "type": "integer",
+        "description": "本契约格式版本，不能把旧版本当新验收",
+        "const": 1
+      },
+      "goal": {
+        "type": "string",
+        "description": "作者明确选择的研究目标",
+        "enum": [
+          "structure",
+          "technique",
+          "full",
+          "transfer"
+        ]
+      },
+      "index_fingerprint": {
+        "type": "string",
+        "description": "绑定唯一索引"
+      },
+      "selected": {
+        "type": "array",
+        "description": "已选 L2 seq 去重排序集合",
+        "items": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "groups": {
+        "type": "object",
+        "description": "开篇/内部/结局/作者选择分组与理由"
+      },
+      "screenplay": {
+        "type": "array",
+        "description": "在已选 L2 集合中另选的场次范围",
+        "items": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "fingerprint": {
+        "type": "string",
+        "description": "除自身外的规范 JSON SHA256"
+      },
+      "rounding": {
+        "type": "string",
+        "description": "rounding"
+      },
+      "reasons": {
+        "type": "object",
+        "description": "reasons"
+      }
+    }
+  }
+}

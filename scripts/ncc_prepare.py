@@ -9,13 +9,17 @@ import hashlib
 import json
 import os
 from pathlib import Path
+from ncclib.registry import RegistryError, load_registry
 import re
 import sys
 import tempfile
 
 
 ROOT = Path(__file__).resolve().parent.parent
-SPEC = json.loads((ROOT / "workflow/registry.json").read_text("utf-8"))["preparation"]
+try:
+    SPEC = load_registry(ROOT)["preparation"]
+except RegistryError as exc:
+    raise SystemExit(str(exc)) from exc
 TASKS = SPEC["tasks"]
 
 

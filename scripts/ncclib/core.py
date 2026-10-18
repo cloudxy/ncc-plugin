@@ -8,6 +8,7 @@ import re
 import sys
 import tempfile
 from pathlib import Path
+from .registry import RegistryError, load_registry
 
 
 SCHEMA = 4
@@ -19,7 +20,10 @@ PLUGIN_ROOT = Path(__file__).resolve().parent.parent.parent
 ENTRY = PLUGIN_ROOT / "scripts" / "ncc_state.py"   # 写进写手包与提示里的命令入口
 
 
-REGISTRY = json.loads((PLUGIN_ROOT / "workflow" / "registry.json").read_text(encoding="utf-8"))   # 词表与布局的唯一源头（七律一）
+try:
+    REGISTRY = load_registry(PLUGIN_ROOT)
+except RegistryError as exc:
+    raise SystemExit(str(exc)) from exc
 
 
 LAYOUT = REGISTRY["layout"]

@@ -43,7 +43,7 @@ git clone https://github.com/mattpocock/skills.git /path/to/reference-projects/m
 
 ## 开发设计参考（2026-10-12）
 
-以下参考用于开发工作流的设计，已转化为 ncc-dev 开发入口、[本地流程规范](docs/dev-workflow.md)与候选证据检查器；本次状态见[升级任务](docs/dev/tasks/2026-10-12-ncc-dev.md)。参考范围与取舍见[开发工作流设计](docs/superpowers/specs/2026-10-12-dev-workflow-design.md)；本机所读技能的内容指纹见[方案审查记录](docs/superpowers/specs/2026-10-12-dev-workflow-audit.md)。后者只记录来源阅读，未调用这些外部技能执行任务。
+以下参考用于开发工作流的设计，已转化为 ncc-dev 开发入口、[本地流程规范](docs/engineering/workflow.md)与候选证据检查器；本次状态见[升级任务](docs/evidence/2026-10-12-ncc-dev/task.md)。参考范围与取舍见[开发工作流设计](docs/designs/engineering/workflow.md)；本机所读技能的内容指纹见[方案审查记录](docs/designs/engineering/source-audit.md)。后者只记录来源阅读，未调用这些外部技能执行任务。
 
 | 项目与作者 | 具体参考 | NCC 的转化与取舍 | 来源依据 |
 |---|---|---|---|

@@ -1,0 +1,134 @@
+{
+  "format": "ncc-structure-1",
+  "name": "scene",
+  "structure": {
+    "type": "object",
+    "required": [
+      "chapter",
+      "order",
+      "slugline",
+      "int_ext",
+      "place",
+      "time_of_day",
+      "characters",
+      "objective",
+      "obstacle",
+      "turn",
+      "outcome",
+      "actions",
+      "dialogue",
+      "locator",
+      "confidence"
+    ],
+    "fields": {
+      "scene_id": {
+        "type": "string",
+        "description": "稳定场次 ID，可由入库分配"
+      },
+      "chapter": {
+        "type": "integer",
+        "description": "本章 seq",
+        "minimum": 1
+      },
+      "order": {
+        "type": "integer",
+        "description": "从 1 开始的连续顺序",
+        "minimum": 1
+      },
+      "slugline": {
+        "type": "string",
+        "description": "场头，可为空"
+      },
+      "int_ext": {
+        "type": "string",
+        "description": "内外景或未知"
+      },
+      "place": {
+        "type": "string",
+        "description": "地点，可为空"
+      },
+      "time_of_day": {
+        "type": "string",
+        "description": "时间，可为空"
+      },
+      "characters": {
+        "type": "array",
+        "description": "在场实体 ID",
+        "items": {
+          "type": "string"
+        }
+      },
+      "objective": {
+        "type": "string",
+        "description": "目标或交代任务，可为空"
+      },
+      "obstacle": {
+        "type": "string",
+        "description": "阻碍，可为空"
+      },
+      "turn": {
+        "type": "string",
+        "description": "转折，可为空"
+      },
+      "outcome": {
+        "type": "string",
+        "description": "落点，可为空"
+      },
+      "actions": {
+        "type": "array",
+        "description": "动作概括，最多四条",
+        "max_length": 4,
+        "items": {
+          "type": "string"
+        }
+      },
+      "dialogue": {
+        "type": "array",
+        "description": "对白意图，最多六条",
+        "max_length": 6,
+        "items": {
+          "type": "object",
+          "required": [
+            "speaker",
+            "intent",
+            "subtext",
+            "locator"
+          ],
+          "fields": {
+            "speaker": {
+              "type": "string",
+              "description": "说话人/意图/潜台词/定位词"
+            },
+            "intent": {
+              "type": "string",
+              "description": "说话人/意图/潜台词/定位词"
+            },
+            "subtext": {
+              "type": "string",
+              "description": "说话人/意图/潜台词/定位词"
+            },
+            "locator": {
+              "type": "string",
+              "description": "说话人/意图/潜台词/定位词"
+            }
+          },
+          "additional": false
+        }
+      },
+      "locator": {
+        "type": "string",
+        "description": "5–15 字正文定位词"
+      },
+      "confidence": {
+        "type": "string",
+        "description": "置信级，引用现有词表",
+        "vocab": "confidence"
+      },
+      "unknown_reason": {
+        "type": "string",
+        "description": "未知或不适用字段的说明"
+      }
+    },
+    "additional": false
+  }
+}

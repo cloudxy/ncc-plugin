@@ -1,0 +1,106 @@
+{
+  "format": "ncc-structure-1",
+  "name": "index",
+  "structure": {
+    "type": "object",
+    "required": [
+      "schema_version",
+      "source",
+      "sha",
+      "fingerprint",
+      "chapters",
+      "diagnostics",
+      "act_ranges"
+    ],
+    "fields": {
+      "schema_version": {
+        "type": "integer",
+        "description": "索引版本",
+        "const": 2
+      },
+      "source": {
+        "type": "string",
+        "description": "原文路径，L3 不读取"
+      },
+      "sha": {
+        "type": "string",
+        "description": "原始文件 SHA256 前16位"
+      },
+      "fingerprint": {
+        "type": "string",
+        "description": "除自身外规范 JSON SHA256"
+      },
+      "chapters": {
+        "type": "array",
+        "description": "唯一章节索引",
+        "min_length": 1,
+        "items": {
+          "type": "object",
+          "required": [
+            "seq",
+            "no",
+            "volume",
+            "part",
+            "title",
+            "start",
+            "end",
+            "hash",
+            "han"
+          ],
+          "fields": {
+            "seq": {
+              "type": "integer",
+              "description": "连续唯一序号",
+              "minimum": 1
+            },
+            "no": {
+              "type": "integer",
+              "description": "原号；特殊序为0，未知为null",
+              "nullable": true,
+              "minimum": 0
+            },
+            "volume": {
+              "type": "string",
+              "description": "原书卷名，不等于戏剧幕"
+            },
+            "part": {
+              "type": "string",
+              "description": "同号分章标记"
+            },
+            "title": {
+              "type": "string",
+              "description": "原始标题"
+            },
+            "start": {
+              "type": "integer",
+              "description": "1基含章题起始行",
+              "minimum": 1
+            },
+            "end": {
+              "type": "integer",
+              "description": "1基含正文末行",
+              "minimum": 1
+            },
+            "hash": {
+              "type": "string",
+              "description": "正文 LF 规范化 SHA256 前16位"
+            },
+            "han": {
+              "type": "integer",
+              "description": "正文汉字数",
+              "minimum": 0
+            }
+          }
+        }
+      },
+      "diagnostics": {
+        "type": "object",
+        "description": "warnings/blockers/excluded_ranges"
+      },
+      "act_ranges": {
+        "type": "array",
+        "description": "显式戏剧幕区间"
+      }
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # 角色记忆与会话交接
 
-经理在四个时候读本文件：回收角色的交回摘要（里面可能有记忆提议）；作者在会话里说了会影响后面工作的话；派单前组装派单头；单元整理与完本。设计与取舍见 `workflow/memory-evolution-design.md`。
+经理在四个时候读本文件：回收角色的交回摘要（里面可能有记忆提议）；作者在会话里说了会影响后面工作的话；派单前组装派单头；单元整理与完本。设计与取舍见 `docs/designs/memory/memory-evolution-design.md`。
 
 ## 三类经验各有一个家
 
@@ -21,7 +21,7 @@
 
 种类：约定（本书特有的规矩，如"道友是平辈通称"）、教训（反复出过的问题，写成以后怎么做）、手感（作者选定或读者买账的做法）、校准（reader 画像的偏差）。
 
-<!-- ncc:gen memory-rules 开始（scripts/build_docs.py 由 workflow/registry.json 生成，勿手改） -->
+<!-- ncc:gen memory-rules 开始（scripts/dev/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
 - 门槛：同类独立证据至少 2 处才生效（重复提交不计数），不到的先记为候选；约定一处即可（作者原话就是证据）。
 - 相近：正文完全相同才自动合并证据；字面重合度 ≥ 0.5 的不同正文独立保存并提示候选，经理确认同义后才 merge，纠正意见用 edit 或 archive。
 - 上限：本书记忆每个角色 600 字、20 条；跨书记忆每个角色 300 字。放不下的整条跳过并报告省略数，不截断句意。
@@ -31,7 +31,7 @@
 
 ## 各角色记什么
 
-<!-- ncc:gen memory-roles 开始（scripts/build_docs.py 由 workflow/registry.json 生成，勿手改） -->
+<!-- ncc:gen memory-roles 开始（scripts/dev/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
 | 角色 | 记哪些种类 | 记什么 | 不记什么 |
 |---|---|---|---|
 | manager | 约定、教训、手感 | 本书约定、作者的工作节奏（什么时候可以打扰） | 作者偏好（在 pref） |
@@ -65,7 +65,7 @@
 - **落盘时机**：上下文快满、或会话要结束时，先把还没记的作者原话补进交接卡，再继续。
 - **过期与关闭**：超出 `--ch` 范围的自动不再进派单。作者的决定要落进它该去的地方（台账、场景卡、偏好、记忆），然后 `handoff close <书目录> H-0001 --to 场景卡`。交接卡是过渡，不是第二个源头；单元复盘底稿会列出还没落进源头的决定。
 
-<!-- ncc:gen handoff-visibility 开始（scripts/build_docs.py 由 workflow/registry.json 生成，勿手改） -->
+<!-- ncc:gen handoff-visibility 开始（scripts/dev/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
 | 角色 | 拿哪些种类 | 作用层 | 只拿覆盖本章的 |
 |---|---|---|---|
 | manager | 全部 | 全部 | — |

@@ -1,0 +1,57 @@
+{
+  "format": "ncc-structure-1",
+  "name": "progress",
+  "structure": {
+    "type": "object",
+    "required": [
+      "schema_version",
+      "index_fingerprint",
+      "layers",
+      "done",
+      "skipped"
+    ],
+    "fields": {
+      "schema_version": {
+        "type": "integer",
+        "description": "本契约格式版本，不能把旧版本当新验收",
+        "const": 2
+      },
+      "index_fingerprint": {
+        "type": "string",
+        "description": "绑定唯一索引"
+      },
+      "layers": {
+        "type": "object",
+        "description": "各层 planned/done/failed/waived，基础与场次分开"
+      },
+      "done": {
+        "type": "array",
+        "description": "legacy 与可信基本抽取覆盖，不能证明场次完成",
+        "items": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "skipped": {
+        "type": "object",
+        "description": "显式 legacy 跳过及理由"
+      },
+      "legacy": {
+        "type": "object",
+        "description": "旧覆盖的来源，不能证明新校验已通过"
+      },
+      "artifacts": {
+        "type": "object",
+        "description": "每章正文/派单包/验收收据指纹"
+      },
+      "derived_fingerprints": {
+        "type": "object",
+        "description": "派生台账文件路径到SHA256；统计前校验"
+      },
+      "invalidated": {
+        "type": "object",
+        "description": "重建导致旧 seq 失效的清单，不自动迁移"
+      }
+    }
+  }
+}

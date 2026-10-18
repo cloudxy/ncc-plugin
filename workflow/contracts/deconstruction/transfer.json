@@ -1,0 +1,62 @@
+{
+  "format": "ncc-structure-1",
+  "name": "transfer",
+  "structure": {
+    "type": "object",
+    "required": [
+      "schema_version",
+      "layer",
+      "packet_fingerprint",
+      "modules"
+    ],
+    "fields": {
+      "schema_version": {
+        "type": "integer",
+        "description": "本契约格式版本，不能把旧版本当新验收",
+        "const": 1
+      },
+      "layer": {
+        "type": "string",
+        "description": "本次执行层",
+        "const": "L3"
+      },
+      "packet_fingerprint": {
+        "type": "string",
+        "description": "当前派单包指纹"
+      },
+      "modules": {
+        "type": "array",
+        "description": "每项写方法、两处证据、适用条件、代价与失效",
+        "items": {
+          "type": "object",
+          "additional": false,
+          "required": [
+            "method",
+            "applies",
+            "cost",
+            "invalid_when",
+            "evidence"
+          ],
+          "fields": {
+            "method": {
+              "type": "string"
+            },
+            "applies": {
+              "type": "string"
+            },
+            "cost": {
+              "type": "string"
+            },
+            "invalid_when": {
+              "type": "string"
+            },
+            "evidence": {
+              "type": "array"
+            }
+          }
+        }
+      }
+    },
+    "additional": false
+  }
+}

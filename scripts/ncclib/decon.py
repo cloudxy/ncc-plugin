@@ -202,13 +202,14 @@ def compare_lines(book_dir: Path, d: dict, lo: int, hi: int) -> list:
         if not b:
             out.append(f"- 《{name}》还没有基线（拆完后 decon stats --write）")
             continue
-        out.append(f"- 《{name}》第{b['range'][0]}–{b['range'][1]}章：伏笔平均等待 {b['伏笔']['平均等待章数'] or '—'} 章；"
-                   f"爽点每 10 章 {b['爽点']['每10章']} 个；最长连续压抑 {b['情绪']['最长连续压抑']} 章")
+        fs, payoffs, emotion = b.get('伏笔') or {}, b.get('爽点') or {}, b.get('情绪') or {}
+        out.append(f"- 《{name}》第{b['range'][0]}–{b['range'][1]}章（{b.get('scope', 'legacy')}）：伏笔平均等待 {fs.get('平均等待章数') or '—'} 章；"
+                   f"爽点每 10 章 {payoffs.get('每10章', '—')} 个；最长连续压抑 {emotion.get('最长连续压抑', '—')} 章")
     out.append("- 只作参照，不作判据：差得多的地方，复盘时问一句\"是有意为之吗\"")
     return out
 
 
-def cmd_decon(a):
+def _legacy_cmd_decon(a):
     if a.action == "link":
         book_dir = Path(a.book_dir)
         d = load(book_dir)
@@ -272,3 +273,12 @@ def cmd_decon(a):
         p.write_text(md + "\n", "utf-8")
         print(f"OK 基线写进 {DECON_CFG['baseline']} 与 {DECON_CFG['baseline_view']}")
     print(md)
+
+
+def cmd_decon(a):
+    from .deconstruction.commands import run
+    from .deconstruction.common import DeconError
+    try:
+        return run(a, _legacy_cmd_decon, baseline)
+    except (DeconError, OSError, ValueError, re.error) as exc:
+        die(str(exc))

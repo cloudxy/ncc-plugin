@@ -6,7 +6,7 @@
 
 设定、大纲、正文、审稿这些角色产出的文档，各在哪、谁写，见 `book-layout.md` 的"目录契约"。
 
-<!-- ncc:gen info-map 开始（scripts/build_docs.py 由 workflow/registry.json 生成，勿手改） -->
+<!-- ncc:gen info-map 开始（scripts/dev/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
 | 信息 | 类别 | 唯一源头 | 谁写、怎么写 | 在哪看 |
 |---|---|---|---|---|
 | 阶段、闸门、章节状态、写作模式、档位、时代背景 | 源头 | `book.json` | 只经 ncc_state.py（gate、chapter、mode、level、era…） | status |
@@ -43,7 +43,7 @@
 
 **视图**：每次写操作后脚本自动重新生成；文件开头写着"勿手改"。`ncc_state.py check` 逐字比对视图与源头，手改过或过期都会报出来；`render` 手动重新生成。**脚本从不读视图当输入**（写手包的"前情"从 `book.json` 和场景卡现算）。
 
-<!-- ncc:gen views 开始（scripts/build_docs.py 由 workflow/registry.json 生成，勿手改） -->
+<!-- ncc:gen views 开始（scripts/dev/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
 - `author-intent.md`：书魂、类型契约、目标读者、签约点、作者雷点（render 生成，勿手改）
 - `current-focus.md`：续写状态卡：上一章结束在何时何地、下一章要接什么、近三章的翻转、读者此刻（render 生成，勿手改）
 - `00-策划/技艺库摘录.md`：别的书里与本书相关的经验（craft read 生成）

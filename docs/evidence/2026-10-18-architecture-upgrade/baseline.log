@@ -1,0 +1,9 @@
+# Frozen pre-upgrade baseline
+cwd: /private/tmp/ncc-architecture-upgrade/baseline
+python3 -m unittest discover -s scripts -p 'test_*.py'
+....................................
+----------------------------------------------------------------------
+Ran 151 tests in 299.823s
+
+OK
+
