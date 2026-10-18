@@ -20,7 +20,7 @@
 
 ## 提交与推送授权
 
-作者随后明确要求“提交并推送”。本轮按该授权发布拆书升级、所依赖的架构改造及配套文档迁移；先拉取确认远端最新，再按精确公开路径暂存和提交，保留钩子与私有内容守卫。以上实现报告的“未提交/未推送”为实现交接时状态，后续发布以本节和 Git 回执为准。测试、规则行为、独立评审及五端新会话继续由作者单独进行，不把提交推送写成验收通过。
+作者随后明确要求“提交并推送”。本轮按该授权发布拆书升级、所依赖的架构改造及配套文档迁移；先拉取确认远端最新，再按精确公开路径暂存和提交，保留钩子与私有内容守卫。以上实现报告的“未提交/未推送”为实现交接时状态，后续发布以本节和 Git 回执为准。实际升级提交为 `d8facc221bc7da5b4fb3952c4d50f6a750a68259`，已推送并通过 git ls-remote 核对 origin/main 相同提交。本回执随后作为独立元数据提交保存。测试、规则行为、独立评审及五端新会话继续由作者单独进行，不把提交推送写成验收通过。
 
 ```ncc-dev-json
 {
@@ -36,8 +36,8 @@
   "plugin_root": "/Users/xuyun/Documents/ncc-workflow",
   "branch": "main",
   "base_commit": "0e3faa03f05f05524442c870c0fafda134e0d8b4",
-  "stage": "D6",
-  "next": "按作者授权提交并推送精确公开范围；功能与宿主验证仍交作者单独执行。",
+  "stage": "D7",
+  "next": "代码已提交并推送 origin/main；等待作者单独测试、独立评审、规则确认与五端新会话结果，发现问题另按对应阶段修复。",
   "blocked": "",
   "decisions": [
     {
@@ -636,9 +636,9 @@
   ],
   "delivery": {
     "local": "implementation_complete",
-    "commit": "requested",
-    "remote": "requested",
-    "clone": "not_requested",
+    "commit": "d8facc221bc7da5b4fb3952c4d50f6a750a68259",
+    "remote": "origin/main verified d8facc221bc7da5b4fb3952c4d50f6a750a68259",
+    "clone": "not_requested; local zcode uses current tree",
     "runtime": "author_pending",
     "review": "author_pending",
     "hosts": {
@@ -800,7 +800,13 @@
       "workflow/source-vetting.md"
     ],
     "verification": "deferred_by_author; pending evidence retained",
-    "source_candidate": "c37e65b2464441244fa9e818187e0cd5f49d40a5173410bd27be15d2258333bc"
+    "source_candidate": "c37e65b2464441244fa9e818187e0cd5f49d40a5173410bd27be15d2258333bc",
+    "code_commit": "d8facc221bc7da5b4fb3952c4d50f6a750a68259",
+    "remote_verified": "d8facc221bc7da5b4fb3952c4d50f6a750a68259",
+    "hooks": "core.hooksPath=.githooks; pre-commit and pre-push completed",
+    "receipt": "本回执另作元数据提交保存；未改变功能代码及 pending 验证状态。",
+    "staged_scope": "143 explicit public paths; 123 changes after rename detection; private markers and credential scan clear",
+    "whitespace": "产品检查通过；两份冻结原始测试日志的末尾空行原样保留"
   }
 }
 ```
