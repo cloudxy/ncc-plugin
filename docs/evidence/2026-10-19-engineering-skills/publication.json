@@ -1,0 +1,16 @@
+{
+  "source_commit": "d04c32aac9cd1669e071c4ecd28330f2750e7e4d",
+  "remote": "https://github.com/cloudxy/ncc-plugin.git",
+  "branch": "main",
+  "remote_source_commit_verified": "d04c32aac9cd1669e071c4ecd28330f2750e7e4d",
+  "verified_at_utc": "2026-10-19T10:57:30.751797+00:00",
+  "git_hooks": ".githooks; pre-commit and pre-push retained",
+  "source_files_changed": 264,
+  "publication_scope": "Dynaconf and config ownership; readonly MCP and direct data access; engineering roles, experience, four professional skills and their evidence",
+  "first_push": "sandbox SSL connection failed; pre-push aborted without bypass",
+  "retry": "approved external git push origin main succeeded",
+  "remote_verification": "git ls-remote origin refs/heads/main matched source_commit",
+  "private_configuration_or_novels_uploaded": false,
+  "runtime": "Real PostgreSQL, browser UI and five-host new-session testing remain unverified for author dedicated tasks.",
+  "metadata_note": "This record is a subsequent documentation-only commit; source_commit identifies the published implementation."
+}

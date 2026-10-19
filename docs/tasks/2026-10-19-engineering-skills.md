@@ -20,8 +20,8 @@
     "ownership"
   ],
   "branch": "main",
-  "stage": "D6",
-  "next": "Commit and push the verified source changes; retain real database, UI and five-host runtime as unverified.",
+  "stage": "D7",
+  "next": "Source publication completed; author dedicated testing remains for real PostgreSQL, UI and five-host new-session loading.",
   "blocked": "",
   "decisions": [
     {
@@ -135,6 +135,7 @@
     "docs/evidence/2026-10-19-engineering-skills/product-designer-packet.json",
     "docs/evidence/2026-10-19-engineering-skills/product-manager-packet.json",
     "docs/evidence/2026-10-19-engineering-skills/publication-preflight.json",
+    "docs/evidence/2026-10-19-engineering-skills/publication.json",
     "docs/evidence/2026-10-19-engineering-skills/registry.log",
     "docs/evidence/2026-10-19-engineering-skills/review-positive.md",
     "docs/evidence/2026-10-19-engineering-skills/review.md",
@@ -632,14 +633,27 @@
       "coverage": "Four source tasks, 106 product paths, config/.env excluded, no private novel paths",
       "report": "docs/evidence/2026-10-19-engineering-skills/publication-preflight.json",
       "report_sha256": "b58ebc935cf06a70fb95bb3c6f8103d78cdfd33ce1ae78aabcfd3c442538ca06"
+    },
+    {
+      "id": "source-publication",
+      "kind": "publication",
+      "candidate": "91397686d3e5a34a93ad00bc58389bc71630a1929169ba78db40661abf9af0c1",
+      "status": "passed",
+      "command": "git commit; git push origin main; git ls-remote origin refs/heads/main",
+      "exit_code": 0,
+      "summary": "Published source commit matches the full remote main SHA; runtime acceptance remains unverified.",
+      "environment": "Current main; synchronization and private-content hooks enabled",
+      "coverage": "Source publication and remote SHA only; no runtime testing claim",
+      "report": "docs/evidence/2026-10-19-engineering-skills/publication.json",
+      "report_sha256": "011133e6ce0b30948d54bd7a4466af83172744a2a3781878d92c2171b094e639"
     }
   ],
   "delivery": {
     "local": "accepted",
-    "commit": "pending",
-    "remote": "pending",
-    "clone": "not_requested",
-    "runtime": "unverified"
+    "commit": "d04c32aac9cd1669e071c4ecd28330f2750e7e4d",
+    "remote": "verified origin/main source commit d04c32aac9cd1669e071c4ecd28330f2750e7e4d",
+    "clone": "not_requested; zcode registers this workspace directly",
+    "runtime": "unverified; author dedicated tests"
   },
   "repo_root": "/Users/xuyun/Documents/ncc-workflow",
   "plugin_root": "/Users/xuyun/Documents/ncc-workflow",
@@ -858,7 +872,10 @@
     "authorization": "用户当前明确要求：提交并推送。本次发布包含此前未提交的配置/数据访问、工程角色、经验与专业技能；真实PG、UI和五端新会话仍由专项测试验证。",
     "scope": "All four pending source changesets; source publication only, not full runtime acceptance.",
     "preflight": "docs/evidence/2026-10-19-engineering-skills/publication-preflight.json",
-    "status": "ready_to_commit"
+    "status": "source_published",
+    "source_commit": "d04c32aac9cd1669e071c4ecd28330f2750e7e4d",
+    "remote_source_commit_verified": "d04c32aac9cd1669e071c4ecd28330f2750e7e4d",
+    "record": "docs/evidence/2026-10-19-engineering-skills/publication.json"
   }
 }
 ```
