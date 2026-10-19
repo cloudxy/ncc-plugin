@@ -8,8 +8,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'src'))
-from ncc_data.policy import POLICY, POLICY_HASH
-from ncc_data.quality_core import evaluate_report
+from ncc_shared.quality.policy import POLICY, POLICY_HASH
+from ncc_shared.quality.scoring import evaluate_report
 
 
 class QualityTest(unittest.TestCase):

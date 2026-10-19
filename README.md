@@ -25,6 +25,8 @@ v4提供PostgreSQL知识底座、Python/FastAPI服务、React管理后台与创�
 
 AI正文、纲要、设定、抽取和修订按P1–P5量表给分项、证据和总分，系统执行有限返修；作者可直接修改、暂停或采用。自动定稿支持有范围、期限和次数的作者试运行或已校准策略；试运行保留质量闸门并记录校准未验证。
 
+初始化配置统一保存在项目根`.env`，命令自动读取。数据库只使用一个正式库及其同连接的`正式库-test`测试库。
+
 原文件模式继续可用。数据库模式显式启用，真实书库不会自动迁移；安装、模型配置、CLI接入与备份恢复见[数据后台使用指南](docs/guides/data-console.md)。
 
 ## 开始使用
@@ -100,7 +102,9 @@ flowchart LR
 | `workflow/contracts/` | 结构化产物的机器契约 |
 | `scripts/ncclib/` | 状态管理、创作支撑、拆书和交付的领域实现 |
 | `scripts/dev/`、`scripts/tests/` | 开发工具、自动化用例和合成样例 |
-| `src/ncc_data/`、`alembic/` | 数据服务、事务规则、自动编排与数据库迁移 |
+| `src/ncc_data/` | 按领域、持久化、应用操作、创作执行和接口划分的后台；迁移归持久化 |
+| `src/ncc_shared/` | 文件CLI与后台共用的配置、客户端、工作副本及评分实现 |
+| `tests/` | 无数据库单元、后端集成、浏览器与共用验收环境 |
 | `apps/management-web/` | 创作台与专业资料管理前端 |
 | `docs/` | 使用指南、工程规范、模块设计和任务记录 |
 | `eval/` | 审稿评测的锚定样章与评测说明 |
@@ -110,7 +114,7 @@ flowchart LR
 
 ## 开发与文档
 
-维护插件使用 `/ncc-dev <目标>`；恢复开发任务使用 `/ncc-dev continue <任务号>`。开发流程见[工程规范](docs/engineering/workflow.md)，项目设计见[架构说明](workflow/architecture.md)和[信息架构原则](workflow/principles.md)，其余文档从[文档导航](docs/README.md)查找。
+维护插件使用 `/ncc-dev <目标>`；恢复开发任务使用 `/ncc-dev continue <任务号>`。开发流程见[工程规范](docs/engineering/workflow.md)，代码归属见[目录与复用规范](docs/engineering/code-layout.md)，项目设计见[架构说明](workflow/architecture.md)和[信息架构原则](workflow/principles.md)，其余文档从[文档导航](docs/README.md)查找。
 
 在仓库根目录按改动范围选择检查：
 

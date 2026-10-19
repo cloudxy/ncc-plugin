@@ -1,6 +1,6 @@
 # AGENTS.md — ncc-workflow 工作区
 
-Novel Create Center（ncc-workflow）：长篇网文从立书到收束的创作工作流插件，v3.2.0。本目录既是日常创作工作区，也是 ncc-workflow 的**开发与编辑现场**——流程文件（skills/agents/commands/scripts/workflow）就在这里更新。上游 https://github.com/cloudxy/ncc-plugin 是唯一共同源；zcode 经 `~/.zcode/cli/config.json` 的 `plugins.dirs` 直接注册本目录加载（2026-10-17 起替代 `~/.zcode/local-plugins/ncc-workflow` 独立克隆；其他机器仍可注册该克隆，两边改动经 GitHub 互通）。
+Novel Create Center（ncc-workflow）：长篇网文从立书到收束的创作工作流插件，v4.0.0。本目录既是日常创作工作区，也是 ncc-workflow 的**开发与编辑现场**——流程文件（skills/agents/commands/scripts/workflow）就在这里更新。上游 https://github.com/cloudxy/ncc-plugin 是唯一共同源；zcode 经 `~/.zcode/cli/config.json` 的 `plugins.dirs` 直接注册本目录加载（2026-10-17 起替代 `~/.zcode/local-plugins/ncc-workflow` 独立克隆；其他机器仍可注册该克隆，两边改动经 GitHub 互通）。
 
 ## 目录
 
@@ -11,6 +11,9 @@ ncc-workflow/
 ├── commands/      对应斜杠命令
 ├── agents/        十二角色：scout、worldbuilder、outliner、writer、editor、story-editor、continuity、pulse、reader、scholar、deconstructor、curator
 ├── scripts/       运行入口与 ncclib/；dev/ 开发工具；tests/ 测试（顶层保留旧工具薄入口）
+├── src/           ncc_shared/ 纯标准库共享；ncc_data/ 分层后台（迁移归persistence）
+├── apps/          management-web/ 前端：app装配、features页面、shared共用
+├── tests/         unit/ 无库单元；backend/ 后端；browser/ 浏览器；support/ 共用环境
 ├── docs/          README.md 导航；guides/ 使用指南；engineering/ 工程规范；designs/ 按模块设计；tasks/ 活动任务；evidence/ 验证证据
 ├── eval/          anchors/ 锚定章样章与评测说明
 ├── novels/        书库根目录：书项目、准备工作区、拆书库都放这里（私有，绝不进仓库）
@@ -59,6 +62,8 @@ zcode 插件更新：本机直注册本目录，源文件改完开新会话即�
 ## 插件开发
 
 升级或修复插件使用 `/ncc-dev <目标>`，恢复用 `/ncc-dev continue <任务号>`。开发路径、阶段、证据与交付规范唯一见 [docs/engineering/workflow.md](docs/engineering/workflow.md)；小说创作继续使用原七技能。规则候选先隔离验证，完成回归后呈作者确认。
+
+配置统一读项目根`.env`，初始化不覆盖原值；只允许一个正式库及其同连接的`正式库-test`。不得另建每次测试/评审/恢复专用数据库，不更换既定PostgreSQL参数。代码归属和复用规则见[代码归属规范](docs/engineering/code-layout.md)，操作见[数据后台指南](docs/guides/data-console.md)。
 
 ## 自测
 

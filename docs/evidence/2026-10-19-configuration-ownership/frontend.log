@@ -1,0 +1,43 @@
+
+> ncc-management-console@4.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 3418 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                              0.56 kB │ gzip:   0.34 kB
+dist/assets/maps-BtPuoxOl.css                5.35 kB │ gzip:   1.39 kB
+dist/assets/index-CYsWD3Do.css               6.05 kB │ gzip:   1.98 kB
+dist/assets/useCreationPolicy-CG9vqSWx.js    0.16 kB │ gzip:   0.15 kB
+dist/assets/jobStages-4S70Pz40.js            0.17 kB │ gzip:   0.18 kB
+dist/assets/KnowledgeVisuals-DtE8JxnY.js     0.68 kB │ gzip:   0.36 kB
+dist/assets/ReferenceInput-BaPGINeK.js       0.69 kB │ gzip:   0.52 kB
+dist/assets/MapPage-ByaGke7b.js              0.87 kB │ gzip:   0.64 kB
+dist/assets/TextEditor-DcMf9Yut.js           1.14 kB │ gzip:   0.68 kB
+dist/assets/GraphCanvas-pvf-dCx-.js          1.56 kB │ gzip:   1.00 kB
+dist/assets/JobsPage-BtyZabcJ.js             1.89 kB │ gzip:   1.13 kB
+dist/assets/InboxPage-Be3TQAle.js            1.94 kB │ gzip:   1.04 kB
+dist/assets/WorldMap-Bfj4FeEH.js             2.06 kB │ gzip:   1.24 kB
+dist/assets/QualityPage-DiG3qvg1.js          2.90 kB │ gzip:   1.65 kB
+dist/assets/MaintenancePage-VY7w6_Zm.js      4.33 kB │ gzip:   2.07 kB
+dist/assets/DefinitionsPage-Dfm-yL-q.js      4.66 kB │ gzip:   2.22 kB
+dist/assets/ExchangePage-C0NeEqyS.js         4.67 kB │ gzip:   2.34 kB
+dist/assets/MaterialsPage-BxBUl5sg.js        5.10 kB │ gzip:   2.55 kB
+dist/assets/RelationsPage-vMluuuDF.js        6.71 kB │ gzip:   2.88 kB
+dist/assets/EntityDrawer-41rHRfRh.js         6.91 kB │ gzip:   3.43 kB
+dist/assets/AdminPage-B4mPlaIQ.js           11.10 kB │ gzip:   4.45 kB
+dist/assets/CreativePage-D2Hx9eZt.js        13.01 kB │ gzip:   5.81 kB
+dist/assets/index-lnIJLGcc.js               16.04 kB │ gzip:   6.77 kB
+dist/assets/maps-BF7JsklZ.js               283.94 kB │ gzip:  82.52 kB
+dist/assets/vendor-CQykmyGK.js             328.36 kB │ gzip: 106.34 kB
+dist/assets/graphs-BDkkwuE4.js             443.17 kB │ gzip: 141.37 kB
+dist/assets/editor-GKBro2o7.js             604.44 kB │ gzip: 205.56 kB
+dist/assets/antd-D25mCho3.js               927.47 kB │ gzip: 298.12 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 6.32s

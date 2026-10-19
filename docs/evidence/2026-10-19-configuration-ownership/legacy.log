@@ -1,0 +1,18 @@
+..........................................................................................................................................................................ERROR: 此范围以数据库为权威，请通过CLI入口或ncc-data应用接口读取；不能直接读写工作副本状态
+........../private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmptttd3xwy/workflow/registry.json: 聚合视图陈旧；运行 python3 scripts/dev/build_registry.py
+..../private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmpzxrm_fvz/workflow/registry.json: 聚合视图陈旧；运行 python3 scripts/dev/build_registry.py
+....................
+----------------------------------------------------------------------
+Ran 204 tests in 167.177s
+
+OK
+已更新 /private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmpmqaiq5jb/workflow/registry.json
+REGISTRY OK
+REGISTRY OK
+已更新 /private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmpmqaiq5jb/workflow/registry.json
+REGISTRY OK
+REGISTRY OK
+已更新 /private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmpmqaiq5jb/workflow/registry.json
+REGISTRY OK
+REGISTRY OK
+已更新 /private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmptttd3xwy/workflow/registry.json

@@ -25,19 +25,20 @@ dev = ["pytest>=8,<10", "pytest-asyncio>=0.25,<2", "playwright>=1.50,<2", "ruff>
 ncc-data = "ncc_data.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/ncc_data"]
+packages = ["src/ncc_data", "src/ncc_shared"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"alembic" = "ncc_data/migrations"
-"alembic.ini" = "ncc_data/alembic.ini"
+".env.example" = "ncc_shared/resources/dotenv.example"
 
 [tool.pytest.ini_options]
-testpaths = ["tests/data"]
+testpaths = ["tests/unit", "tests/backend"]
 asyncio_mode = "auto"
 
 [tool.ruff]
 target-version = "py311"
 line-length = 110
+# Historical migration bytes are immutable; add new revisions instead of formatting old DDL.
+extend-exclude = ["src/ncc_data/persistence/migrations/versions"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I", "UP", "B"]

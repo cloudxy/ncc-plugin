@@ -181,3 +181,7 @@ NCC 按自己的执行方式补充了单章串行回写、偏好滚动裁剪和�
 |---|---|---|---|
 | [zenstory-ai/oh-story-claudecode](https://github.com/zenstory-ai/oh-story-claudecode) 的 story-deslop（`banned-words.md`） | MIT，Copyright (c) 2025-2026 oh-story-claudecode | 一级禁用词、二级密度词、高危句式与五星句式分级、作者白名单的做法 | `scripts/check_chapter.py`（清单为整理后的子集；正则与判定逻辑为本插件自写） |
 
+
+## 项目配置方式参考（2026-10-19）
+
+按作者指定参考本机`hcdataspider/config/__init__.py`的项目路径定位、配置文件自动加载方式（当日本地版本）。NCC以纯标准库实现单一项目`.env`读取，落点为`src/ncc_shared/configuration.py`；不复制参考项目业务配置或凭据，不引入其依赖或运行链。

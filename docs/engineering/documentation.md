@@ -10,6 +10,7 @@ docs/
 ├── guides/                        # 使用说明：操作、命令、常见问题（面向使用者）
 ├── engineering/                   # 现行规范：开发、测试、交付、文档、外部来源治理（面向维护者）
 │   ├── workflow.md                # 开发路径、阶段、证据与交付的唯一规范
+│   ├── code-layout.md             # 代码目录归属、依赖方向与复用边界
 │   ├── documentation.md           # 本文
 │   └── source-vetting.md          # 引入外部 skill/语料/工具前的筛查与黑名单
 ├── designs/                       # 设计依据与升级方案，按模块分目录

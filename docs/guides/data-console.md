@@ -14,26 +14,32 @@ npm --prefix apps/management-web ci
 npm --prefix apps/management-web run build
 ```
 
-先由数据库维护者建立空的专用数据库，并把连接串保存在仓外私有环境文件或密码管理器。不要把密码写入Git、小说或命令示例。数据库驱动为`postgresql+psycopg`；连接串中有特殊字符时需按URL规则编码。`NCC_DATABASE_URL`必须明确提供，没有默认数据库。
+配置属于一次性初始化。保留已经确定的PostgreSQL主机、端口、账号和正式库名，在项目根`.env`保存；无需每次启动设置终端变量。先执行：
 
 ```bash
-export NCC_DATABASE_URL='<私有PostgreSQL连接串>'
-export NCC_PUBLIC_ORIGIN='http://127.0.0.1:8787'
+.venv/bin/ncc-data init
+```
+
+初始化生成权限为600的本地`.env`；存在时原值不变。按`.env.example`填写`NCC_DB_HOST/PORT/NAME/USER/PASSWORD`和模型配置。连接串原已确定时可改用单一`NCC_DATABASE_URL`，不要同时保留非空的分项连接。程序不改数据库服务参数、不猜测账号、不自动建库。若已有NCC格式配置，可用`init --from-existing '<已有配置文件>'`初始化；仍不覆盖现有`.env`。真实文件已忽略，不提交Git。
+
+只使用两个库：既定正式库，以及同一服务器、端口、账号和连接选项的`正式库-test`。测试库名自动派生，不维护第二套连接。数据库维护者只需在初始化时准备这两个库；所有作品用逻辑范围隔离，不按作品、验收、恢复操作创建库。
+
+```bash
 .venv/bin/ncc-data migrate
 .venv/bin/ncc-data create-user '<账号名>'
 .venv/bin/ncc-data doctor
 .venv/bin/ncc-data serve
 ```
 
-`create-user`通过终端两次输入密码，至少12字符；首个账号是系统管理员。没有内置默认密码或匿名管理入口。打开`http://127.0.0.1:8787`登录。另一个终端加载同一份私有配置，启动任务执行器：
+`create-user`通过终端两次输入密码，至少12字符；首个账号是系统管理员。没有内置默认密码或匿名管理入口。打开`http://127.0.0.1:8787`登录。另一个终端在项目中启动任务执行器，自动读取同一份`.env`：
 
 ```bash
 .venv/bin/ncc-data worker
 ```
 
-API和前端同源运行，采用HttpOnly会话与CSRF令牌。远程部署需要HTTPS同源反向代理，并将`NCC_PUBLIC_ORIGIN`设为实际地址；代理需支持SSE、限制请求大小、关闭事件流缓冲。CLI与Worker不接收任意SQL或脚本。`serve`默认仅监听本机，不暴露数据库端口。
+API和前端同源运行，采用HttpOnly会话与CSRF令牌。远程部署需要HTTPS同源反向代理，并在`.env`中将`NCC_PUBLIC_ORIGIN`设为实际地址；代理需支持SSE、限制请求大小、关闭事件流缓冲。CLI与Worker不接收任意SQL或脚本。`serve`默认仅监听本机，不暴露数据库端口。
 
-源码安装会使用`apps/management-web/dist`。单独安装Python wheel时，迁移与定义包随wheel分发；前端单独构建并通过私有`NCC_WEB_DIST`指向构建目录。未经构建的前端返回明确的未就绪信息。
+源码安装会使用`apps/management-web/dist`。单独安装Python wheel时，迁移与定义包随wheel分发；前端单独构建并在`.env`通过`NCC_WEB_DIST`指向构建目录。未经构建的前端返回明确的未就绪信息。
 
 ## 创作与审核
 
@@ -47,9 +53,9 @@ API和前端同源运行，采用HttpOnly会话与CSRF令牌。远程部署需�
 
 ## 配置创作模型
 
-在服务端私有环境设置以下变量，再重启Worker：
+在项目`.env`填写以下配置，再重启服务和Worker：
 
-| 变量 | 用途 |
+| 配置项 | 用途 |
 |---|---|
 | `NCC_MODEL_URL` | 兼容Chat JSON接口的网关基础地址，最终请求路径为`/chat/completions` |
 | `NCC_MODEL_KEY` | 网关凭据，可用于本机无密钥网关；不发送给浏览器 |
@@ -86,15 +92,13 @@ JSON导出固定版本，包含当前对象、可访问事实、定义以及有�
 旧文件范围保持原工作路径。数据库权威范围仅通过显式工作副本绑定启用，不自动接管现有书库：
 
 ```bash
-export NCC_API_URL='http://127.0.0.1:8787'
-export NCC_API_TOKEN='<本范围短期凭据>'
 .venv/bin/ncc-data workspace import '<私有工作副本目录>' --scope '<范围ID>'
 .venv/bin/ncc-data workspace bind '<私有工作副本目录>' --scope '<范围ID>'
 python3 scripts/ncc_state.py status '<私有工作副本目录>'
 .venv/bin/ncc-data workspace pull '<私有工作副本目录>' --scope '<范围ID>'
 ```
 
-范围凭据在“成员与设置”生成，至少需要`read/edit/adopt/export/secret`完成完整CLI工作副本往返；令牌只显示一次，不存入工作副本标记。导入前先备份并审核差异；import与bind是两个明确动作。文件原件保留，章节有类型投影；旧的其他专用台账以受管原件兼容，专业领域通过定义/关系接口维护，不能把原件保存等同于全部语义迁移。
+在项目`.env`中填写`NCC_API_URL`与`NCC_API_TOKEN`。范围凭据在“成员与设置”生成，至少需要`read/edit/adopt/export/secret`完成完整CLI工作副本往返；令牌只显示一次，不存入工作副本标记。导入前先备份并审核差异；import与bind是两个明确动作。文件原件保留，章节有类型投影；旧的其他专用台账以受管原件兼容，专业领域通过定义/关系接口维护，不能把原件保存等同于全部语义迁移。
 
 绑定后，CLI先从数据库一致版本构造隔离工作区，再经应用服务回写；命令运行时发生作者编辑或数据库变化会拒绝覆盖。一次命令最多200文件和18MiB传输预算。直接调用程序内部文件写函数不能绕过数据库标记。外部编辑器的本地变化要先对账；冲突原稿保留，不静默切回文件双主模式。新型数据库语义不能无损降级时，只回退应用或保留只读库。
 
@@ -104,26 +108,31 @@ python3 scripts/ncc_state.py status '<私有工作副本目录>'
 
 系统管理员负责建立账号，范围所有者负责成员授权；系统管理身份不自动获得其他作者的作品。`read/edit/adopt/assess/export/secret/admin/operate`分别控制范围行为，范围令牌再收窄权限。秘密正文、属性、变更、任务、评分和导出附件在读取时重新校验；撤权不能仅隐藏导航。
 
-正式部署应分离数据库迁移账号和应用账号：迁移账号维护DDL，应用账号仅获专用数据库连接、schema使用、所需表DML，禁止超级用户、建库、建角色及DDL权限。不要把数据库维护凭据交给浏览器或模型。当前保护由应用授权、事务约束和数据库历史不可变触发器共同执行，没有宣称已实现数据库RLS隔离。
+数据库账号和权限沿用已经确定的配置。不要把数据库凭据交给浏览器或模型。当前保护由应用授权、事务约束和数据库历史不可变触发器共同执行，没有宣称已实现数据库RLS隔离。
 
-备份需要PostgreSQL工具可用；可用`NCC_PG_BIN`指定工具目录，`NCC_MAINTENANCE_URL`指定私有维护连接：
+备份恢复共用当前选定连接及其TLS、证书、超时等参数，不再维护额外维护连接。工具不在PATH时，在`.env`填写`NCC_PG_BIN`。
 
 ```bash
 .venv/bin/ncc-data backup '<仓外私有备份文件.dump>'
-# 先建立新的空库，并将维护连接改为该隔离目标
-.venv/bin/ncc-data restore '<仓外私有备份文件.dump>' --confirm-database '<目标空库名>'
+# 仅当既定目标已为空库时恢复；不为每次操作创建新库
+.venv/bin/ncc-data restore '<仓外私有备份文件.dump>' --confirm-database '<既定正式库名>'
 ```
 
-备份为完整custom格式转储，拒绝覆盖文件，权限为600并给出摘要。恢复只允许显式指定的空库，没有隐式清库；恢复后撤销会话与托管，暂停未完成任务。先核对对象、历史、事实、附件、正文、权限和备份摘要，再决定切换。定时备份、异地副本、WAL归档和恢复目标需由部署环境配置，单次逻辑备份不等于15分钟恢复点保证。
+备份为完整custom格式转储，拒绝覆盖文件，权限为600并给出摘要。恢复只允许明确确认的空库，不隐式清理正式数据。恢复后撤销会话与托管，暂停未完成任务；核对对象、历史、事实、附件、正文、权限与摘要后再恢复服务。恢复演练仅在唯一-test库进行，使用合成数据备份重放，需显式确认，失败时保留转储。定时备份、异地副本、WAL归档由部署环境配置。
 
 ## 验证入口
 
 ```bash
 python3 -m unittest discover -s scripts/tests -t scripts -p 'test_*.py'
-python3 scripts/check_plugin.py -v
-.venv/bin/pytest tests/data --database-url '<显式隔离ncc_test_*测试库>' -q
+python3 scripts/dev/check_plugin.py -v
+.venv/bin/pytest tests/unit tests/backend -q
 npm --prefix apps/management-web run build
-.venv/bin/python tests/web/run_browser.py --output '<仓外验收截图目录>'
+.venv/bin/python tests/browser/run_browser.py --output '<仓外验收截图目录>'
+.venv/bin/python tests/backend/run_recovery.py --confirm-reset-test '<正式库-test>'
 ```
 
-数据库用例会清空指定测试库，库名必须以`ncc_test_`开头；禁止传入生产库。浏览器脚本只使用本机合成验收账号，不读取真实小说。实际检查结果、独立评审及未验范围见[本轮实施证据](../evidence/2026-10-18-postgresql-design/implementation.md)。
+后台集成、浏览器、CLI往返和恢复演练共用`tests/support/`环境，串行使用同一个-test库；已占用时停止，不创建更多库。后台测试会清空NCC合成数据，测试库不得存放真实作品。发现未知表或其他业务schema时拒绝清理。连接尚未配置时，数据库用例明确跳过，不视为联调通过。
+
+浏览器验收自动启动并关闭本机测试服务，默认`http://127.0.0.1:8788`，不复用已有端口服务。合成账号由公共环境在-test库准备。`ncc-data --test serve/worker/migrate/doctor`选择同一测试库和测试服务地址；`--test request/workspace`也选择测试地址，并在发送凭据前核对服务profile。普通正式服务默认8787；测试地址可在`.env`的`NCC_TEST_PUBLIC_ORIGIN`填写。高级自动化可显式使用`--config '<项目.env>'`，普通操作无需此参数。
+
+代码目录、复用边界和测试归属见[代码归属规范](../engineering/code-layout.md)。本轮配置和目录改造的验证及限制见[任务记录](../tasks/2026-10-19-configuration-ownership.md)，此前v4功能验证保留在[实施证据](../evidence/2026-10-18-postgresql-design/implementation.md)。

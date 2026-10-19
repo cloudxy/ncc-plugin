@@ -2,12 +2,10 @@
 import hashlib
 import json
 from pathlib import Path
-import sys
 from .core import PLUGIN_ROOT, die, find_ch, load, now, read_json, save, write_json
 
-sys.path.insert(0, str(PLUGIN_ROOT / 'src'))
-from ncc_data.policy import POLICY, POLICY_HASH
-from ncc_data.quality_core import evaluate_report
+from ncc_shared.quality.policy import POLICY, POLICY_HASH
+from ncc_shared.quality.scoring import evaluate_report
 
 
 def target(a):

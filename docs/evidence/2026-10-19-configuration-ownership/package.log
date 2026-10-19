@@ -1,0 +1,11 @@
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Generating static SQL
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 070970fe2f0a, private knowledge temporal history and automation
+INFO  [alembic.runtime.migration] Running upgrade 070970fe2f0a -> 5c4c6e012a90, Scoped credentials and immutable committed history.
+INFO  [alembic.runtime.migration] Running upgrade 5c4c6e012a90 -> 6d30bb12e441, Bind attachment confidentiality to every read, including old generated exports.
+INFO  [alembic.runtime.migration] Running upgrade 6d30bb12e441 -> 7e419c2d608b, Record bounded author trial separately from calibrated trust.
+项目.env已初始化；请保留并填写已确定的连接参数。
+项目.env已存在，原值保持不变。
+wheel isolated initialization / repeat-safe / migration discovery / shared resources / Python3.9 syntax: passed
+{"python": "3.12.14", "openapi_equal": true, "paths": 54, "method_paths": 63, "migration_bytes_preserved": 4, "offline_migration_head": true, "database_connections": 0, "packaged_policy_bytes_preserved": true}
