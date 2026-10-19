@@ -83,7 +83,7 @@ def manage(action, directory, scope_id, values=None):
                 "profile": client.profile,
             },
         )
-        print("已显式绑定数据库权威范围；凭据从项目.env读取，原文件保留为受控工作副本。")
+        print("已显式绑定数据库权威范围；凭据从config/.env读取，原文件保留为受控工作副本。")
     else:
         snapshot = http_request("GET", prefix)
         baseline = read_metadata(root, STATE, {"hashes": {}})

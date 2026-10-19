@@ -1,0 +1,21 @@
+COMMAND: python3 -m unittest discover -s scripts/tests -t scripts -p test_*.py
+已更新 /private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmp2advmhzs/workflow/registry.json
+REGISTRY OK
+REGISTRY OK
+已更新 /private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmp2advmhzs/workflow/registry.json
+REGISTRY OK
+REGISTRY OK
+已更新 /private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmp2advmhzs/workflow/registry.json
+REGISTRY OK
+REGISTRY OK
+已更新 /private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmp580i4fuq/workflow/registry.json
+.........................................................................................................................................................................................ERROR: 此范围以数据库为权威，请通过CLI入口或ncc-data应用接口读取；不能直接读写工作副本状态
+........../private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmp580i4fuq/workflow/registry.json: 聚合视图陈旧；运行 python3 scripts/dev/build_registry.py
+..../private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmptsl_awtm/workflow/registry.json: 聚合视图陈旧；运行 python3 scripts/dev/build_registry.py
+....................
+----------------------------------------------------------------------
+Ran 219 tests in 181.087s
+
+OK
+
+exit_code=0

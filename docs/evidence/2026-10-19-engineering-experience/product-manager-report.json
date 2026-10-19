@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "role": "product-manager",
+  "input_sha256": "038331c47aeb3f0f5d6612c4ba589e46294546c295ac40da04dafd98b758f085",
+  "execution": {
+    "mode": "current_session",
+    "identity": "/root"
+  },
+  "decision": "ready",
+  "deliverables": {
+    "author_task": "作者要从NCC反复开发纠偏中提炼教训，并让四角色在以后任务能主动识别和处理。成果是一份有证据边界的项目经验及被实际调用的诊断方法，不是另建后台或角色名称。",
+    "value": "把重复由作者发现的问题前移到原工程派单；同一任务报告必须给相关经验、场景差异、具体处理和验收。减少后续重复纠偏；不声称没有用户基线的效率改善比例。",
+    "scope": "仅增强四角色读取、公共协议、通用outputs和11个路径。既定配置、双库、评分授权和十二创作角色保持；新任务用设计判断检验经验迁移，真实PG/UI/新会话另验。",
+    "priority": "先确保事实准确并区分已修缺陷、现状缺口与合成风险；再让经验进入实际包和交付；最后验证新方案正反判断，避免只背案例。无新交互/数据库操作，当前任务不额外派设计师和DBA，二者能力通过实际行为案例验证。",
+    "acceptance": "四角色读取同份经验且预算有效；缺experience_application被既有record拒绝、经验字节变化使旧结论过期；新场景既接受合理设计又退回危险设计，输出具体修法；独立评审确认没有扩张项目范围或伪造能力。",
+    "experience_application": "E02：本次区别是已存在四角色，缺的是经验进入后续执行；落点为development.reads/outputs和角色协议，以实际新任务验证，不再把文档存在当交付。E09：当前是角色行为增强，没有DB/产品交互实测；以当前11路径指纹、实际会话与独立审查判断，不沿用上一轮221项为本轮通过证据。"
+  },
+  "findings": [],
+  "verification": [
+    {
+      "scenario": "Bounded design and ownership review",
+      "expected": "Shared experience enters existing role packet and required outputs without new core state",
+      "status": "passed",
+      "evidence": "Read the scoped proposal and role protocol; implementation/behavior has separate tests and independent review."
+    }
+  ],
+  "limitations": [
+    "Current-session design review, not an independent expert.",
+    "Real DB/UI, host new sessions and long-term model stability are not verified."
+  ]
+}

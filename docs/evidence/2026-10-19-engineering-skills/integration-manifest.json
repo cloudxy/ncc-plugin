@@ -1,0 +1,626 @@
+[
+  {
+    "path": ".agents/skills/ncc-dba",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "link",
+      "target": "../../skills/ncc-dba"
+    }
+  },
+  {
+    "path": ".agents/skills/ncc-product-designer",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "link",
+      "target": "../../skills/ncc-product-designer"
+    }
+  },
+  {
+    "path": ".agents/skills/ncc-product-manager",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "link",
+      "target": "../../skills/ncc-product-manager"
+    }
+  },
+  {
+    "path": ".agents/skills/ncc-project-architect",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "link",
+      "target": "../../skills/ncc-project-architect"
+    }
+  },
+  {
+    "path": ".claude/skills/ncc-dba",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "link",
+      "target": "../../skills/ncc-dba"
+    }
+  },
+  {
+    "path": ".claude/skills/ncc-product-designer",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "link",
+      "target": "../../skills/ncc-product-designer"
+    }
+  },
+  {
+    "path": ".claude/skills/ncc-product-manager",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "link",
+      "target": "../../skills/ncc-product-manager"
+    }
+  },
+  {
+    "path": ".claude/skills/ncc-project-architect",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "link",
+      "target": "../../skills/ncc-project-architect"
+    }
+  },
+  {
+    "path": "ACKNOWLEDGMENTS.md",
+    "before": {
+      "type": "file",
+      "sha256": "fa75a4796df51fd597002b01a1ae07a63e04f016b6e9efb72f68f52bb9afd998",
+      "mode": 420
+    },
+    "after": {
+      "type": "file",
+      "sha256": "9999f3a90f182c90e9a991c54de32a26f7b2c70b5c024693e13a558faafdf3de",
+      "mode": 420
+    }
+  },
+  {
+    "path": "AGENTS.md",
+    "before": {
+      "type": "file",
+      "sha256": "4a525b965f4f2c85c5cef54ec830ca16547f61af9a33950d777197e52ad0eb32",
+      "mode": 420
+    },
+    "after": {
+      "type": "file",
+      "sha256": "b1fd5301d6c989dc2cb635e947a5d38b1ed11ada0b1914a197a04b1e032b2a15",
+      "mode": 420
+    }
+  },
+  {
+    "path": "README.md",
+    "before": {
+      "type": "file",
+      "sha256": "a0af5b871bab6a9593519b1af9168d57838a958e1a8e4c27c7416ee8b7e24d24",
+      "mode": 420
+    },
+    "after": {
+      "type": "file",
+      "sha256": "ee96236ffd84d9f7bd5c72261efa51cf0a4d3fdcf0d1d83d96d0a7fcd979b90c",
+      "mode": 420
+    }
+  },
+  {
+    "path": "agents/dba.md",
+    "before": {
+      "type": "file",
+      "sha256": "f1afc31612e46264d0ae70705d5d691491c2d14cd72e8857ddd281a3aa676f2f",
+      "mode": 420
+    },
+    "after": {
+      "type": "file",
+      "sha256": "b8509dff9e664f21aafc2969bee14d4f910c833a0d76fba2e46e8b097ae44279",
+      "mode": 420
+    }
+  },
+  {
+    "path": "agents/product-designer.md",
+    "before": {
+      "type": "file",
+      "sha256": "4ef48fa44c62f0c2704888797d75e8620ee8f0cc1be6929a3854c6f63809c4dc",
+      "mode": 420
+    },
+    "after": {
+      "type": "file",
+      "sha256": "37fddabee385e3100cbb58cc50468077a3d204732ff36ce65ab1cdd48691c6b6",
+      "mode": 420
+    }
+  },
+  {
+    "path": "agents/product-manager.md",
+    "before": {
+      "type": "file",
+      "sha256": "7d2b97c96e3311120fae89a6a4816518bdd2dbc1d8d2395bf062afc6271ec9fa",
+      "mode": 420
+    },
+    "after": {
+      "type": "file",
+      "sha256": "cff66b8e434bfc941ee86f72a93c2e2dbb13685311261e17f676689fad2a0c49",
+      "mode": 420
+    }
+  },
+  {
+    "path": "agents/project-architect.md",
+    "before": {
+      "type": "file",
+      "sha256": "a14790016e640b805c7ddcdc72159c65bce16217f72e8a0441ff8267550048c4",
+      "mode": 420
+    },
+    "after": {
+      "type": "file",
+      "sha256": "884bd93e20ce35750845d70d97e7104f65e1127639bdc3f92ef0a150676e7acc",
+      "mode": 420
+    }
+  },
+  {
+    "path": "docs/README.md",
+    "before": {
+      "type": "file",
+      "sha256": "22e931f9db4b1d419536cfbb9436226f006a413d57c6b35dd3fda569dc6b69f0",
+      "mode": 420
+    },
+    "after": {
+      "type": "file",
+      "sha256": "d921267225656ba178585b45d4621ba3732eeed1d8a95c278aa1913b68a082f6",
+      "mode": 420
+    }
+  },
+  {
+    "path": "docs/designs/engineering/product-architecture.md",
+    "before": {
+      "type": "file",
+      "sha256": "9f40de8524471ef71e370f96f0bc64033f1e945d9dfcb74dfa67371bb0792379",
+      "mode": 420
+    },
+    "after": {
+      "type": "file",
+      "sha256": "6ae8cc7af986dad1c5bdaeffa66ecea5b17ff040ea753916000b3f04ebd9ab24",
+      "mode": 420
+    }
+  },
+  {
+    "path": "docs/engineering/documentation.md",
+    "before": {
+      "type": "file",
+      "sha256": "da9df93c534eccb21420b0a19f20669003f4f9e245a867a8afc102ff502a95d3",
+      "mode": 420
+    },
+    "after": {
+      "type": "file",
+      "sha256": "71194da2abb25b275b87d8158397ad92268542ab705f4942ee61788cde345b61",
+      "mode": 420
+    }
+  },
+  {
+    "path": "docs/engineering/experience.md",
+    "before": {
+      "type": "file",
+      "sha256": "68ad2d28983b3692ce2352d663a70f2bd692d8b63cf6afb80fdfa6630e8a8ded",
+      "mode": 420
+    },
+    "after": {
+      "type": "absent"
+    }
+  },
+  {
+    "path": "scripts/dev/build_docs.py",
+    "before": {
+      "type": "file",
+      "sha256": "d6d13c1dbdb8a036c63a6c9758f5d60e080be34b96ea95a9411c279cd3309d10",
+      "mode": 420
+    },
+    "after": {
+      "type": "file",
+      "sha256": "e2a313a7d0fb9c8496287fa13909dcb7f54e3cc8bcff18d08846c8df4899d512",
+      "mode": 420
+    }
+  },
+  {
+    "path": "scripts/dev/check_plugin.py",
+    "before": {
+      "type": "file",
+      "sha256": "613d23db84fa70e052911fb0176df97c449d21befa185d8aa3f0215fe052ee5a",
+      "mode": 420
+    },
+    "after": {
+      "type": "file",
+      "sha256": "69ed668f489186dcc5a62f2be4657e7b0e2a6d2e2bdfee4a92bc4eea8c77f7d5",
+      "mode": 420
+    }
+  },
+  {
+    "path": "scripts/dev/development.py",
+    "before": {
+      "type": "file",
+      "sha256": "521b63f536f9bb0bac9d2e9a835cf9831d3a992bf1c81e88f6f055394ebb873f",
+      "mode": 420
+    },
+    "after": {
+      "type": "file",
+      "sha256": "2bc5d175d77c71500382110dd83f2e81c8b5afdce266d97d722a092329745a12",
+      "mode": 420
+    }
+  },
+  {
+    "path": "scripts/tests/fixtures/development/professional-architecture.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "fe4683ac44824c670abd889b96d2d7e1459837597f68e986d48c91a7ebbb4f1f",
+      "mode": 420
+    }
+  },
+  {
+    "path": "scripts/tests/fixtures/development/professional-data.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "2c6bf653af30034ad03712aa5e688762d5fe5eca03f0b494399de2530e987899",
+      "mode": 420
+    }
+  },
+  {
+    "path": "scripts/tests/fixtures/development/professional-design.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "e108cbe8a0b29ce3d74ec12800d60542091368f4ae1eb1747d176ba716354616",
+      "mode": 420
+    }
+  },
+  {
+    "path": "scripts/tests/fixtures/development/professional-product.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "812f9e7b0156923a9d8cf70e6404aa04d52b96f8461057c9137f4ef785142cc2",
+      "mode": 420
+    }
+  },
+  {
+    "path": "scripts/tests/test_dev_workflow.py",
+    "before": {
+      "type": "file",
+      "sha256": "988ad24d26e11a76bc39857fad33b75be1fe3d773b41c4644d486c76703ad843",
+      "mode": 420
+    },
+    "after": {
+      "type": "file",
+      "sha256": "25b4dcadf1f22c4e09b08683dd24c82a5672266d400052d3cb89d5e2f984428e",
+      "mode": 420
+    }
+  },
+  {
+    "path": "scripts/tests/test_development.py",
+    "before": {
+      "type": "file",
+      "sha256": "4151afdc97cd9778687570e1ad2465a6e7d3678b0313ef73f87ad04632eb5872",
+      "mode": 420
+    },
+    "after": {
+      "type": "file",
+      "sha256": "13a2b196471d5aefdc739778390b06c42ed4b5791e99ffa70ba9ff245afcc65f",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-dba/SKILL.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "617061f45748738e7e893d143cafa0ade6d67d9f6b06f725333e0a25fbed423d",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-dba/references/data-design.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "faef00acb13f8ceb58cf1040caa22f037b0fc3106387e4146ce185661b7dd45e",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-dba/references/operations.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "6f6b0989c230077631d6a58f4ea8ec29fa1dcdae15f0871ce9850b36fe72b7a0",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-dba/references/sop.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "a80798751f4d501ba958cd12074fd5518f672a74aa7c3a1c9d69ef0075a0ac33",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-dba/references/sources.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "6744290039ff13f1d6578fed7b68d25e96553b91b38975abb550f6b036fb3284",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-dba/templates/data-change.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "3ff116ee42df498c5fa11d53fcf2cf711d288eb5560b8f2912359598d3f2ed14",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-dev/SKILL.md",
+    "before": {
+      "type": "file",
+      "sha256": "473a403c3e559e1a19b8f45ae060b885233050c6cbd3cba249ac609e17c0ddf0",
+      "mode": 420
+    },
+    "after": {
+      "type": "file",
+      "sha256": "8023c5dc00a6471d87b0ad57c912b61c05914ac8bb3101a9c14752939fc74187",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-dev/references/experience.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "a78245630f860112040b96b76058c6587d4814a1bd5fd1c8f68dd0fd287a4f4c",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-dev/references/roles.md",
+    "before": {
+      "type": "file",
+      "sha256": "0d70608aa585bb83671541941cc8bcc682c2b14ba2bb09f8554ffde98907e212",
+      "mode": 420
+    },
+    "after": {
+      "type": "file",
+      "sha256": "d98b08a6ec2d8bbebc6c6b453f8759d88f13e9db9aadf9bc2fea317f58bfb65f",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-product-designer/SKILL.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "4200a35b80501408f3645febd396de8033912200a6d65aa146314ad8809f8921",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-product-designer/references/interaction.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "6467b2b0d32d8ddeaeebd3afe505989506413ec9ea2e8e304a9838e42edb488f",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-product-designer/references/sop.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "b1000f8cdf23cddeb2d025f8feb560b585df0efdd7c15bfeb6bb1f9eaf44ce12",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-product-designer/references/sources.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "a448099767c8868ea8fd7184e0fc8f819c4741da03f8f367ef47c7e32a30a920",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-product-designer/templates/interaction-spec.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "cd0d08b0c65ab7fbd064fb6367d67fdb44ef2f6c8766bcae9381f239dd7900ae",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-product-manager/SKILL.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "67cacc66c969528fe01fd48aa3e099be16440a371ab8cff18e2e90fcea7dbfec",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-product-manager/references/discovery.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "f167c7ede92960f1f8854060441716a91fa6e68e1d24016029f3710ad5caf826",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-product-manager/references/sop.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "b027316684bd78432c84630d8e5fe13f4db7052f6ef756f899611c1a048677f2",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-product-manager/references/sources.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "a41edc7c15ebb2f8d5e0be23588acae7c9cb37fff4a12cabca26443f8ec4c18b",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-product-manager/templates/product-brief.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "063cbcfbf62769ec48422c7386fd939c9fcd20ab7649b8fbebe0a7132434fb0c",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-project-architect/SKILL.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "d993c4838973cf872047b52bc56bb670671dc75f4b1216e14957319087a3ac06",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-project-architect/references/evolution.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "0ee4bde86f08fa5a512801f8b17b4bc48765212466464f36313082278a5e9d5e",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-project-architect/references/sop.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "4ccbc8cd9be930088a3eda80b65a4395001eaa59b16b1135f10b855d6c351104",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-project-architect/references/sources.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "959ba1583932539c0d4927c6f369ff40e4f9dbcc5bd5a17e19c6fee09e1cd7c1",
+      "mode": 420
+    }
+  },
+  {
+    "path": "skills/ncc-project-architect/templates/architecture-decision.md",
+    "before": {
+      "type": "absent"
+    },
+    "after": {
+      "type": "file",
+      "sha256": "c3968f9f3c1a67bb45d41cd2f1c215af0065ecebee0bb8e30ac2f15202a98226",
+      "mode": 420
+    }
+  },
+  {
+    "path": "workflow/registry.json",
+    "before": {
+      "type": "file",
+      "sha256": "0905111fdcd9f2470ad6d4b79c2e7dfac2d98eb79970e44dbdce9512d8cfac24",
+      "mode": 420
+    },
+    "after": {
+      "type": "file",
+      "sha256": "5769c3d6660b3a0b8eef5ee9ead060af6a4f538ce75a5ba1c59b1d2786b0c49c",
+      "mode": 420
+    }
+  },
+  {
+    "path": "workflow/registry/roles.json",
+    "before": {
+      "type": "file",
+      "sha256": "fad60425e43541d0184a520716108258abde83724c04d11d3fc1a9557748b59a",
+      "mode": 420
+    },
+    "after": {
+      "type": "file",
+      "sha256": "f2e30854074a142fc00382e253a972bc02510756220a1ffff751ea26549fcd1f",
+      "mode": 420
+    }
+  }
+]

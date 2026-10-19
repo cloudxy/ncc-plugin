@@ -10,7 +10,7 @@ from ncc_shared.database import DatabaseNotConfigured
 
 
 def pytest_addoption(parser):
-    parser.addoption("--ncc-config", default=None, help="项目.env；唯一测试库由正式连接派生")
+    parser.addoption("--ncc-config", default=None, help="config/.env；唯一测试库由正式连接派生")
     parser.addoption("--database-url", default="", help="兼容参数：必须与项目配置派生的唯一-test连接完全相同")
 
 

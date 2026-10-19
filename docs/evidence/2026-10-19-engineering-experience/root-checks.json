@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "candidate": "4414113cd62a750479d65ad9483d4a3738863dcafb1533548c2d0fac5f2cbb53",
+  "integration": "11 paths preimage/verified-source checks passed; prior changes preserved",
+  "checks": [
+    {
+      "name": "delivery",
+      "command": "python3 scripts/dev/check_dev_workflow.py check docs/tasks/2026-10-19-engineering-experience.md --repo /Users/xuyun/Documents/ncc-workflow --delivery",
+      "exit_code": 0,
+      "output": "DELIVERY EVIDENCE OK 4414113cd62a750479d65ad9483d4a3738863dcafb1533548c2d0fac5f2cbb53\nunit-1=passed, unit-2=passed, plugin-3=passed, registry-4=passed, docs-5=passed, unit-6=passed, behavior-7=passed, behavior-8=passed, behavior-9=passed, review-10=passed, auxiliary-11=blocked, behavior-12=passed, behavior-13=passed, behavior-14=passed, behavior-15=passed, behavior-16=passed, behavior-17=passed, behavior-18=passed, behavior-19=passed, behavior-20=passed, behavior-21=passed, behavior-22=passed, behavior-23=passed, behavior-24=passed, behavior-25=passed, behavior-26=passed, behavior-27=passed\n工程职责：product-manager=passed, product-designer=not_applicable, project-architect=passed, dba=not_applicable\n"
+    },
+    {
+      "name": "roles",
+      "command": "python3 scripts/dev/development.py --repo /Users/xuyun/Documents/ncc-workflow --task docs/tasks/2026-10-19-engineering-experience.md check --delivery",
+      "exit_code": 0,
+      "output": "{\n  \"product-manager\": \"passed\",\n  \"product-designer\": \"not_applicable\",\n  \"project-architect\": \"passed\",\n  \"dba\": \"not_applicable\"\n}\n"
+    },
+    {
+      "name": "plugin",
+      "command": "python3 scripts/dev/check_plugin.py -v",
+      "exit_code": 0,
+      "output": "scout              1750 / 20000\nworldbuilder      19708 / 20000\noutliner          11220 / 20000\nstory-editor      15498 / 20000\nscholar            8196 / 20000\nwriter             6166 / 20000\neditor             1488 / 20000\ncontinuity         8134 / 20000\npulse              9376 / 20000\nreader             4081 / 20000\ndeconstructor      7903 / 20000\nmanager:new       34733 / 35000\nmanager:write     30000 / 35000\nmanager:review    25894 / 35000\nmanager:loop      25154 / 35000\nmanager:prepare   24316 / 35000\ncurator            6639 / 20000\nmanager:deconstruct  15663 / 35000\nproduct-manager   10678 / 20000\nproduct-designer  10678 / 20000\nproject-architect   8933 / 20000\ndba               15784 / 20000\nPLUGIN OK\n"
+    },
+    {
+      "name": "docs",
+      "command": "python3 scripts/dev/build_docs.py --check",
+      "exit_code": 0,
+      "output": "DOCS OK\n"
+    },
+    {
+      "name": "registry",
+      "command": "python3 scripts/dev/build_registry.py --check",
+      "exit_code": 0,
+      "output": "REGISTRY OK\n"
+    },
+    {
+      "name": "diff",
+      "command": "git diff --check",
+      "exit_code": 0,
+      "output": ""
+    }
+  ],
+  "limitations": [
+    "Optional skill-creator validator unavailable due to missing PyYAML, not counted as passed.",
+    "No real DB/UI, host new sessions or long-term model learning measured; no commit/push."
+  ]
+}

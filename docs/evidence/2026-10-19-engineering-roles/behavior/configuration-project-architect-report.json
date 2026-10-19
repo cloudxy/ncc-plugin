@@ -1,0 +1,106 @@
+{
+  "schema": 1,
+  "role": "project-architect",
+  "input_sha256": "62fcbfb9b605123982d6702ef45950a1e19c2a97f7aa6aeaca644026350c5e04",
+  "execution": {
+    "mode": "subagent",
+    "identity": "/root/configuration_architect"
+  },
+  "decision": "changes_required",
+  "deliverables": {
+    "ownership": "配置路径仅由 ncc_shared/paths.py 定义；Dynaconf 装配、覆盖、语义校验和初始化仅归 ncc_shared/configuration.py；正式连接及唯一 -test 派生归 ncc_shared/database.py。API、CLI、MCP 消费这些共享职责，不各自实现路径或旧文件回退。宿主发现文件仅保留启动接线例外，不能存应用参数。本次修复不改变页面、写作流程或增加作者日常审批。",
+    "dependencies": "保持 ncc_shared 不导入 ncc_data；按需装配配置，标准库 CLI 不因配置定位而导入 FastAPI/SQLAlchemy。ncc_data/runtime 消费共享装配；API/CLI 仅处理输入输出，涉及业务操作时复用 application 服务；MCP 经 application/access 进入同一服务读取并强制只读事务，不注册写工具。初始化和迁移复用既有共享模块，不为三入口创建配置副本或独立服务。",
+    "read_path": "读取链应为 API/CLI/MCP 入口 → 共用配置装配 → paths 提供的 config 位置及公共默认/环境覆盖/私有值来源 → 共享语义校验 → database 派生既定连接 → 各自运行装配/应用服务。任意工作目录均得到同一配置来源。旧新文件冲突由同一明确过渡策略处理并报告，不允许 MCP 独自继续读旧源或失败后静默换源；实际来源和连接参数只在安全检查中核对，不把凭据写入报告。此为建议链，未读取实际实现。",
+    "write_path": "写入链应为协调者授权的初始化/迁移入口 → configuration 的唯一迁移实现 → 捕获源与目标存在性、内容版本及必要安全属性 → 完整保留旧文件及全部已确定值（含未知键）→ 检查冲突和并发变化 → 以不覆盖既有目标的受保护方式发布 config/.env → 共用装配验证三个入口语义一致。目标已经存在、源/目标被替换或值冲突时停止，不覆盖、不删源；不能仅靠一次检查后普通 rename 覆盖并发新文件。重复执行应成为无变更或明确冲突，不再截断重写。",
+    "compatibility": "迁移保持 PostgreSQL 主机、账号、正式库名和全部参数逐项等价，未知配置不能按已知键白名单丢弃。新旧并存时先比对并显式处理分歧，不能仅凭新路径优先就认定迁移成功；所有入口在同一版本采用同一过渡规则。若需要暂时兼容旧路径，只能由唯一装配层提供可核对的有限过渡，不由 MCP 私设回退。正式连接资料缺失应明确失败，不能使用别的项目账号；不改动现有迁移历史或数据库拓扑。",
+    "rollback": "迁移未通过语义核对前保留原源与恢复工件；失败时保留已存在的旧、新内容和冲突信息，不自动删任一方。回退代码和配置来源策略须同时覆盖 API/CLI/MCP；仅在确认目标仍为本次迁移产生且未被作者修改时，才可由协调者执行对应恢复，若出现新编辑则保留并交付冲突。回退不切换账号、不重设 PostgreSQL 参数、不建立其他数据库；本角色只提出方案，不执行运维。",
+    "acceptance": "使用合成配置覆盖：不同 cwd 下三个入口来源一致；未知键及全部既定连接值保留；新旧相同、冲突和目标预先存在均有确定结果；源/目标并发替换不丢新内容；重复迁移安全；中途失败可恢复；无配置或缺参数时明确失败且不借用外部账号。数据库相关验收仅允许正式连接派生的唯一 -test，并复用公共 TestRuntime 和排他锁；不得创建随机库。MCP 仍只读。上述产品验证均未执行，必须在授权实施后按实际影响核验，设计审查本身不构成通过。"
+  },
+  "findings": [
+    {
+      "severity": "major",
+      "location": "scripts/tests/fixtures/development/configuration.md 提案第 1 项",
+      "problem": "三个入口分别按当前工作目录定位配置，复制了配置事实源；改变启动目录即可使入口读取不同配置。",
+      "evidence": "合成提案明确要求 API、CLI、MCP 各自定义路径且依据 cwd；包内 code-layout 指定 paths.py 是路径来源、configuration.py 是唯一装配。入口分歧是该方案的直接风险，未运行产品验证。",
+      "fix": "删去入口内路径规则，全部消费现有 paths/configuration 共享装配；用多个 cwd 的合成场景核对三个入口解析到同一来源。"
+    },
+    {
+      "severity": "major",
+      "location": "scripts/tests/fixtures/development/configuration.md 提案第 2 项：筛选已知键后重写并删除源",
+      "problem": "白名单迁移会丢掉未知但有效的既定参数，随后删除旧源又消灭恢复依据，违背全部参数保留要求。",
+      "evidence": "任务要求保留已确定主机、账号、正式库名及全部参数；提案只挑已知键并删除旧文件。包内角色方法要求迁移原值保留、冲突不覆盖、重复执行安全。",
+      "fix": "完整保留原内容和未知键，迁移前后做语义及参数等价检查；保留旧源与恢复工件，迁移失败不自动清理。"
+    },
+    {
+      "severity": "major",
+      "location": "scripts/tests/fixtures/development/configuration.md 提案第 2 项：不检查并发替换",
+      "problem": "读后重写及删除之间若编辑器替换源或目标，会用过时内容覆盖作者新配置或删除作者新源文件。",
+      "evidence": "提案明确不检查编辑器并发替换源或目标；包内 project-architect 方法要求并发时新内容不得被旧结果覆盖。此为方案缺少条件发布保护的判断，不声称已复现。",
+      "fix": "记录并复核源/目标版本和存在性，采用受保护的不覆盖发布方式；任何并发变化均保留双方并停止，重复执行不改写已经产生的新内容。"
+    },
+    {
+      "severity": "major",
+      "location": "scripts/tests/fixtures/development/configuration.md 提案第 3 项",
+      "problem": "新旧并存时直接优先新文件掩盖值冲突；MCP 延后更新并在失败后回退旧源，使同一应用同时使用两套连接语义。",
+      "evidence": "提案明确新文件优先、MCP 暂不更新并回退根 .env；code-layout 要求唯一配置装配、宿主发现文件只存启动接线。",
+      "fix": "三个入口同步消费同一来源规则；新旧并存先进行完整差异核对，冲突明确失败；兼容路径如确需保留，由共享层统一处理，不做入口私有失败回退。"
+    },
+    {
+      "severity": "major",
+      "location": "scripts/tests/fixtures/development/configuration.md 提案第 4 项：随机数据库",
+      "problem": "为每次验证创建并删除随机数据库违反唯一正式/-test 数据库对约束，也绕开了已有测试环境和清理保护。",
+      "evidence": "任务明确正式库和正式库-test 足够；code-layout 指定复用 TestRuntime、只操作派生 -test、禁止随机数据库并要求集成验收串行。",
+      "fix": "只使用既定正式连接派生的唯一 -test，复用公共 TestRuntime 与排他锁；无法安全进入测试库时报告阻塞，不通过新建数据库解决。"
+    },
+    {
+      "severity": "major",
+      "location": "scripts/tests/fixtures/development/configuration.md 提案第 4 项：使用其他项目账号",
+      "problem": "正式资料缺失后借用其他项目账号，改变了既定连接和授权边界，也可能把验证指向非目标项目。",
+      "evidence": "提案要求尝试其他项目账号；任务要求保留既定 PostgreSQL 全部参数，公共协议不授权读取用户凭据或真实配置。",
+      "fix": "缺少必要参数时明确失败并交协调者处理，不探测其他项目或凭据，不建立替代连接；本次评审不接触真实数据库。"
+    }
+  ],
+  "verification": [
+    {
+      "scenario": "API、CLI、MCP 从多个 cwd 启动",
+      "expected": "均由共享 paths/configuration 装配同一配置来源及等价连接参数",
+      "status": "pending",
+      "evidence": "只审查派单包；未运行入口或读取产品配置。"
+    },
+    {
+      "scenario": "旧配置含未知键及完整 PostgreSQL 参数",
+      "expected": "迁移后全部原值保留，旧源和恢复依据仍在，语义核对通过",
+      "status": "pending",
+      "evidence": "提出合成验收场景，未执行迁移。"
+    },
+    {
+      "scenario": "新旧并存、值冲突、目标已存在或源/目标在迁移中被编辑器替换",
+      "expected": "冲突明确可见，无静默覆盖和源删除，作者新内容保留",
+      "status": "pending",
+      "evidence": "未操作文件迁移；包中提案缺少这些保护。"
+    },
+    {
+      "scenario": "迁移重复执行或发布中途失败",
+      "expected": "结果幂等或明确冲突，保留可恢复工件，三个入口不分裂到不同来源",
+      "status": "pending",
+      "evidence": "设计建议，未注入故障或实施恢复。"
+    },
+    {
+      "scenario": "正式连接资料缺失及数据库验证准备",
+      "expected": "缺值明确失败；不借用账号、不建随机库，只允许共用守卫下的唯一 -test",
+      "status": "pending",
+      "evidence": "遵守只读评审范围，未访问凭据或数据库。"
+    },
+    {
+      "scenario": "配置迁移后的 MCP 权限与应用复用",
+      "expected": "MCP 仍经共享认证/应用服务执行只读事务，没有写工具或私有配置回退",
+      "status": "pending",
+      "evidence": "仅根据包内 code-layout 审查；未检查源码或运行 MCP。"
+    }
+  ],
+  "limitations": [
+    "唯一已读输入为指定派单 JSON 及其内嵌来源；没有访问其他报告、目录、真实 .env、素材、数据库或产品实现。",
+    "结论针对冻结的合成配置提案；未验证现有源码是否已实现或修复这些行为。",
+    "所有产品执行、配置迁移、并发故障和恢复验证均待执行；本报告不表示数据库或产品验收通过。"
+  ]
+}

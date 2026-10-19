@@ -1,0 +1,25 @@
+# 公共默认配置。个人连接和凭据只在 config/.env 中填写。
+# config/<ENV>/settings.toml 可按需覆盖；ENV 默认 local，不增加数据库。
+ENV = "local"
+PUBLIC_ORIGIN = "http://127.0.0.1:8787"
+TEST_PUBLIC_ORIGIN = "http://127.0.0.1:8788"
+SESSION_HOURS = 8
+UPLOAD_LIMIT = 20971520
+MODEL_TIMEOUT = 120
+WEB_DIST = "apps/management-web/dist"
+MODEL_URL = ""
+MODEL_KEY = ""
+WRITER_MODEL = ""
+JUDGE_MODEL = ""
+SECOND_JUDGE_MODEL = ""
+API_URL = ""
+API_TOKEN = ""
+API_PROFILE = "production"
+MCP_TOKEN = ""
+PG_BIN = ""
+DATABASE_URL = ""
+DB_HOST = ""
+DB_PORT = ""
+DB_NAME = ""
+DB_USER = ""
+DB_PASSWORD = ""

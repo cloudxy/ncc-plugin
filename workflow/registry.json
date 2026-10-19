@@ -301,6 +301,151 @@
       "never": "编造事实、擅定冲突口径、以样本或报告冒充全库治理"
     }
   },
+  "development": {
+    "schema": 1,
+    "primary": "小说创作",
+    "support": "资源管理，可独立治理并按需支撑创作",
+    "effects": {
+      "documentation": "不改变行为的文字、注释和排版",
+      "product": "功能目标、主辅线、范围或优先级",
+      "interaction": "用户路径、界面或命令交互",
+      "implementation": "功能代码实现或行为修复",
+      "architecture": "跨模块、依赖、契约或结构",
+      "configuration": "配置来源、路径、凭据或连接选择",
+      "data": "模型、查询、写入、权限、迁移或恢复",
+      "development-routing": "插件开发调度、恢复或交付行为"
+    },
+    "roles": {
+      "product-manager": {
+        "label": "产品经理",
+        "color": "blue",
+        "description": "Use for ncc-workflow software product decisions: author tasks, writing-first priorities, scope, value and acceptance. Called by ncc-dev; never changes novel canon or implements unapproved features.",
+        "effects": [
+          "product",
+          "interaction",
+          "architecture",
+          "data"
+        ],
+        "outputs": [
+          "author_task",
+          "value",
+          "scope",
+          "priority",
+          "acceptance",
+          "experience_application"
+        ],
+        "reads": [
+          "agents/product-manager.md",
+          "skills/ncc-dev/references/roles.md",
+          "skills/ncc-dev/references/experience.md"
+        ],
+        "skill": "ncc-product-manager",
+        "resources": {
+          "sop": "references/sop.md",
+          "methods": "references/discovery.md",
+          "template": "templates/product-brief.md",
+          "sources": "references/sources.md"
+        }
+      },
+      "product-designer": {
+        "label": "产品设计师",
+        "color": "cyan",
+        "description": "Use for ncc-workflow product interactions: book and chapter journeys, editing, defaults, feedback, recovery and accessible interfaces. Called by ncc-dev; never substitutes UI mockups for verified behavior.",
+        "effects": [
+          "interaction"
+        ],
+        "outputs": [
+          "journey",
+          "states",
+          "defaults",
+          "recovery",
+          "acceptance",
+          "experience_application"
+        ],
+        "reads": [
+          "agents/product-designer.md",
+          "skills/ncc-dev/references/roles.md",
+          "skills/ncc-dev/references/experience.md"
+        ],
+        "skill": "ncc-product-designer",
+        "resources": {
+          "sop": "references/sop.md",
+          "methods": "references/interaction.md",
+          "template": "templates/interaction-spec.md",
+          "sources": "references/sources.md"
+        }
+      },
+      "project-architect": {
+        "label": "项目架构师",
+        "color": "purple",
+        "description": "Use for ncc-workflow software architecture: ownership, dependency direction, shared contracts, safe migration, concurrent edits and rollback. Called by ncc-dev; software architecture is distinct from novel outlining.",
+        "effects": [
+          "implementation",
+          "interaction",
+          "architecture",
+          "configuration",
+          "data",
+          "development-routing"
+        ],
+        "outputs": [
+          "ownership",
+          "dependencies",
+          "read_path",
+          "write_path",
+          "compatibility",
+          "rollback",
+          "acceptance",
+          "experience_application"
+        ],
+        "reads": [
+          "agents/project-architect.md",
+          "skills/ncc-dev/references/roles.md",
+          "skills/ncc-dev/references/experience.md",
+          "docs/engineering/code-layout.md"
+        ],
+        "skill": "ncc-project-architect",
+        "resources": {
+          "sop": "references/sop.md",
+          "methods": "references/evolution.md",
+          "template": "templates/architecture-decision.md",
+          "sources": "references/sources.md"
+        }
+      },
+      "dba": {
+        "label": "DBA",
+        "color": "orange",
+        "description": "Use for ncc-workflow PostgreSQL design and operations review: the established production/test pair, constraints, temporal history, transactions, credentials, queries, migrations and recovery evidence. Called by ncc-dev; do not guess credentials or create databases.",
+        "effects": [
+          "configuration",
+          "data"
+        ],
+        "outputs": [
+          "database_scope",
+          "integrity",
+          "access",
+          "migration",
+          "operations",
+          "verification",
+          "rollback",
+          "experience_application"
+        ],
+        "reads": [
+          "agents/dba.md",
+          "skills/ncc-dev/references/roles.md",
+          "skills/ncc-dev/references/experience.md",
+          "docs/engineering/code-layout.md"
+        ],
+        "skill": "ncc-dba",
+        "resources": {
+          "sop": "references/sop.md",
+          "methods": "references/data-design.md",
+          "template": "templates/data-change.md",
+          "sources": "references/sources.md",
+          "operations": "references/operations.md"
+        }
+      }
+    }
+  },
   "stages": {
     "S0-founding": {
       "name": "立书",

@@ -1,0 +1,36 @@
+COMMAND: python3 -m unittest discover -s scripts/tests -t scripts -p test_*.py
+已更新 /private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmp5omhe6zr/workflow/registry.json
+REGISTRY OK
+REGISTRY OK
+已更新 /private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmp5omhe6zr/workflow/registry.json
+REGISTRY OK
+REGISTRY OK
+已更新 /private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmp5omhe6zr/workflow/registry.json
+REGISTRY OK
+REGISTRY OK
+已更新 /private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmppmf85099/workflow/registry.json
+...............................................................F................................................................................................................................ERROR: 此范围以数据库为权威，请通过CLI入口或ncc-data应用接口读取；不能直接读写工作副本状态
+........../private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmppmf85099/workflow/registry.json: 聚合视图陈旧；运行 python3 scripts/dev/build_registry.py
+..../private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmpcparennq/workflow/registry.json: 聚合视图陈旧；运行 python3 scripts/dev/build_registry.py
+....................
+======================================================================
+FAIL: test_professional_skill_is_discovered_without_an_author_command (tests.test_dev_workflow.EntryRegistryTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/ncc-role-skills-28g8xt1l/scripts/tests/test_dev_workflow.py", line 387, in test_professional_skill_is_discovered_without_an_author_command
+    self.assertEqual(self.check(), [])
+AssertionError: Lists differ: ["skills 里有未登记入口：['ncc-dev']"] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+"skills 里有未登记入口：['ncc-dev']"
+
+- ["skills 里有未登记入口：['ncc-dev']"]
++ []
+
+----------------------------------------------------------------------
+Ran 226 tests in 148.996s
+
+FAILED (failures=1)
+
+exit_code=1

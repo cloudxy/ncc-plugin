@@ -1,0 +1,35 @@
+COMMAND: python3 -m unittest discover -s scripts/tests -t scripts -p test_registry*.py -v
+已更新 /private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmplihv7w0j/workflow/registry.json
+REGISTRY OK
+REGISTRY OK
+已更新 /private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmplihv7w0j/workflow/registry.json
+REGISTRY OK
+REGISTRY OK
+已更新 /private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmplihv7w0j/workflow/registry.json
+REGISTRY OK
+REGISTRY OK
+已更新 /private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmp3vsj6530/workflow/registry.json
+test_bad_json_and_root_types (tests.test_registry.RegistryTest) ... ok
+test_duplicate_keys_including_nested_objects (tests.test_registry.RegistryTest) ... ok
+test_external_symlink_rejected (tests.test_registry.RegistryTest) ... ok
+test_missing_directory_does_not_fall_back_to_view (tests.test_registry.RegistryTest) ... ok
+test_missing_key (tests.test_registry.RegistryTest) ... ok
+test_missing_or_malformed_view_can_be_rebuilt_idempotently (tests.test_registry.RegistryTest) ... ok
+test_missing_shard (tests.test_registry.RegistryTest) ... ok
+test_noncanonical_line_endings_are_stale_and_repaired (tests.test_registry.RegistryTest) ... /private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmp3vsj6530/workflow/registry.json: 聚合视图陈旧；运行 python3 scripts/dev/build_registry.py
+ok
+test_object_types_and_recursive_order_match_original_view (tests.test_registry.RegistryTest) ... ok
+test_replace_failure_keeps_old_view_and_cleans_temporary_file (tests.test_registry.RegistryTest) ... ok
+test_runtime_startup_rejects_stale_view_before_dispatch (tests.test_registry.RegistryTest) ... ok
+test_stale_or_reordered_view_and_check_do_not_write (tests.test_registry.RegistryTest) ... /private/var/folders/fq/5l9p0spx3p977m5bk3746g9r0000gn/T/tmpoxvf6iwk/workflow/registry.json: 聚合视图陈旧；运行 python3 scripts/dev/build_registry.py
+ok
+test_unknown_shard (tests.test_registry.RegistryTest) ... ok
+test_view_duplicate_and_nonobject_rejected (tests.test_registry.RegistryTest) ... ok
+test_wrong_owner_and_cross_shard_duplicate_rejected (tests.test_registry.RegistryTest) ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 0.255s
+
+OK
+
+exit_code=0

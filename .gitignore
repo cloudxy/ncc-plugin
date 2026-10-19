@@ -23,3 +23,7 @@ novels/
 books/
 _作者/
 _拆书库/
+
+# 本机MCP注册由ncc-data mcp-config生成；包含绝对启动路径，不进仓库。
+/.mcp.json
+/.codex/config.toml

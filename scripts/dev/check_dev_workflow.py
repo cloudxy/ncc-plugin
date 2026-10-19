@@ -10,6 +10,9 @@ import subprocess
 import sys
 from pathlib import Path, PurePosixPath
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from dev.development import validate_engineering
+
 BLOCK = re.compile(r'^```ncc-dev-json\s*\n(.*?)\n```[ \t]*$', re.M | re.S)
 PRIVATE = {'novels', 'books', '_作者', '_拆书库', 'book.json', 'prepare.json',
            '02-大纲', '03-文风', '04-正文', '05-台账', '06-复盘', '07-导出'}
@@ -227,8 +230,9 @@ def staged_errors(root, candidate):
     return errors
 
 
-def evidence_errors(root, d, delivery=False):
-    errors, seen, passed = [], set(), set()
+def evidence_errors(root, d, delivery=False, task_rel=None):
+    errors, engineering = validate_engineering(root, d, safe_path, delivery, task_rel)
+    seen, passed = set(), set()
     fp = d['candidate']['fingerprint']
     for e in d['evidence']:
         if not isinstance(e, dict):
@@ -269,7 +273,7 @@ def evidence_errors(root, d, delivery=False):
             errors.append('本地验收尚未 accepted')
         if d['blocked']:
             errors.append(f'任务仍受阻：{d["blocked"]}')
-    return errors
+    return errors, engineering
 
 
 def main(argv=None):
@@ -289,10 +293,12 @@ def main(argv=None):
             print(f'SNAPSHOT {current["fingerprint"]} ({len(current["files"])} files)；旧证据未自动更新')
         else:
             require(d['candidate'] == current, '候选内容变化或未冻结，返回 D4（语义变化补行为验证和评审）')
-            errors = evidence_errors(root, d, args.delivery)
+            errors, engineering = evidence_errors(root, d, args.delivery, task.relative_to(root).as_posix())
             require(not errors, '\n'.join(errors))
             statuses = ', '.join(f'{e["id"]}={e["status"]}' for e in d['evidence']) or '无证据'
             print(('DELIVERY EVIDENCE OK' if args.delivery else 'RECORD OK（不等于验收通过）') + f' {current["fingerprint"]}\n{statuses}')
+            if engineering:
+                print('工程职责：' + ', '.join(f'{role}={status}' for role, status in engineering.items()))
         return 0
     except (Invalid, OSError, ValueError) as exc:
         print(f'DEV CHECK FAILED: {exc}', file=sys.stderr)

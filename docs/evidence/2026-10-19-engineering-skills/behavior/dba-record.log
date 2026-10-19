@@ -1,0 +1,9 @@
+{
+  "packet": "docs/evidence/2026-10-19-engineering-skills/behavior/dba-packet.json",
+  "packet_sha256": "f267a1193fe4d308976383f0c1e39440f17b589a8ed0e0b28ee92ca4ca1e770d",
+  "report": "docs/evidence/2026-10-19-engineering-skills/behavior/dba-report.json",
+  "report_sha256": "a7963f220aadb8b07eed7b6ca6c7f4bce26a9bbc973488a14e9cb0ba436f7ac4",
+  "status": "failed"
+}
+
+exit_code=0

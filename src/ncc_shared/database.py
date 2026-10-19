@@ -15,7 +15,7 @@ def postgres_url(value):
         else value
     )
     if not value.startswith("postgresql+psycopg://"):
-        raise ValueError("数据库只支持PostgreSQL/Psycopg连接；请检查项目.env")
+        raise ValueError("数据库只支持PostgreSQL/Psycopg连接；请检查config/.env")
     parsed = urlsplit(value)
     if any(
         key.lower() in {"dbname", "database"} for key, _ in parse_qsl(parsed.query, keep_blank_values=True)
@@ -39,7 +39,7 @@ def configured_url(values):
         postgres_url(raw)
         return raw
     if not all(fields[k] for k in ("HOST", "NAME", "USER")):
-        raise DatabaseNotConfigured("请在项目.env填写既定PostgreSQL连接；不会猜测、修改或创建正式库")
+        raise DatabaseNotConfigured("请在config/.env填写既定PostgreSQL连接；不会猜测、修改或创建正式库")
     credentials = quote(fields["USER"], safe="") + ":" + quote(fields["PASSWORD"], safe="") + "@"
     port = fields["PORT"] or "5432"
     if fields["HOST"].startswith("/"):

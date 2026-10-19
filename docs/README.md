@@ -10,7 +10,9 @@
 | 如何维护、验证与交付插件 | [开发工作流](engineering/workflow.md) |
 | 后台代码、前端与测试放哪里 | [代码归属与复用](engineering/code-layout.md) |
 | 数据后台安装、配置与操作 | [数据服务与创作后台](guides/data-console.md) |
+| MCP读取与非MCP直接读写 | [数据接入指南](guides/data-access.md) |
 | 文档怎么分类、命名和维护 | [文档组织规范](engineering/documentation.md) |
+| 项目问题如何转成四角色能力 | [工程经验与能力](../skills/ncc-dev/references/experience.md)、[实施验证](tasks/2026-10-19-engineering-experience.md) |
 | 引入外部 skill、语料、工具前的筛查 | [外部来源筛查与黑名单](engineering/source-vetting.md) |
 
 ## 模块设计（designs/ 按模块分目录）
@@ -30,7 +32,9 @@
 
 | 事项 | 状态 | 入口 |
 |---|---|---|
-| 项目.env、双库约束与代码归属 | 代码整理与配置实现中；既定实际连接待补，真实数据库联调待验 | [本轮任务](tasks/2026-10-19-configuration-ownership.md)、[目录规范](engineering/code-layout.md) |
+| 小说创作主线与产品、架构、DBA职责 | 作者已要求执行工程角色接线；具体实现与验证见任务，后续卷章和完整产品路径另列 | [角色实施](tasks/2026-10-19-engineering-roles.md)、[职责与产品架构](designs/engineering/product-architecture.md) |
+| Dynaconf与PostgreSQL双通道数据接入 | 配置及模板已统一归config，本机MCP已重接；既定连接待补，真实读取与专项测试待验 | [实施任务](tasks/2026-10-19-dynaconf-data-access.md)、[设计](designs/engineering/dynaconf-data-access.md) |
+| 双库约束与代码归属 | 目录及源码已发布；配置归属由本轮Dynaconf方案接替，真实数据库联调待验 | [实施任务](tasks/2026-10-19-configuration-ownership.md)、[目录规范](engineering/code-layout.md) |
 | PostgreSQL底座、专业后台与创作自动化评分 | v4代码已发布，正式数据库/真实模型接入与实际作品验收待办 | [底座](designs/storage/postgresql-foundation.md)、[后台](designs/storage/management-console.md)、[自动化评分](designs/storage/creation-automation.md)、[任务](tasks/2026-10-18-postgresql-design.md) |
 | 仓库架构成长：G0 基线 → G1 清单映射校验 → G2 兼容迁移 → G5 CLI 注册拆分 → G3a 统一读取/G3b 分片 | 本地实现完成，历史验收见[实施任务](tasks/2026-10-18-architecture-upgrade.md)；宿主新会话与独立评审待办；后续拆书变化独立记录 | [架构成长方案](designs/engineering/architecture-growth.md) |
 | 拆书统一升级 P1–P6：契约 → 索引 → 入库恢复 → 分层场次 → 统计转化 → 验证整合 | 功能和测试代码已交付本地候选；P6 回归、规则行为、独立评审与五端加载由作者单独验证，未执行 | [实施与测试交接](tasks/2026-10-18-deconstruction-upgrade.md) |

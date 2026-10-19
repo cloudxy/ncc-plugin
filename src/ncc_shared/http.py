@@ -39,7 +39,7 @@ class APIClient:
         )
         self.token = values.get("NCC_API_TOKEN", "")
         if not self.token:
-            raise ValueError("请将本范围凭据填入项目.env的NCC_API_TOKEN")
+            raise ValueError("请将本范围凭据填入config/.env的NCC_API_TOKEN")
         if any(not 33 <= ord(character) <= 126 for character in self.token):
             raise ValueError("范围凭据格式无效，请重新复制；凭据内容不会输出")
         self.timeout = timeout

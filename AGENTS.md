@@ -7,11 +7,12 @@ Novel Create Center（ncc-workflow）：长篇网文从立书到收束的创作�
 ```
 ncc-workflow/
 ├── workflow/      registry/ 分片事实源 + registry.json 兼容生成视图；principles/architecture
-├── skills/        七个创作技能与 ncc-dev 开发入口
+├── skills/        七个创作技能、ncc-dev开发入口与四个工程专业技能
 ├── commands/      对应斜杠命令
-├── agents/        十二角色：scout、worldbuilder、outliner、writer、editor、story-editor、continuity、pulse、reader、scholar、deconstructor、curator
+├── agents/        十二个创作角色；四工程角色：product-manager、product-designer、project-architect、dba
 ├── scripts/       运行入口与 ncclib/；dev/ 开发工具；tests/ 测试（顶层保留旧工具薄入口）
-├── src/           ncc_shared/ 纯标准库共享；ncc_data/ 分层后台（迁移归persistence）
+├── src/           ncc_shared/ 跨入口共享（配置按需Dynaconf）；ncc_data/ 分层后台与只读MCP
+├── config/        default/settings.toml 默认配置；<ENV>/settings.toml 按需覆盖；私有值归config/.env
 ├── apps/          management-web/ 前端：app装配、features页面、shared共用
 ├── tests/         unit/ 无库单元；backend/ 后端；browser/ 浏览器；support/ 共用环境
 ├── docs/          README.md 导航；guides/ 使用指南；engineering/ 工程规范；designs/ 按模块设计；tasks/ 活动任务；evidence/ 验证证据
@@ -63,7 +64,9 @@ zcode 插件更新：本机直注册本目录，源文件改完开新会话即�
 
 升级或修复插件使用 `/ncc-dev <目标>`，恢复用 `/ncc-dev continue <任务号>`。开发路径、阶段、证据与交付规范唯一见 [docs/engineering/workflow.md](docs/engineering/workflow.md)；小说创作继续使用原七技能。规则候选先隔离验证，完成回归后呈作者确认。
 
-配置统一读项目根`.env`，初始化不覆盖原值；只允许一个正式库及其同连接的`正式库-test`。不得另建每次测试/评审/恢复专用数据库，不更换既定PostgreSQL参数。代码归属和复用规则见[代码归属规范](docs/engineering/code-layout.md)，操作见[数据后台指南](docs/guides/data-console.md)。
+新开发任务在D1通过scripts/dev/development.py记录影响和按需角色计划，实际执行选中的工程角色并登记报告。角色定义与触发在registry的development域，与十二创作角色分开；纯文档不增加工程派单。派单绑定输入字节，缺失/失败/陈旧报告不能通过交付检查。作者已经授权的角色接线实施直接执行，不重复要求批准同一范围。
+
+配置使用Dynaconf，按默认文件、兼容进程值、环境文件、`config/.env`的顺序覆盖，初始化不覆盖原值；只允许一个正式库及其同连接的`正式库-test`。不得另建每次测试/评审/恢复专用数据库，不更换既定PostgreSQL参数。代码归属和复用规则见[代码归属规范](docs/engineering/code-layout.md)，操作见[数据后台指南](docs/guides/data-console.md)。
 
 ## 自测
 

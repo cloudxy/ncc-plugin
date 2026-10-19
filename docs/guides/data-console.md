@@ -14,13 +14,15 @@ npm --prefix apps/management-web ci
 npm --prefix apps/management-web run build
 ```
 
-配置属于一次性初始化。保留已经确定的PostgreSQL主机、端口、账号和正式库名，在项目根`.env`保存；无需每次启动设置终端变量。先执行：
+配置使用Dynaconf统一管理，属于一次性初始化。公共默认值在`config/default/settings.toml`，可按需增加`config/<ENV>/settings.toml`；ENV由`config/.env`的`NCC_ENV`指定，默认local。覆盖顺序为默认文件 → 兼容进程值 → 环境文件 → config/.env。普通用户只维护文件，无需每次设置终端变量。保留既定PostgreSQL主机、端口、账号和正式库名，在`config/.env`保存。先执行：
 
 ```bash
 .venv/bin/ncc-data init
 ```
 
-初始化生成权限为600的本地`.env`；存在时原值不变。按`.env.example`填写`NCC_DB_HOST/PORT/NAME/USER/PASSWORD`和模型配置。连接串原已确定时可改用单一`NCC_DATABASE_URL`，不要同时保留非空的分项连接。程序不改数据库服务参数、不猜测账号、不自动建库。若已有NCC格式配置，可用`init --from-existing '<已有配置文件>'`初始化；仍不覆盖现有`.env`。真实文件已忽略，不提交Git。
+初始化生成权限为600的本地`config/.env`；存在时原值不变。按`config/.env.example`填写`NCC_DB_HOST/PORT/NAME/USER/PASSWORD`和模型配置。连接串原已确定时可改用单一`NCC_DATABASE_URL`，不要同时保留非空的分项连接。程序不改数据库服务参数、不猜测账号、不自动建库。若已有NCC格式配置，可用`init --from-existing '<已有配置文件>'`初始化；仍不覆盖现有`config/.env`。真实文件已忽略，不提交Git。
+
+旧版本把私有配置放在项目根`.env`时，再执行一次`init`即可原字节迁入`config/.env`并移除旧位置；不需要重新填写。新旧文件同时存在时会停止，请先核对并仅保留配置目录中的文件，程序不自动合并。默认加载不会回退旧位置；高级自动化仍可用`--config`明确指定隔离配置。完成迁移后执行`mcp-config --host both`更新本机宿主接线。
 
 只使用两个库：既定正式库，以及同一服务器、端口、账号和连接选项的`正式库-test`。测试库名自动派生，不维护第二套连接。数据库维护者只需在初始化时准备这两个库；所有作品用逻辑范围隔离，不按作品、验收、恢复操作创建库。
 
@@ -31,15 +33,15 @@ npm --prefix apps/management-web run build
 .venv/bin/ncc-data serve
 ```
 
-`create-user`通过终端两次输入密码，至少12字符；首个账号是系统管理员。没有内置默认密码或匿名管理入口。打开`http://127.0.0.1:8787`登录。另一个终端在项目中启动任务执行器，自动读取同一份`.env`：
+`create-user`通过终端两次输入密码，至少12字符；首个账号是系统管理员。没有内置默认密码或匿名管理入口。打开`http://127.0.0.1:8787`登录。另一个终端在项目中启动任务执行器，自动读取同一份`config/.env`：
 
 ```bash
 .venv/bin/ncc-data worker
 ```
 
-API和前端同源运行，采用HttpOnly会话与CSRF令牌。远程部署需要HTTPS同源反向代理，并在`.env`中将`NCC_PUBLIC_ORIGIN`设为实际地址；代理需支持SSE、限制请求大小、关闭事件流缓冲。CLI与Worker不接收任意SQL或脚本。`serve`默认仅监听本机，不暴露数据库端口。
+API和前端同源运行，采用HttpOnly会话与CSRF令牌。远程部署需要HTTPS同源反向代理，并在`config/.env`中将`NCC_PUBLIC_ORIGIN`设为实际地址；代理需支持SSE、限制请求大小、关闭事件流缓冲。CLI与Worker不接收任意SQL或脚本。`serve`默认仅监听本机，不暴露数据库端口。
 
-源码安装会使用`apps/management-web/dist`。单独安装Python wheel时，迁移与定义包随wheel分发；前端单独构建并在`.env`通过`NCC_WEB_DIST`指向构建目录。未经构建的前端返回明确的未就绪信息。
+源码安装会使用`apps/management-web/dist`。单独安装Python wheel时，迁移与定义包随wheel分发；前端单独构建并在`config/.env`通过`NCC_WEB_DIST`指向构建目录。未经构建的前端返回明确的未就绪信息。
 
 ## 创作与审核
 
@@ -53,7 +55,7 @@ API和前端同源运行，采用HttpOnly会话与CSRF令牌。远程部署需�
 
 ## 配置创作模型
 
-在项目`.env`填写以下配置，再重启服务和Worker：
+在`config/.env`填写以下配置，再重启服务和Worker：
 
 | 配置项 | 用途 |
 |---|---|
@@ -98,7 +100,7 @@ python3 scripts/ncc_state.py status '<私有工作副本目录>'
 .venv/bin/ncc-data workspace pull '<私有工作副本目录>' --scope '<范围ID>'
 ```
 
-在项目`.env`中填写`NCC_API_URL`与`NCC_API_TOKEN`。范围凭据在“成员与设置”生成，至少需要`read/edit/adopt/export/secret`完成完整CLI工作副本往返；令牌只显示一次，不存入工作副本标记。导入前先备份并审核差异；import与bind是两个明确动作。文件原件保留，章节有类型投影；旧的其他专用台账以受管原件兼容，专业领域通过定义/关系接口维护，不能把原件保存等同于全部语义迁移。
+在`config/.env`中填写`NCC_API_URL`与`NCC_API_TOKEN`。范围凭据在“成员与设置”生成，至少需要`read/edit/adopt/export/secret`完成完整CLI工作副本往返；令牌只显示一次，不存入工作副本标记。导入前先备份并审核差异；import与bind是两个明确动作。文件原件保留，章节有类型投影；旧的其他专用台账以受管原件兼容，专业领域通过定义/关系接口维护，不能把原件保存等同于全部语义迁移。
 
 绑定后，CLI先从数据库一致版本构造隔离工作区，再经应用服务回写；命令运行时发生作者编辑或数据库变化会拒绝覆盖。一次命令最多200文件和18MiB传输预算。直接调用程序内部文件写函数不能绕过数据库标记。外部编辑器的本地变化要先对账；冲突原稿保留，不静默切回文件双主模式。新型数据库语义不能无损降级时，只回退应用或保留只读库。
 
@@ -106,11 +108,13 @@ python3 scripts/ncc_state.py status '<私有工作副本目录>'
 
 ## 权限与维护
 
+PostgreSQL只读MCP和不依赖API启动的直接CLI读写，见[数据接入指南](data-access.md)。它们共用后台Service，不能绕过当前权限、修订、审计或变更采用检查。
+
 系统管理员负责建立账号，范围所有者负责成员授权；系统管理身份不自动获得其他作者的作品。`read/edit/adopt/assess/export/secret/admin/operate`分别控制范围行为，范围令牌再收窄权限。秘密正文、属性、变更、任务、评分和导出附件在读取时重新校验；撤权不能仅隐藏导航。
 
 数据库账号和权限沿用已经确定的配置。不要把数据库凭据交给浏览器或模型。当前保护由应用授权、事务约束和数据库历史不可变触发器共同执行，没有宣称已实现数据库RLS隔离。
 
-备份恢复共用当前选定连接及其TLS、证书、超时等参数，不再维护额外维护连接。工具不在PATH时，在`.env`填写`NCC_PG_BIN`。
+备份恢复共用当前选定连接及其TLS、证书、超时等参数，不再维护额外维护连接。工具不在PATH时，在`config/.env`填写`NCC_PG_BIN`。
 
 ```bash
 .venv/bin/ncc-data backup '<仓外私有备份文件.dump>'
@@ -133,6 +137,6 @@ npm --prefix apps/management-web run build
 
 后台集成、浏览器、CLI往返和恢复演练共用`tests/support/`环境，串行使用同一个-test库；已占用时停止，不创建更多库。后台测试会清空NCC合成数据，测试库不得存放真实作品。发现未知表或其他业务schema时拒绝清理。连接尚未配置时，数据库用例明确跳过，不视为联调通过。
 
-浏览器验收自动启动并关闭本机测试服务，默认`http://127.0.0.1:8788`，不复用已有端口服务。合成账号由公共环境在-test库准备。`ncc-data --test serve/worker/migrate/doctor`选择同一测试库和测试服务地址；`--test request/workspace`也选择测试地址，并在发送凭据前核对服务profile。普通正式服务默认8787；测试地址可在`.env`的`NCC_TEST_PUBLIC_ORIGIN`填写。高级自动化可显式使用`--config '<项目.env>'`，普通操作无需此参数。
+浏览器验收自动启动并关闭本机测试服务，默认`http://127.0.0.1:8788`，不复用已有端口服务。合成账号由公共环境在-test库准备。`ncc-data --test serve/worker/migrate/doctor`选择同一测试库和测试服务地址；`--test request/workspace`也选择测试地址，并在发送凭据前核对服务profile。普通正式服务默认8787；测试地址可在`config/.env`的`NCC_TEST_PUBLIC_ORIGIN`填写。高级自动化可显式使用`--config '<config/.env>'`，普通操作无需此参数。
 
-代码目录、复用边界和测试归属见[代码归属规范](../engineering/code-layout.md)。本轮配置和目录改造的验证及限制见[任务记录](../tasks/2026-10-19-configuration-ownership.md)，此前v4功能验证保留在[实施证据](../evidence/2026-10-18-postgresql-design/implementation.md)。
+代码目录、复用边界和测试归属见[代码归属规范](../engineering/code-layout.md)。当前Dynaconf及配置目录迁移的验证与限制见[任务记录](../tasks/2026-10-19-dynaconf-data-access.md)，此前v4功能验证保留在[实施证据](../evidence/2026-10-18-postgresql-design/implementation.md)。

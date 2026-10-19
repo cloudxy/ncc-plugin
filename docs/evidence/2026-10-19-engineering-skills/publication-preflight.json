@@ -1,0 +1,657 @@
+{
+  "tasks": [
+    "docs/tasks/2026-10-19-dynaconf-data-access.md",
+    "docs/tasks/2026-10-19-engineering-roles.md",
+    "docs/tasks/2026-10-19-engineering-experience.md",
+    "docs/tasks/2026-10-19-engineering-skills.md"
+  ],
+  "changed_paths": 264,
+  "source_paths": [
+    {
+      "path": ".agents/agents/dba.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-roles.md",
+      "type": "symlink",
+      "matches_verified_source": true
+    },
+    {
+      "path": ".agents/agents/product-designer.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-roles.md",
+      "type": "symlink",
+      "matches_verified_source": true
+    },
+    {
+      "path": ".agents/agents/product-manager.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-roles.md",
+      "type": "symlink",
+      "matches_verified_source": true
+    },
+    {
+      "path": ".agents/agents/project-architect.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-roles.md",
+      "type": "symlink",
+      "matches_verified_source": true
+    },
+    {
+      "path": ".agents/skills/ncc-dba",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "symlink",
+      "matches_verified_source": true
+    },
+    {
+      "path": ".agents/skills/ncc-product-designer",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "symlink",
+      "matches_verified_source": true
+    },
+    {
+      "path": ".agents/skills/ncc-product-manager",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "symlink",
+      "matches_verified_source": true
+    },
+    {
+      "path": ".agents/skills/ncc-project-architect",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "symlink",
+      "matches_verified_source": true
+    },
+    {
+      "path": ".claude/agents/dba.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-roles.md",
+      "type": "symlink",
+      "matches_verified_source": true
+    },
+    {
+      "path": ".claude/agents/product-designer.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-roles.md",
+      "type": "symlink",
+      "matches_verified_source": true
+    },
+    {
+      "path": ".claude/agents/product-manager.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-roles.md",
+      "type": "symlink",
+      "matches_verified_source": true
+    },
+    {
+      "path": ".claude/agents/project-architect.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-roles.md",
+      "type": "symlink",
+      "matches_verified_source": true
+    },
+    {
+      "path": ".claude/skills/ncc-dba",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "symlink",
+      "matches_verified_source": true
+    },
+    {
+      "path": ".claude/skills/ncc-product-designer",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "symlink",
+      "matches_verified_source": true
+    },
+    {
+      "path": ".claude/skills/ncc-product-manager",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "symlink",
+      "matches_verified_source": true
+    },
+    {
+      "path": ".claude/skills/ncc-project-architect",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "symlink",
+      "matches_verified_source": true
+    },
+    {
+      "path": ".env.example",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "deleted",
+      "matches_verified_source": true
+    },
+    {
+      "path": ".gitignore",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": ".grok/agents/dba.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-roles.md",
+      "type": "symlink",
+      "matches_verified_source": true
+    },
+    {
+      "path": ".grok/agents/product-designer.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-roles.md",
+      "type": "symlink",
+      "matches_verified_source": true
+    },
+    {
+      "path": ".grok/agents/product-manager.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-roles.md",
+      "type": "symlink",
+      "matches_verified_source": true
+    },
+    {
+      "path": ".grok/agents/project-architect.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-roles.md",
+      "type": "symlink",
+      "matches_verified_source": true
+    },
+    {
+      "path": ".zcodeignore",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "ACKNOWLEDGMENTS.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "AGENTS.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "README.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "agents/dba.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "agents/product-designer.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "agents/product-manager.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "agents/project-architect.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "config/.env.example",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "config/default/settings.toml",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "docs/README.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "docs/designs/engineering/configuration-ownership.md",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "docs/designs/engineering/dynaconf-data-access.md",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "docs/designs/engineering/product-architecture.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "docs/engineering/code-layout.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-roles.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "docs/engineering/documentation.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "docs/engineering/workflow.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-roles.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "docs/guides/data-access.md",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "docs/guides/data-console.md",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "pyproject.toml",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "scripts/dev/build_docs.py",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "scripts/dev/check_dev_workflow.py",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-roles.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "scripts/dev/check_plugin.py",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "scripts/dev/development.py",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "scripts/ncc_data.py",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "scripts/ncclib/database_bridge.py",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "scripts/ncclib/registry.py",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-roles.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "scripts/tests/fixtures/development/configuration.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-roles.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "scripts/tests/fixtures/development/documentation.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-roles.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "scripts/tests/fixtures/development/experience-alpha.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-experience.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "scripts/tests/fixtures/development/experience-beta.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-experience.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "scripts/tests/fixtures/development/feature.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-roles.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "scripts/tests/fixtures/development/professional-architecture.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "scripts/tests/fixtures/development/professional-data.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "scripts/tests/fixtures/development/professional-design.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "scripts/tests/fixtures/development/professional-product.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "scripts/tests/test_dev_workflow.py",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "scripts/tests/test_development.py",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-dba/SKILL.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-dba/references/data-design.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-dba/references/operations.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-dba/references/sop.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-dba/references/sources.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-dba/templates/data-change.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-dev/SKILL.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-dev/references/experience.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-dev/references/roles.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-product-designer/SKILL.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-product-designer/references/interaction.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-product-designer/references/sop.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-product-designer/references/sources.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-product-designer/templates/interaction-spec.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-product-manager/SKILL.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-product-manager/references/discovery.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-product-manager/references/sop.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-product-manager/references/sources.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-product-manager/templates/product-brief.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-project-architect/SKILL.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-project-architect/references/evolution.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-project-architect/references/sop.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-project-architect/references/sources.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "skills/ncc-project-architect/templates/architecture-decision.md",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "src/ncc_data/application/access.py",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "src/ncc_data/cli/data.py",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "src/ncc_data/cli/main.py",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "src/ncc_data/cli/workspace.py",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "src/ncc_data/domain/access.py",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "src/ncc_data/mcp/__init__.py",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "src/ncc_data/mcp/configuration.py",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "src/ncc_data/mcp/server.py",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "src/ncc_data/runtime/settings.py",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "src/ncc_shared/configuration.py",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "src/ncc_shared/database.py",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "src/ncc_shared/http.py",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "src/ncc_shared/paths.py",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "src/ncc_shared/runtime.py",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "tests/backend/conftest.py",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "tests/backend/test_direct_access.py",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "tests/unit/test_configuration.py",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "tests/unit/test_data_access.py",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "tests/unit/test_mcp.py",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "uv.lock",
+      "candidate_task": "docs/tasks/2026-10-19-dynaconf-data-access.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "workflow/registry.json",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    },
+    {
+      "path": "workflow/registry/roles.json",
+      "candidate_task": "docs/tasks/2026-10-19-engineering-skills.md",
+      "type": "file",
+      "matches_verified_source": true
+    }
+  ],
+  "relocated_experience": {
+    "from": "docs/engineering/experience.md",
+    "to": "skills/ncc-dev/references/experience.md",
+    "before_sha256": "68ad2d28983b3692ce2352d663a70f2bd692d8b63cf6afb80fdfa6630e8a8ded",
+    "after_sha256": "a78245630f860112040b96b76058c6587d4814a1bd5fd1c8f68dd0fd287a4f4c",
+    "changes": "Relative links retargeted; methods/experience preserved; old path was untracked, no fake baseline deletion."
+  },
+  "private_configuration_ignored": true,
+  "database_or_runtime_verification": "not performed; author separate testing",
+  "source_only_publication": true
+}

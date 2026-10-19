@@ -1,0 +1,9 @@
+{
+  "source": "/private/tmp/ncc-role-skills-28g8xt1l",
+  "destination": "/Users/xuyun/Documents/ncc-workflow",
+  "candidate": "91397686d3e5a34a93ad00bc58389bc71630a1929169ba78db40661abf9af0c1",
+  "paths": 54,
+  "backup": "/private/tmp/ncc-role-skills-backup-vdn3_yef",
+  "old_experience_retained_in_backup": true,
+  "credentials_or_database_touched": false
+}

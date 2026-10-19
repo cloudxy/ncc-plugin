@@ -1,0 +1,26 @@
+COMMAND: python3 scripts/dev/check_plugin.py -v
+scout              1750 / 20000
+worldbuilder      19708 / 20000
+outliner          11220 / 20000
+story-editor      15498 / 20000
+scholar            8196 / 20000
+writer             6166 / 20000
+editor             1488 / 20000
+continuity         8134 / 20000
+pulse              9376 / 20000
+reader             4081 / 20000
+deconstructor      7903 / 20000
+manager:new       34733 / 35000
+manager:write     30000 / 35000
+manager:review    25894 / 35000
+manager:loop      25154 / 35000
+manager:prepare   24316 / 35000
+curator            6639 / 20000
+manager:deconstruct  15663 / 35000
+product-manager    7272 / 20000
+product-designer   7278 / 20000
+project-architect   5538 / 20000
+dba               12376 / 20000
+PLUGIN OK
+
+exit_code=0

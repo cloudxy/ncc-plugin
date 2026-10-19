@@ -2,11 +2,11 @@
 import json
 from pathlib import Path
 
-KEY_ORDER = ('schema_version', 'preparation', 'commands', 'layers', 'ledgers', 'roles', 'stages', 'gates', 'axioms', 'iron_rules', 'scene_cards', 'writing_modes', 'principle', 'loops', 'review_plan', 'knowledge', 'materials', 'avoidance', 'setting_base', 'style', 'reader_personas', 'preferences', 'craft_library', 'eval', 'dashboard', 'export', 'length', 'principles', 'stage_table', 'vocab', 'layout', 'layout_legacy', 'load_budget', 'memory', 'handoff', 'review_words', 'setting_categories', 'decon', 'techniques', 'evolution', 'check_words')
+KEY_ORDER = ('schema_version', 'preparation', 'commands', 'layers', 'ledgers', 'roles', 'development', 'stages', 'gates', 'axioms', 'iron_rules', 'scene_cards', 'writing_modes', 'principle', 'loops', 'review_plan', 'knowledge', 'materials', 'avoidance', 'setting_base', 'style', 'reader_personas', 'preferences', 'craft_library', 'eval', 'dashboard', 'export', 'length', 'principles', 'stage_table', 'vocab', 'layout', 'layout_legacy', 'load_budget', 'memory', 'handoff', 'review_words', 'setting_categories', 'decon', 'techniques', 'evolution', 'check_words')
 
 SHARD_KEYS = {
     'flow.json': ('schema_version', 'stages', 'stage_table', 'layers', 'gates', 'loops', 'writing_modes'),
-    'roles.json': ('roles', 'commands', 'load_budget'),
+    'roles.json': ('roles', 'commands', 'load_budget', 'development'),
     'rules.json': ('axioms', 'iron_rules', 'principle', 'principles', 'scene_cards', 'review_plan', 'review_words', 'check_words', 'avoidance', 'length', 'reader_personas'),
     'storage.json': ('vocab', 'layout', 'layout_legacy', 'ledgers'),
     'preparation.json': ('preparation', 'knowledge', 'materials', 'setting_base', 'setting_categories'),

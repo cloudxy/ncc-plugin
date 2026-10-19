@@ -25,7 +25,9 @@ v4提供PostgreSQL知识底座、Python/FastAPI服务、React管理后台与创�
 
 AI正文、纲要、设定、抽取和修订按P1–P5量表给分项、证据和总分，系统执行有限返修；作者可直接修改、暂停或采用。自动定稿支持有范围、期限和次数的作者试运行或已校准策略；试运行保留质量闸门并记录校准未验证。
 
-初始化配置统一保存在项目根`.env`，命令自动读取。数据库只使用一个正式库及其同连接的`正式库-test`测试库。
+配置由Dynaconf统一管理，公共默认值归`config/default/settings.toml`，个性化连接与凭据归`config/.env`，命令自动读取。数据库只使用一个正式库及其同连接的`正式库-test`测试库。
+
+PostgreSQL只读MCP供AI检索作品资料；非MCP可通过后台、HTTP接口及`ncc-data data`直接查询、创建、编辑和更新，统一保留权限、版本与审计。
 
 原文件模式继续可用。数据库模式显式启用，真实书库不会自动迁移；安装、模型配置、CLI接入与备份恢复见[数据后台使用指南](docs/guides/data-console.md)。
 
@@ -94,9 +96,9 @@ flowchart LR
 
 | 路径 | 内容 |
 |---|---|
-| `skills/` | 八个工作流入口及其参考文件、模板 |
+| `skills/` | 八个工作流入口、四个工程专业技能及其SOP、参考和模板 |
 | `commands/` | 宿主命令入口 |
-| `agents/` | 十二个创作角色的职责与执行约束 |
+| `agents/` | 十二个创作角色，以及ncc-dev按需调用的产品经理、产品设计师、项目架构师和DBA |
 | `workflow/registry/` | 阶段、角色、闸门、词表和路径的配置源 |
 | `workflow/registry.json` | 由配置分片生成的兼容视图 |
 | `workflow/contracts/` | 结构化产物的机器契约 |
@@ -104,6 +106,7 @@ flowchart LR
 | `scripts/dev/`、`scripts/tests/` | 开发工具、自动化用例和合成样例 |
 | `src/ncc_data/` | 按领域、持久化、应用操作、创作执行和接口划分的后台；迁移归持久化 |
 | `src/ncc_shared/` | 文件CLI与后台共用的配置、客户端、工作副本及评分实现 |
+| `config/` | Dynaconf公共默认与环境覆盖；私有连接值归config/.env |
 | `tests/` | 无数据库单元、后端集成、浏览器与共用验收环境 |
 | `apps/management-web/` | 创作台与专业资料管理前端 |
 | `docs/` | 使用指南、工程规范、模块设计和任务记录 |

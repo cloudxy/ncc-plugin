@@ -1,0 +1,9 @@
+{
+  "packet": "docs/evidence/2026-10-19-engineering-skills/behavior/product-designer-packet.json",
+  "packet_sha256": "1a52a4fee433561c0c114ee40b7e91f1f320936e7068f40ad33d1083404b00fa",
+  "report": "docs/evidence/2026-10-19-engineering-skills/behavior/product-designer-report.json",
+  "report_sha256": "1e9c5964a285916c92a513d6768cfebc063bfbb109adf5382a9ea60e6d42e5fa",
+  "status": "failed"
+}
+
+exit_code=0

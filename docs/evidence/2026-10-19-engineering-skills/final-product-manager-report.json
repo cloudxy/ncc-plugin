@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "role": "product-manager",
+  "input_sha256": "a9c57ff4f5601bd77b7994c4aa0b156ffc332ee64edaa4d581a6d49066f3dd9a",
+  "execution": {
+    "mode": "current_session",
+    "identity": "/root"
+  },
+  "decision": "ready",
+  "deliverables": {
+    "author_task": "已确认问题：新增工程角色只有职责，缺少可实际调用的专业技能、步骤和参考；经验放docs混淆文档属性。使用者是维护NCC的开发协调者，目标为按任务装入方法并得到具体工件，不改变作者日常创作流程。证据是本次授权及包内文档归属规范；没有新用户研究或运行采用数据。",
+    "value": "推荐四个专属技能加共享协议/经验。沿用单个角色说明不能满足具体方法；把全部方法放docs会混淆归属；给每个角色复制共享经验会增加维护点。专属方法与统一派单在专业深度、可查找性和复用之间作取舍。真实能力按实际输出核对，目录数量不作为质量证据。",
+    "scope": "本批完整切片为四技能入口→各自SOP/专题方法/模板/来源→development角色映射→派单带入资源→来源与预算校验→项目级发现→合成任务产出及独立复核。docs保留项目设计/规范/任务/证据，执行经验迁到ncc-dev/references且去除活动旧引用。非目标是改数据库、配置值、小说规则和每章审批；五宿主新会话与真实数据库操作另有证据边界。",
+    "priority": "先解决技能缺失和资料归属，再接线并验证失败边界，最后核对真实工件和独立评审。SOP、模板、来源与缺资源拒绝是同一承诺，不拆成只有名字的第一批；未经真实使用验证不承诺效率提升。",
+    "acceptance": "需求1：四职责有可发现SKILL与完整方法资源，缺资源不能放行。需求2：角色派单实际包含对应资源，资源变更旧报告过期，拒绝越界路径。需求3：只保留一份共享经验，docs导航正确。需求4：四个合成任务形成可评审工件，独立检查具体取舍。需求5：原创作入口、数据库和授权不受影响。本报告是需求/设计复核，运行证据由本轮测试及独立审查单独核对，五宿主加载仍待验。",
+    "experience_application": "E01区分入口存在与任务完成：本批以工件而非技能名验收；E04归属与复用：独有方法归各技能，共用经验只在ncc-dev；E09证据边界：静态发现、模型工件、实际宿主加载分别记录，不将合成任务推断为长期能力保证。案例应用位置是本批scope和acceptance；产品运行无新增实测。"
+  },
+  "findings": [],
+  "verification": [
+    {
+      "scenario": "Bounded design and artifact review",
+      "expected": "Explicit ownership, concrete outputs and no added author steps",
+      "status": "passed",
+      "evidence": "Read packet-owned SOP, template and project documentation policy; completed task-specific design artifacts in deliverables."
+    },
+    {
+      "scenario": "Runtime hosts and database",
+      "expected": "Separate actual runtime evidence",
+      "status": "pending",
+      "evidence": "Not exercised by this design report."
+    }
+  ],
+  "limitations": [
+    "Current-session design review, not an independent specialist review.",
+    "Implementation checks and four independent synthetic professional tasks are separate evidence.",
+    "Five-host new-session loading and real database operations remain unverified."
+  ]
+}

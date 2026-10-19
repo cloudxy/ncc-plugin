@@ -1,0 +1,149 @@
+{
+  "candidate": "91397686d3e5a34a93ad00bc58389bc71630a1929169ba78db40661abf9af0c1",
+  "fresh_sessions": 8,
+  "cases": [
+    {
+      "case": "faulty-proposal",
+      "role": "product-manager",
+      "identity": "/root/professional_product",
+      "decision": "changes_required",
+      "protocol_status": "failed",
+      "expected_protocol_status": "failed",
+      "packet": "docs/evidence/2026-10-19-engineering-skills/behavior/product-manager-packet.json",
+      "packet_sha256": "1cf978ff1cf09872098bbd809586664dd1c28307d2609134e3756d222c7a082c",
+      "input_sha256": "370c555755a36473bbd7caf0823815ff4aa99251c47ba28fb5e40015a03cbdc8",
+      "report": "docs/evidence/2026-10-19-engineering-skills/behavior/product-manager-report.json",
+      "report_sha256": "6b2ffdae57c5ca6c3df4b0d6637166ec8b34443cc5a5cb4fdcd9973c61b49b6c",
+      "current_sources_match": true,
+      "verification_statuses": [
+        "pending"
+      ]
+    },
+    {
+      "case": "faulty-proposal",
+      "role": "product-designer",
+      "identity": "/root/professional_designer",
+      "decision": "changes_required",
+      "protocol_status": "failed",
+      "expected_protocol_status": "failed",
+      "packet": "docs/evidence/2026-10-19-engineering-skills/behavior/product-designer-packet.json",
+      "packet_sha256": "1a52a4fee433561c0c114ee40b7e91f1f320936e7068f40ad33d1083404b00fa",
+      "input_sha256": "db7ba3c6716462eb609bb0d19e49a09cc05192af8501c10d7a6c6d0dce64577a",
+      "report": "docs/evidence/2026-10-19-engineering-skills/behavior/product-designer-report.json",
+      "report_sha256": "1e9c5964a285916c92a513d6768cfebc063bfbb109adf5382a9ea60e6d42e5fa",
+      "current_sources_match": true,
+      "verification_statuses": [
+        "pending"
+      ]
+    },
+    {
+      "case": "faulty-proposal",
+      "role": "project-architect",
+      "identity": "/root/professional_architect",
+      "decision": "changes_required",
+      "protocol_status": "failed",
+      "expected_protocol_status": "failed",
+      "packet": "docs/evidence/2026-10-19-engineering-skills/behavior/project-architect-packet.json",
+      "packet_sha256": "1f51625d086c6c1b4f780750db1a0e0c24b1e62c23eae0bd30e68ec83bf87589",
+      "input_sha256": "86c76737d53920c0d30a3189c0295405765c2b84111829a2165049b2b272adfd",
+      "report": "docs/evidence/2026-10-19-engineering-skills/behavior/project-architect-report.json",
+      "report_sha256": "cc100a559e9ceb2e09b2b706de8538e5e9c9650b82d787eaa0bc842737afa266",
+      "current_sources_match": true,
+      "verification_statuses": [
+        "pending"
+      ]
+    },
+    {
+      "case": "faulty-proposal",
+      "role": "dba",
+      "identity": "/root/professional_dba",
+      "decision": "changes_required",
+      "protocol_status": "failed",
+      "expected_protocol_status": "failed",
+      "packet": "docs/evidence/2026-10-19-engineering-skills/behavior/dba-packet.json",
+      "packet_sha256": "f267a1193fe4d308976383f0c1e39440f17b589a8ed0e0b28ee92ca4ca1e770d",
+      "input_sha256": "c7c012f28defb5ef38a66278c07f7e4477795ca3a75ca57ca5e57e0b5d516eb6",
+      "report": "docs/evidence/2026-10-19-engineering-skills/behavior/dba-report.json",
+      "report_sha256": "a7963f220aadb8b07eed7b6ca6c7f4bce26a9bbc973488a14e9cb0ba436f7ac4",
+      "current_sources_match": true,
+      "verification_statuses": [
+        "pending"
+      ]
+    },
+    {
+      "case": "corrected-design",
+      "role": "product-manager",
+      "identity": "/root/positive_product",
+      "decision": "ready",
+      "protocol_status": "passed",
+      "expected_protocol_status": "passed",
+      "packet": "docs/evidence/2026-10-19-engineering-skills/behavior/positive-product-manager-packet.json",
+      "packet_sha256": "80a8f13e01fc6e9c821348421d503789bb44b96bc3b1693ac0443781165f72b7",
+      "input_sha256": "4c2b6956add3b82d17c37869d90afeb757d488dbeb5aca15ba35b3ee54c6c4d6",
+      "report": "docs/evidence/2026-10-19-engineering-skills/behavior/positive-product-manager-report.json",
+      "report_sha256": "314c9a1f13b647e4864f601832d170362336eeddf67bba27310a1502f17dc3fc",
+      "current_sources_match": true,
+      "verification_statuses": [
+        "pending"
+      ]
+    },
+    {
+      "case": "corrected-design",
+      "role": "product-designer",
+      "identity": "/root/positive_designer",
+      "decision": "ready",
+      "protocol_status": "passed",
+      "expected_protocol_status": "passed",
+      "packet": "docs/evidence/2026-10-19-engineering-skills/behavior/positive-product-designer-packet.json",
+      "packet_sha256": "245b3e434d71cbd6451fdd70b945ba3b56902b724c13ae65aa798cd8129c4154",
+      "input_sha256": "90cee552609aa392eeb887960bb39cb37d9a9ad95f7cdcd3fe5274cb906ab72f",
+      "report": "docs/evidence/2026-10-19-engineering-skills/behavior/positive-product-designer-report.json",
+      "report_sha256": "5ae2ebad8e9ae8f79ffca48b7bcfacd89a15f8163515d45b494c9e40fa1c3306",
+      "current_sources_match": true,
+      "verification_statuses": [
+        "pending"
+      ]
+    },
+    {
+      "case": "corrected-design",
+      "role": "project-architect",
+      "identity": "/root/positive_architect",
+      "decision": "ready",
+      "protocol_status": "passed",
+      "expected_protocol_status": "passed",
+      "packet": "docs/evidence/2026-10-19-engineering-skills/behavior/positive-project-architect-packet.json",
+      "packet_sha256": "4a8e2e1bc26b1255f0b3a9d8d9d23972ac3030b9f7f897640876143c178eb490",
+      "input_sha256": "007b4fd01d7f90a81907fd882dd13d785fc0c3498b35807dbfc758983fdc0d10",
+      "report": "docs/evidence/2026-10-19-engineering-skills/behavior/positive-project-architect-report.json",
+      "report_sha256": "cce095f7d2ad9ad434c1fcb74c8c66eb812d42faa505c49c53566c814eaefaae",
+      "current_sources_match": true,
+      "verification_statuses": [
+        "pending"
+      ]
+    },
+    {
+      "case": "corrected-design",
+      "role": "dba",
+      "identity": "/root/positive_dba",
+      "decision": "ready",
+      "protocol_status": "passed",
+      "expected_protocol_status": "passed",
+      "packet": "docs/evidence/2026-10-19-engineering-skills/behavior/positive-dba-packet.json",
+      "packet_sha256": "2ed8a8fc3139c98a2c716af5e419ea0ac3fa61584404536b6cc401042a20f146",
+      "input_sha256": "a1b7be185b934785b69624d2c108a49aad74f2b1d9cc748e36b75f65ef76f936",
+      "report": "docs/evidence/2026-10-19-engineering-skills/behavior/positive-dba-report.json",
+      "report_sha256": "709fc509e955d9dbba9278445503068e97989707aab07ced5b8ffa0555ada688",
+      "current_sources_match": true,
+      "verification_statuses": [
+        "pending"
+      ]
+    }
+  ],
+  "actual_product_or_database_test": false,
+  "limitations": [
+    "One negative and one corrected-design task per professional skill; no repeated stability or quantitative capability improvement claim.",
+    "Changes-required rejects the faulty proposal as expected; it is not a failure of skill execution.",
+    "Only the selected role report is exercised in each synthetic task; no claim that all-role delivery passed for synthetic task records.",
+    "Database, UI and five-host runtime remain unverified."
+  ]
+}

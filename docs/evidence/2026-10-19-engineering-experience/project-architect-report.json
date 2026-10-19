@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "role": "project-architect",
+  "input_sha256": "a596f32233f3b9e8d124b5784a1a7e0fc50fb704dc588a7ee46354b5db9872a9",
+  "execution": {
+    "mode": "current_session",
+    "identity": "/root"
+  },
+  "decision": "ready",
+  "deliverables": {
+    "ownership": "项目经验唯一归docs/engineering/experience.md；案例及角色动作共用一次维护。四profiles增加本职责诊断重点，reads/outputs由roles分片单源维护，registry视图/协议表按原生成器构建；没有新状态库或第二份角色规则引擎。",
+    "dependencies": "ncc-dev沿原入口生成包，全部工程角色读取共用手册，通用validate_report按definition.outputs检查新交付字段；没有新脚本分支和创作ncclib反向依赖。已存挂载仍指向同一profiles。",
+    "read_path": "原任务影响→development选择→reads加载经验字节→packet绑定资料及协议摘要→实际角色判断。手册只含公开问题摘要及来源引用，不把私有配置/书稿并入包；DBA预算仍需连同新案例实际生成检查。",
+    "write_path": "角色仅写同一报告中的experience_application和原职责交付；record登记原任务，检查缺项和来源新鲜度。经验变更导致旧报告失败，不能只补一句已学习继承旧ready。",
+    "compatibility": "原outputs机制支持追加必交付项，不改存储或新建契约解释器。旧候选与旧报告保持历史字节和绑定范围；本轮改角色后不声称旧候选代表现状。宿主约定位置、有效托管授权和测试分工保留。",
+    "rollback": "只撤回11路径的本轮增量和生成结果，保留前轮角色接线、迁移修复、既定配置、数据库与证据。先比对目标前值和源后值，避免覆盖其他在途变更。",
+    "acceptance": "通用注册/校验相邻测试、插件读取预算/链接/生成检查、缺经验/新鲜度探针及四角色新方案正反判断；独立复核经验来源和行为适用性。语义判定由实际角色和审查，字符串字段校验只证明结构。",
+    "experience_application": "E04：本次不是移动模块，而是共享知识进入现有依赖链；手册一处维护、四角色按职责应用，避免复制十条案例。E10：复用原outputs缺项拒绝逻辑，新增必交付不另留兼容空口；探针验证缺字段和资料变化会拒绝。与历史兼容修复不同，本轮不更改legacy算法或要求旧报告伪装成新版本。"
+  },
+  "findings": [],
+  "verification": [
+    {
+      "scenario": "Bounded design and ownership review",
+      "expected": "Shared experience enters existing role packet and required outputs without new core state",
+      "status": "passed",
+      "evidence": "Read the scoped proposal and role protocol; implementation/behavior has separate tests and independent review."
+    }
+  ],
+  "limitations": [
+    "Current-session design review, not an independent expert.",
+    "Real DB/UI, host new sessions and long-term model stability are not verified."
+  ]
+}

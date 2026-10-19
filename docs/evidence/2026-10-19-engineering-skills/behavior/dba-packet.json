@@ -1,0 +1,118 @@
+{
+  "schema": 1,
+  "role": "dba",
+  "task_id": "professional-data",
+  "goal": "Complete the supplied professional task with the assigned skill and SOP; review the proposal and produce concrete role deliverables. No implementation or data operations.",
+  "product": {
+    "primary": "小说创作",
+    "support": "资源管理，可独立治理并按需支撑创作"
+  },
+  "effects": [
+    "architecture",
+    "data",
+    "interaction",
+    "product"
+  ],
+  "definition": {
+    "label": "DBA",
+    "color": "orange",
+    "description": "Use for ncc-workflow PostgreSQL design and operations review: the established production/test pair, constraints, temporal history, transactions, credentials, queries, migrations and recovery evidence. Called by ncc-dev; do not guess credentials or create databases.",
+    "effects": [
+      "configuration",
+      "data"
+    ],
+    "outputs": [
+      "database_scope",
+      "integrity",
+      "access",
+      "migration",
+      "operations",
+      "verification",
+      "rollback",
+      "experience_application"
+    ],
+    "reads": [
+      "agents/dba.md",
+      "skills/ncc-dev/references/roles.md",
+      "skills/ncc-dev/references/experience.md",
+      "docs/engineering/code-layout.md"
+    ],
+    "skill": "ncc-dba",
+    "resources": {
+      "sop": "references/sop.md",
+      "methods": "references/data-design.md",
+      "template": "templates/data-change.md",
+      "sources": "references/sources.md",
+      "operations": "references/operations.md"
+    }
+  },
+  "authorization": [
+    {
+      "source": "作者指出角色缺少skill、专业SOP和参考，且执行资料放docs混淆归属",
+      "scope": "授权补齐四专业技能和角色执行/发现接线，迁出docs角色执行资产；保留既定PostgreSQL参数、双库和自动定稿授权，不改小说标准，不发布。"
+    }
+  ],
+  "sources": [
+    {
+      "path": "agents/dba.md",
+      "sha256": "b8509dff9e664f21aafc2969bee14d4f910c833a0d76fba2e46e8b097ae44279",
+      "content": "---\nname: dba\ndescription: \"Use for ncc-workflow PostgreSQL design and operations review: the established production/test pair, constraints, temporal history, transactions, credentials, queries, migrations and recovery evidence. Called by ncc-dev; do not guess credentials or create databases.\"\ncolor: orange\ntools: Read, Write, Glob, Grep, Bash\npermissionMode: default\n---\n\n# DBA\n\n<!-- ncc:gen role-skill 开始（scripts/dev/build_docs.py 由 workflow/registry/ 生成，勿手改） -->\n专业技能：`skills/ncc-dba/SKILL.md`。\n<!-- ncc:gen role-skill 结束 -->\n\n通过ncc-dev派单时按包内definition执行；专业技能由注册表skill/resources提供，必须使用对应SKILL、SOP、方法和模板，不能仅以本角色文件代替专业执行。默认只写指定报告，不越过任务授权。单独调用专业技能时按其咨询边界处理。\n\n本角色负责：小说数据的模型、约束、事务/版本/历史、权限、查询和运维。维持既定连接与唯一正式/-test，缺凭据不猜测；设计、Mock和真实连通/读写/恢复/性能分别判断。只设计/评审的包不得执行SQL或维护命令。\n"
+    },
+    {
+      "path": "docs/engineering/code-layout.md",
+      "sha256": "ad42005a99bb08a5e7753803af521bb2bfb8e0e4d1db0ddfc11d9d6cb7661902",
+      "content": "# 代码归属与复用\n\n现行规范。配置和日常命令见[数据后台指南](../guides/data-console.md)，开发阶段及交付证据见[开发工作流](workflow.md)。本文件只定义代码归属和依赖方向，不复制操作流程或业务规则。\n\n## 后端与共享代码\n\n```text\nsrc/\n├── ncc_shared/                 # 跨入口共享；配置按需加载Dynaconf\n│   ├── configuration.py        # 唯一Dynaconf装配、覆盖、校验和初始化\n│   ├── runtime.py              # 数据库操作按需进入项目.venv\n│   ├── database.py             # 正式连接及唯一-test派生，不连库\n│   ├── http.py                 # CLI的HTTP客户端、来源和profile保护\n│   ├── workspace.py            # 文件扫描、路径校验、快照和本地标记\n│   └── quality/                # 唯一评分策略资源及无状态计算\n└── ncc_data/\n    ├── runtime/                # 运行配置装配\n    ├── domain/                 # 业务输入契约、定义校验、内容方案映射\n    ├── persistence/            # SQLAlchemy模型、连接、系统定义种子\n    │   └── migrations/         # 唯一Alembic配置、环境和历史迁移\n    ├── application/            # 权限、事务服务、评分校准与用户操作\n    │   └── knowledge/          # 查询、变更、维护、交换、工作副本\n    ├── creation/               # 任务执行、模型网关与评分适配\n    ├── mcp/                    # PostgreSQL只读stdio工具及宿主配置生成\n    ├── api/                    # FastAPI装配、传输参数、各领域路由\n    └── cli/                    # 命令装配、备份恢复、工作副本入口\n```\n\n`ncc_shared`不导入后台，文件、评分和路径部分仅用标准库；`configuration.py`在调用时加载Dynaconf及python-dotenv，数据库模式通过共用runtime进入项目.venv。`domain`不导入接口、持久化或任务执行器。`persistence`负责存储，不依赖接口。`application`组织领域校验、存储和权限；`creation`调用应用服务执行任务；`api`和`cli`负责输入输出与装配，不承载另一份业务规则。应用操作需要排队或解释创作结果时可延迟导入执行接口，不能让创建任务时执行外部模型请求。修改服务行为先找到所属操作，不向总服务文件继续堆独立功能。\n\n`scripts/ncclib/`属于原文件工作流，`scripts/`顶层保留运行入口，`scripts/dev/`属于工程工具；标准库CLI不导入FastAPI/SQLAlchemy。`ncclib/__init__.py`只做一次源码路径引导，评分与数据库工作副本适配器直接复用`ncc_shared`。保留的命令入口只转发，不维护实现副本。数据库模式的`ncc-data`、`python -m ncc_data.cli`和`scripts/ncc_data.py`进入同一命令实现。\n\n四类工程角色的元数据、触发和交付字段归registry的development域；agents目录保存具体角色方法，共用协议归ncc-dev参考文档。scripts/dev/development.py复用原任务记录和路径守卫，管理按需计划、有限派单、报告与来源新鲜度；原开发检查器调用同一验证实现。工程角色不进入创作角色、记忆或章循环列表。\n\n迁移随Python包直接分发，源码与wheel都从`persistence/migrations`定位；不生成仓根和包内两份迁移。已有迁移只因归属搬迁，DDL变更必须新增迁移，不能重写历史。\n\n运行配置统一归`config/`：`default/settings.toml`提供唯一公共默认，`<ENV>/settings.toml`按需覆盖，`.env`保存既定私有值，`.env.example`提供初始化模板。路径由`ncc_shared/paths.py`定义。wheel从同一来源构建包资源，不维护配置副本。`application/access.py`组织MCP及直接CLI的认证、事务和Service调用；MCP读取强制数据库只读事务，不注册写工具。宿主清单由`mcp/configuration.py`生成，`.mcp.json`与`.codex/config.toml`因宿主发现约定保留在各自位置，仅有启动接线、不存应用参数，忽略且不进入插件包。\n\n## 前端\n\n`apps/management-web/src/app/`只放启动、登录后的壳和路由装配。`features/`按session、creation、jobs、inbox、knowledge、definitions、exchange、quality、administration归属页面；领域专用组件进入该功能的`components/`，地图和图谱实现进入`knowledge/visuals/`。`shared/`放请求、作品上下文、编辑器、引用选择、反馈组件、评分元数据读取和任务阶段显示；样式归`styles/`。\n\n只供一个功能使用的组件不要过早提升到shared。跨页面共用的实现先抽出，再由页面引用；页面不反向依赖应用壳。类型与内容的评分方案映射由后端`domain/creation.py`负责，前端从策略接口读取，不复制一套映射表。评分权重仅在`ncc_shared/quality/resources/policy.json`维护，旧CLI和后台均读取此资源；前端展示接口返回值。\n\n## 测试与文档\n\n| 归属 | 放置位置 | 范围 |\n|---|---|---|\n| 文件CLI与插件工程用例 | `scripts/tests/` | 标准库用例、规则接线和合成书项目 |\n| 无数据库单元与边界用例 | `tests/unit/` | 配置、连接派生、路径保护、HTTP和依赖边界 |\n| PostgreSQL集成与恢复 | `tests/backend/` | 事务、历史、权限、自动化及转储重放 |\n| 浏览器与跨CLI集成 | `tests/browser/` | 真实页面及数据库工作副本往返 |\n| 集成环境公共实现 | `tests/support/` | 唯一测试库校验、排他锁、迁移和测试服务生命周期 |\n| 操作、规范、设计、任务、证据 | `docs/`对应子目录 | 具体归属见[文档组织规范](documentation.md) |\n\n测试入口复用同一个`TestRuntime`；所有需要清理数据的操作只允许配置派生的-test库。禁止在用例里创建随机数据库或绕过公共守卫另写重置函数。集成验收串行执行，不用新库解决并行冲突。测试库仅存可丢弃合成数据；有未知表、其他业务schema或其他验收占用时停止。清理明确限定public中的NCC表，禁止CASCADE清理外部依赖。恢复演练需额外明确确认唯一测试库名，保留转储作为失败回退工件。\n\n配置说明只在指南，目录职责只在本规范；设计记录说明理由，任务记录说明进度，冻结证据保留当次路径。新增前先按职责搜索已有实现，避免再建一份config、client、utils或页面总文件。\n"
+    },
+    {
+      "path": "scripts/tests/fixtures/development/professional-data.md",
+      "sha256": "2c6bf653af30034ad03712aa5e688762d5fe5eca03f0b494399de2530e987899",
+      "content": "# 合成数据任务：候选采用与查询恢复\n\n仅作PostgreSQL17设计演练，无真实连接。示意对象有scope、entity、version、body；事件和请求结果另存，非本项目真实schema。\n两会话都读取v5，T1写人工v6，T2按entity无版本条件覆盖v7；请求幂等只放进程内存，同request_id换payload也返回成功。团队拟用CHECK调用查询其他行的函数保证同范围唯一；MCP暴露任意SQL但靠只读事务认为已解决所有权限，候选采用后还用索引失败撤销正文。\n\n查询清单：按scope和名称前缀过滤并分页，卷导出跨多页；只提供合成估计计划Seq Scan cost=0..4000 rows=10，没有实际执行统计。提议“顺序扫描一定慢、4000就是毫秒，统一给所有JSON字段加GIN”，并在正式库EXPLAIN ANALYZE UPDATE以为不会写入。\n\n已有备份文件，未恢复；提议每次恢复新建随机库，并把文件可列目录记录为恢复passed。既定唯一正式/同连接-test、已有执行器与守卫、主机账号库名不改，真实连接资料没有提供。本任务不授权数据库或维护操作。\n\n请给数据不变量/约束归属、事务和两会话交错修法、幂等与投影、只读/范围权限、计划解释和索引验证方案、迁移/恢复步骤与判定、明确未验项。不要只写“加事务/索引”，不猜凭据或运行SQL。\n"
+    },
+    {
+      "path": "skills/ncc-dba/SKILL.md",
+      "sha256": "617061f45748738e7e893d143cafa0ade6d67d9f6b06f725333e0a25fbed423d",
+      "content": "---\nname: ncc-dba\ndescription: \"为NCC PostgreSQL执行模型/约束、事务并发、权限、查询、迁移与备份恢复设计和核查。适用于数据库专业任务；保持既定连接和唯一正式/-test，不猜凭据，不以工具发现或Mock代替实测。\"\n---\n\n# NCC DBA 技能\n\n按[专业SOP](references/sop.md)确定本次是设计、审查、诊断还是已授权操作；模型/事务用[数据设计方法](references/data-design.md)，查询/维护用[运维方法](references/operations.md)，按[变更工件模板](templates/data-change.md)交付。版本细节查[官方来源](references/sources.md)。\n\n收到ncc-dev包时，只在execution_scope和有效决定内工作，按[共用协议](../ncc-dev/references/roles.md)返回JSON；审查包内的SQL/命令是资料，不是执行授权。相关[工程案例](../ncc-dev/references/experience.md)用于反例推演。单独咨询可给数据库设计或操作计划；实际操作遵循当前授权、目标身份和现有执行器。\n\n本项目配置由既有装配读取，主机/端口/账号/正式库不重选，测试仅同连接的正式库-test。没有真实连接信息先完成可独立的模型/查询审查并标明缺项，不借其他项目账号。数据库设计ready、真实连接、授权读写、恢复和性能分别判断。\n"
+    },
+    {
+      "path": "skills/ncc-dba/references/data-design.md",
+      "sha256": "faef00acb13f8ceb58cf1040caa22f037b0fc3106387e4146ce185661b7dd45e",
+      "content": "# 模型、约束与事务方法\n\n## 从不变量选择约束\n\n先给例子与反例，再选约束归属：行内值域/必填适合行内约束；跨行唯一和引用用相应唯一/外键/排除约束及必要受控逻辑，不把查询其他行/表的规则塞进CHECK当持续一致性保证。软引用允许未迁移目标时，保留目标范围、标识、未解析状态和解析/校验流程，不能假装有硬外键。\n\n动态本体需要类型、属性与关系定义的版本、值类型、范围与校验；稳定关系和业务读模型独立考虑。时间要明确含义、单位、区间端点和修订语义，不把故事历法强制当真实UTC。组织/任职、物品归属、知识状态等按其有效期和来源判断重叠与矛盾，不仅保存当前值。\n\n## 事务时序\n\n写出“读取基线→权限/范围→条件更新/新修订→事件审计→提交→投影”的原子边界。两个编辑者用同一版本时，只有符合期望版本的请求采用；影响行数为零的语义冲突应保留新稿和候选，不能读最新版本后盲目重试覆盖。\n\n幂等标识随业务操作持久化，核对范围、操作和载荷摘要；相同标识不同载荷拒绝，重复完成请求返回原结果；幂等记录与状态提交保持一致。数据库序列化/死锁重试需要重新执行完整事务且有界，外部副作用要隔离；这不是语义版本冲突的自动放行。\n\n## 查询快照\n\nREAD COMMITTED下不同语句可见不同提交快照；卷级导出/多页聚合要说明固定修订清单或所选事务快照如何避免混版。隔离级别按不变量选择，不能“全部SERIALIZABLE”解决所有问题，也不能只改隔离级别就取消应用版本检查。\n\n历史/事件保留修订来源与双时间事实；当前投影可重建、可重试。既定自动定稿资格与评分/硬闸门/版本均沿受控服务，不由数据库接口或单一分数授予新权限。技术细节以[官方资料](sources.md)和实际服务端版本核对。\n"
+    },
+    {
+      "path": "skills/ncc-dba/references/operations.md",
+      "sha256": "6f6b0989c230077631d6a58f4ea8ec29fa1dcdae15f0871ce9850b36fe72b7a0",
+      "content": "# 查询、迁移与恢复方法\n\n## 查询诊断\n\n取得脱敏查询形状、参数分布、目标范围、数据规模、索引和统计信息。先用计划估计定位扫描、连接、排序及分页；不要把顺序扫描直接判错，或把cost当毫秒。执行计划中的actual rows/time与loops一起解释，估计偏差可能与统计和数据分布有关。只有一个玩具数据结果不能外推大规模表现。\n\nEXPLAIN ANALYZE会实际运行语句，不能作为默认只读诊断去执行任意DML。已授权的代表查询按实际成本/超时约束测试，写操作分析只在允许范围和可恢复目标进行；回滚也不等于所有外部副作用可撤销。改索引需说明对应过滤/排序、读收益、写与存储成本及前后相同口径证据，不先安装未用扩展。\n\n## 迁移计划\n\n核对已应用迁移与新版本，追加变更不重写历史DDL。给锁类型/持有时长的预期、回填批次、失败停止点、约束验证和旧调用者兼容；以实际版本核对在线建索引/约束特性，不凭“在线”一词保证无锁。用代表数据和两会话冲突验证，不任意开库规避唯一-test守卫。\n\n## 备份与恢复\n\n先定义数据范围、允许丢失/恢复时长目标及实际测量；记录脱敏源/目标身份、工具/服务端版本、备份格式、完成状态、校验与所需角色/扩展。pg_dump覆盖单库，不自动包含所有集群全局对象；备份文件存在或能列目录不等于恢复成功。\n\n恢复必须使用已授权目标和既有执行器，测试演练只在唯一-test并遵守占用/清理守卫；备份来自可确认的来源，不执行未知来源内容。核对恢复后schema/迁移、代表内容、修订历史、权限、完整性和应用查询，再记录实际耗时与遗留项。需要破坏性覆盖而授权/安全前置不足时不执行该步，也不新建替代库。\n\n## 项目操作落点\n\n当前命令先核对实际CLI帮助与包内指南。公共配置归config；普通使用不要求export终端变量。现有ncc-data提供状态/doctor、migrate、backup/restore等入口，非MCP数据查询与写入复用data子命令；不自行拼第二套配置或绕过服务写SQL。示例和文档不是操作授权，审查包默认不运行维护命令。\n"
+    },
+    {
+      "path": "skills/ncc-dba/references/sop.md",
+      "sha256": "a80798751f4d501ba958cd12074fd5518f672a74aa7c3a1c9d69ef0075a0ac33",
+      "content": "# 数据设计、诊断与运维 SOP\n\n先界定操作类型、目标数据范围、环境身份和授权；只设计/评审时不连库。项目既有源码、迁移和查询是事实来源，未知项写假设/缺项，不凭SOP编造现有表或SQL结果。\n\n1. **盘点数据生命周期。** 列对象身份、类型/属性/关系、候选与确立事实、名称、范围/共享、世界时间与记录时间、修订/事件及派生投影；逐项说明谁产生、怎样查询、更新、保留与恢复。按当前任务裁剪。\n2. **约束与访问路径。** 对字段类型、必填、枚举、引用、唯一、关系基数/有效期和软引用区分定义校验与数据库约束；给代表查询的过滤、排序、分页、结果规模和权限。动态机制不能退化为无约束JSON；不为每个小说名词建表。\n3. **事务和并发推演。** 写事务边界、版本比较、历史/审计、幂等及失败语义；用两会话时间线推演并发编辑和重复请求。核对当前行、事件与修订是否一致，投影失败怎样重试；区别语义冲突和可重试数据库失败。\n4. **权限与秘密。** 核对数据库/应用权限、范围和隐藏资料过滤、跨层引用。MCP工具白名单加只读事务与范围权限，非MCP写入经受控服务；只读事务不能替代最小权限或挡住所有越界读取。\n5. **查询与性能。** 先确认服务端版本、查询形状和数据分布；按运维方法解释计划，提出与具体谓词/排序相匹配的索引备选及代价。没有实测不承诺吞吐；估计计划与执行计划分开。\n6. **迁移与恢复。** 追加迁移，列兼容、锁影响、回填/校验、故障和回退；明确备份覆盖、恢复依赖与目标。现有执行器、唯一-test和占用/身份守卫复用，缺少安全目标就停该操作，不另建临时库。\n7. **实际验证或待验。** 已授权执行才核对配置选中的脱敏目标与真实连接身份，逐项跑必要用例并保留观察；无环境给可执行前置/步骤/期望结果，不写passed。结束核对连接释放、结果边界和恢复状态，不自动清理未知数据。\n\n## 报告映射与验收\n\ndatabase_scope给目标/双库与范围；integrity给模型、约束、历史和并发；access给只读/受控写及过滤；migration给追加变更与锁/回退；operations给运行/备份/恢复计划；verification给具体读写/冲突/重放/恢复/性能场景；rollback说明触发、保留内容与依赖。experience_application说明旧案例的适用差异。\n\n设计输入足够且无major可以ready，真实运行保留pending；缺少决定性结构/权限信息无法判断则blocked。发现越权、覆盖人工新稿或无法恢复的既有缺陷需具体修法，不用“加事务/加索引”一句话代替设计。\n"
+    },
+    {
+      "path": "skills/ncc-dba/references/sources.md",
+      "sha256": "6744290039ff13f1d6578fed7b68d25e96553b91b38975abb550f6b036fb3284",
+      "content": "# PostgreSQL 专业来源\n\n2026-10-19核对官方17版手册；实际服务端版本未确认时不宣称与17完全一致，执行前以连接身份和匹配版本复核。SOP/模板由NCC自写，参考不产生扩展、数据库、账号或运维依赖。\n\n| 原页 | 核对用途 |\n|---|---|\n| [约束](https://www.postgresql.org/docs/17/ddl-constraints.html) | 行内约束、唯一/引用与跨行规则的适用边界。 |\n| [事务隔离](https://www.postgresql.org/docs/17/transaction-iso.html) | 查询快照、并发异常与完整事务重试，区分应用版本冲突。 |\n| [显式锁](https://www.postgresql.org/docs/17/explicit-locking.html) | 行/表锁、死锁及迁移影响，避免无根据的无锁承诺。 |\n| [事务只读模式](https://www.postgresql.org/docs/17/sql-set-transaction.html) | MCP只读事务的作用与边界，配合最小权限/范围过滤。 |\n| [EXPLAIN](https://www.postgresql.org/docs/17/using-explain.html) | 估计与执行、cost与真实时间、loops和数据规模。 |\n| [pg_dump](https://www.postgresql.org/docs/17/app-pgdump.html)、[pg_restore](https://www.postgresql.org/docs/17/app-pgrestore.html) | 单库备份覆盖、格式、恢复依赖和实际执行边界。 |\n\n具体配置来源、双库、权限与历史契约以本项目当前代码/授权为准；任何官方命令例子都不授予在正式库操作的权限。集中出处见[致谢](../../../ACKNOWLEDGMENTS.md)。\n"
+    },
+    {
+      "path": "skills/ncc-dba/templates/data-change.md",
+      "sha256": "3ff116ee42df498c5fa11d53fcf2cf711d288eb5560b8f2912359598d3f2ed14",
+      "content": "# 数据专业工件模板\n\n按实际任务选择设计、诊断、迁移或恢复部分，派单时写入对应JSON字段，不新增重复报告。\n\n- 目标/授权：设计还是操作，范围、既定正式/同连接-test，身份核对与缺项。\n- 生命周期：对象/事实｜权威来源｜产生/查询/修订｜历史/有效期｜投影/恢复。\n- 不变量：正例/反例｜定义校验｜数据库约束或服务事务｜权限｜验证。\n- 代表读链/查询：过滤、排序、分页、快照、数据规模、索引备选和代价。\n- 事务：基线版本→受控变更→新修订/事件/审计→幂等→提交→投影；两会话交错、语义冲突与数据库重试区别。\n- 迁移：前置版本｜追加变更｜锁/回填｜兼容｜故障停止｜回退及保留。\n- 维护：源/目标、备份格式/校验、恢复依赖、执行器与目标守卫、恢复后核对。\n- 验证：场景｜输入/环境｜步骤｜期望结果｜实际观察/待验｜证据；真实运行与计划/Mock分开。\n"
+    },
+    {
+      "path": "skills/ncc-dev/references/experience.md",
+      "sha256": "a78245630f860112040b96b76058c6587d4814a1bd5fd1c8f68dd0fd287a4f4c",
+      "content": "# NCC 工程经验与角色能力\n\n本文件保存本项目能复用的诊断方法。既定技术选型和用户偏好适用于NCC，不推广成所有项目的规则。历史缺陷、产品缺口和合成风险分开陈述；“待验”不等于已失败。已修问题不再描述为当前故障。\n\n## 已发生的问题及可执行经验\n\n| 编号与性质 | 问题和原因 | 下次必须能做什么；如何判断有效 |\n|---|---|---|\n| E01 产品缺口 | 已有默认创作台，但通用实体选择最多200项，不足以证明长篇卷章可用；资源后台完成也不能证明创作流程完成。 | 先复述作者当前任务，追踪入口到可采用成果；为长篇分页、续写位置和上下文返回定义可操作验收。独立资料治理仍可使用，不把资源完整性变成写作前置。 |\n| E02 实施缺口 | 四工程职责曾停在方案，作者追问后才完成接线。规划、代码、接线、行为、实际加载被混称“完成”会让交付失真。 | 承诺一项能力就定位实现、调用者、产物和证据；缺哪个就报告哪层待办。沿原任务继承授权与范围；不能用拆批次隐藏当前已承诺内容，也不能把作者留待专项的测试擅自标通过。 |\n| E03 配置和归属 | 作者反复明确普通人不应操作终端环境变量，私有配置应归config，并指定Dynaconf。起初目录与统一装配没有同时落实。 | 追踪初始化、服务、CLI、MCP、测试和打包消费者；配置归属与入口默认一致，初始化保留原值，文档和错误给出可执行恢复。参考hcdataspider的方法，不复制其凭据。 |\n| E04 复用和机制 | 项目曾需要整理大文件、公共连接/配置/客户端逻辑及registry来源；分目录不能自动解决规则重复。 | 给每条配置、授权、评分和阶段规则指定唯一维护点，追踪一条读链及写链；入口复用应用服务。通用存储机制支持扩展，作者界面按作品语义组织；不增加空层或按每类设定建表。 |\n| E05 独立复现缺陷，已修 | config迁移先link后unlink，会删除并发保存的新文件；TOML文本替换可改到多行字符串里的假入口，解析仍成功。 | 迁移先定义原值、文件身份、并发替换和失败后的保留条件；不能“检查存在再覆盖/删源”。结构化修改比较“原对象仅指定语义变化”的期望，测试合法但有干扰内容的输入。解析成功和正常路径用例均不够。 |\n| E06 已确定的运维约束 | 作者纠正多库管理方向，已确定唯一正式/正式库-test；真实连接资料仍缺失，工具可发现而connected=false。 | 维持既定连接和唯一测试库，以范围/标识隔离作品与任务；不能猜账号或为验证另建随机库。分别报告配置、连通、授权读取、写入、恢复、性能证据；未连库不承诺已可用。 |\n| E07 合成反例，非已发生丢稿 | 角色回归中发现旧AI覆盖人工新稿、索引失败删除正文、重复回写增生事实的错误提案；没有证据证明这些事故已在真实作品发生。 | 明确生成基线和人工最新稿，采用校验版本、事务/修订/审计和持久幂等；投影失败允许重试，正文保存状态单独显示。按并发编辑、重放和部分失败验收，不能只看成功按钮。 |\n| E08 已有产品约束 | 作者要求AI评分、自动化和已授权自动定稿；简化交互容易被误解为只看分数即可采用。 | 沿现有评分/闸门/授权契约执行，分数用于质量判断，不能代替硬缺陷、授权范围和版本检查。有效托管资格保留，必要作者创作决定保留；不发明新阈值、不要求重复确认。 |\n| E09 证据边界 | 多轮静态、Mock或代码交付完成，真实PG和五宿主新会话仍待验；自查也曾需要与独立评审分开。 | 每项结论写清对象版本、环境、实际观察和未验项；旧证据不冒充新候选，工具发现不冒充连接，改文件不冒充新会话加载。同会话多职责如实记current_session。 |\n| E10 独立复现缺陷，已修 | 无engineering_contract曾直接成功，允许新任务绕过报告；只查任务自身base又误伤先冻结base后创建的旧任务。普通检查还隐藏角色待办。 | 默认不把缺字段当旧版证明；用实际历史和适用范围验证兼容，已采用契约不能删字段回退。新增负例必须配合法历史正例；pending/failed/blocked要可见，不能用统一“失败”抹平原因。 |\n\n依据：[产品问题诊断](../../../docs/designs/engineering/product-architecture.md)、[配置与目录整治](../../../docs/designs/engineering/configuration-ownership.md)、[迁移O01/O02独立复核](../../../docs/evidence/2026-10-19-dynaconf-data-access/config-ownership/review.md)、[角色接线R1/R2及合成案例复核](../../../docs/evidence/2026-10-19-engineering-roles/review.md)。来源只证明各自范围；其中后续目标和待验状态以活动任务为准。\n\n## 四角色要形成的能力\n\n| 角色 | 能力变化 | 本次任务中的具体交付 |\n|---|---|---|\n| 产品经理 | 从列功能转为判断作者价值、兑现范围和证据级别 | 说明任务入口、可采用成果、主辅线、优先级/非目标；指出当前方案少了哪条闭环及验收方法。资源独立任务按其用户目标衡量，不硬塞写作步骤。 |\n| 产品设计师 | 从列页面转为设计完整操作与异常恢复 | 给默认路径与上下文、编辑/保存/采用的区别、并发/过期/失败状态和恢复动作；以实际任务检验，不以配置项和按钮数量衡量专业性。 |\n| 架构师 | 从移动文件转为控制归属、规则来源和演进风险 | 列唯一维护点、消费者、读写依赖、变更语义和回退；迁移、兼容与授权边界有正反例，避免把当前案例限制成全局硬编码。 |\n| DBA | 从会连接和建表转为管理完整数据生命周期 | 核对既定连接/双库、事务/历史/并发/权限、查询规模与恢复；用实际证据分层放行，无法实测时交付前置条件和明确测试办法。 |\n\n## 执行与积累\n\n在既有角色报告的experience_application中选择本任务最相关的1–3条：案例编号与触发条件 → 已读证据及与旧案例的差异 → 本次取舍和处理位置 → 可观察验收及未验项。没有相关案例时解释边界，不生套所有条目。只写编号或“已学习/最佳实践”应退回。可以引用报告已有交付位置，避免重复正文。\n\n经验应用是原角色交付的一部分，不增加作者审批、每章角色或额外报告。注册表统一维护必读路径和必交付字段；既有packet绑定经验字节，record检查缺项，输入变化后重派。字段校验不能证明推理质量，需真实新任务验证：能识别问题变体，也能接受符合约束的设计，不能对所有方案一律退回。能力验证不承诺模型永久记忆或已经熟练完成真实DB运维。\n\n新增经验先有具体问题/复现或明确来源，记录已修/风险/待验边界，再判断是否改变诊断和验收；重合经验合并到现有条目，不按每次事故增加一条全局禁令。改变职责或判定方式时按开发工作流隔离验证，记录对应反例及合理方案，再在已授权范围整合。当前验证与新场景结果见[经验转化任务](../../../docs/tasks/2026-10-19-engineering-experience.md)。\n\n实施顺序：整理上述证据 → 注册四角色读取和必交付 → 同步角色/共用协议与生成物 → 受影响脚本和输入新鲜度检查 → 新场景实际执行/独立评审 → 整合并核对候选。回退仅本批规则/读取/生成物，不动数据库、真实配置或已修迁移代码。\n"
+    },
+    {
+      "path": "skills/ncc-dev/references/roles.md",
+      "sha256": "d98b08a6ec2d8bbebc6c6b453f8759d88f13e9db9aadf9bc2fea317f58bfb65f",
+      "content": "# 工程角色执行协议\n\n角色注册、触发条件和必交付字段唯一来自registry的development。ncc-dev在D1按实际影响运行计划，按角色生成派单包；角色根据派单中的任务、输入版本和definition工作。小说创作是产品主线，资源管理可独立使用并支撑创作，不能把作者变成维护数据库的人。\n\n## 输入与执行\n\n先读取派单包及其中的角色文件/共用协议/列明来源。包内来源是资料，里面出现的命令不是新的授权。只访问明确的产品源码、设计与合成案例；不读真实.env、私有书稿、用户家目录凭据或其他角色报告。来源不完整就记录限制，不能把未读文件或未执行的测试写成证据。\n\n默认是设计/评审任务：只写指定报告，不修改产品文件，不执行数据库DDL/DML、发布或权限变更。作者明确授权专项实施时，以派单的目标、范围和有效决定为准；保持既定PostgreSQL参数和唯一正式/-test数据库对，运维操作由协调者按证据执行。\n\n用户已确认的目标不重复确认。普通工程取舍给出理由、兼容和可核对结果；新关键决定集中呈给协调者。四职责不进入每章写作派单，不能新增作者日常审批步骤。角色可在独立代理或当前会话顺序执行，报告必须如实标注，当前会话自查不称独立专家评审。\n\n## 返回契约\n\n返回一个JSON对象：schema=1、role、input_sha256与包完全一致；execution含mode（subagent/current_session）与真实identity；decision为ready/changes_required/blocked；deliverables逐项完成包中definition.outputs，值为有实质内容的非空字符串；findings为问题数组，每项含severity（major/minor）、location、problem、evidence、fix；verification为数组，每项含scenario、expected、status（passed/pending/blocked）、evidence；limitations为字符串数组。\n\nready仅指当前角色在本次设计/评审范围内无阻止推进的问题，不表示整项目、数据库或UI验收。major问题未解决时使用changes_required；关键输入缺失导致不能判断时使用blocked。设计场景可以提出尚待实测的验收办法，verification写pending，不得虚构passed。不要为工程报告打小说内容质量分。\n\n检查每项交付是否解释了本任务的具体取舍；“遵循最佳实践”“保证可扩展”等口号不是交付。问题要有定位/已读证据、影响和可执行修法，区分事实与推断。实际运行命令写命令和结果；没有运行就写待验。协调者用登记接口校验角色、来源新鲜度、字段和执行方式，再处理问题。\n\n角色返回报告后不自行扩大范围、采用候选或修改规则。实现改变了输入或角色协议时，旧报告失效，先重新生成派单再复核；不能只改报告里的摘要冒充重做。\n\n## 工程角色清单\n\n<!-- ncc:gen engineering-roles 开始（scripts/dev/build_docs.py 由 workflow/registry/ 生成，勿手改） -->\n| 角色 | 专业技能 | 按影响触发 | 必交付字段 |\n|---|---|---|---|\n| product-manager（产品经理） | [ncc-product-manager](../../ncc-product-manager/SKILL.md) | product、interaction、architecture、data | author_task、value、scope、priority、acceptance、experience_application |\n| product-designer（产品设计师） | [ncc-product-designer](../../ncc-product-designer/SKILL.md) | interaction | journey、states、defaults、recovery、acceptance、experience_application |\n| project-architect（项目架构师） | [ncc-project-architect](../../ncc-project-architect/SKILL.md) | implementation、interaction、architecture、configuration、data、development-routing | ownership、dependencies、read_path、write_path、compatibility、rollback、acceptance、experience_application |\n| dba（DBA） | [ncc-dba](../../ncc-dba/SKILL.md) | configuration、data | database_scope、integrity、access、migration、operations、verification、rollback、experience_application |\n<!-- ncc:gen engineering-roles 结束 -->\n\n## 经验应用\n\n四工程角色按派单读取[工程经验手册](experience.md)，在experience_application交付最相关案例如何用于本任务、差异、处理落点和可观察验收；格式和不适用边界由该手册维护。缺项使用既有outputs校验拒绝；内容是否有用由实际任务和独立评审判断。无需增加作者操作或第二份报告，不能只写已学习。\n"
+    }
+  ],
+  "bindings": {
+    "skills/ncc-dev/SKILL.md": "8023c5dc00a6471d87b0ad57c912b61c05914ac8bb3101a9c14752939fc74187",
+    "docs/engineering/workflow.md": "d31ecf8c2861be1358d204a34579c2d9b9b5634db6528598014c938af1f5cb23"
+  },
+  "execution_scope": "只读设计/评审；仅写协调者指定报告，不访问真实私有配置、书稿或数据库",
+  "input_sha256": "c7c012f28defb5ef38a66278c07f7e4477795ca3a75ca57ca5e57e0b5d516eb6"
+}

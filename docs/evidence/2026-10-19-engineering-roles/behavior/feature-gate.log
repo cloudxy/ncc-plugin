@@ -1,0 +1,6 @@
+Expected rejection of intentionally defective proposal
+ENGINEERING CHECK FAILED: 必要工程职责未通过：product-manager=failed
+必要工程职责未通过：product-designer=failed
+必要工程职责未通过：project-architect=failed
+必要工程职责未通过：dba=failed
+exit_code=1

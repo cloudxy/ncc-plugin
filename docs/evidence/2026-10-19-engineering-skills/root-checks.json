@@ -1,0 +1,40 @@
+{
+  "candidate": "91397686d3e5a34a93ad00bc58389bc71630a1929169ba78db40661abf9af0c1",
+  "workspace": "/Users/xuyun/Documents/ncc-workflow",
+  "checks": [
+    {
+      "command": "python3 scripts/dev/check_dev_workflow.py check docs/tasks/2026-10-19-engineering-skills.md --repo /Users/xuyun/Documents/ncc-workflow --delivery",
+      "exit_code": 0,
+      "output": "DELIVERY EVIDENCE OK 91397686d3e5a34a93ad00bc58389bc71630a1929169ba78db40661abf9af0c1\nunit-final=passed, plugin-final=passed, skill-format=passed, registry-final=passed, docs-final=passed, scope-validation=passed, professional-behavior=passed, behavior-bindings=passed, independent-d5=passed, independent-positive=passed\n工程职责：product-manager=passed, product-designer=passed, project-architect=passed, dba=not_applicable\n"
+    },
+    {
+      "command": "python3 scripts/dev/development.py --repo /Users/xuyun/Documents/ncc-workflow --task docs/tasks/2026-10-19-engineering-skills.md check --delivery",
+      "exit_code": 0,
+      "output": "{\n  \"product-manager\": \"passed\",\n  \"product-designer\": \"passed\",\n  \"project-architect\": \"passed\",\n  \"dba\": \"not_applicable\"\n}\n"
+    },
+    {
+      "command": "python3 scripts/dev/check_plugin.py -v",
+      "exit_code": 0,
+      "output": "scout              1750 / 20000\nworldbuilder      19708 / 20000\noutliner          11220 / 20000\nstory-editor      15498 / 20000\nscholar            8196 / 20000\nwriter             6166 / 20000\neditor             1488 / 20000\ncontinuity         8134 / 20000\npulse              9376 / 20000\nreader             4081 / 20000\ndeconstructor      7903 / 20000\nmanager:new       34733 / 35000\nmanager:write     30000 / 35000\nmanager:review    25894 / 35000\nmanager:loop      25154 / 35000\nmanager:prepare   24316 / 35000\ncurator            6639 / 20000\nmanager:deconstruct  15663 / 35000\nproduct-manager    9214 / 20000\nproduct-designer   9119 / 20000\nproject-architect  11735 / 20000\ndba               13522 / 20000\nPLUGIN OK\n"
+    },
+    {
+      "command": "python3 scripts/dev/build_registry.py --check",
+      "exit_code": 0,
+      "output": "REGISTRY OK\n"
+    },
+    {
+      "command": "python3 scripts/dev/build_docs.py --check",
+      "exit_code": 0,
+      "output": "DOCS OK\n"
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "output": ""
+    }
+  ],
+  "unit_tests_repeated": false,
+  "unit_reason": "All 53 scoped product artifact states match the verified candidate; full 226-test evidence remains applicable.",
+  "database_exercised": false,
+  "new_host_sessions_exercised": false
+}

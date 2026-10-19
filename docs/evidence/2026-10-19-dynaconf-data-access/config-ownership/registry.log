@@ -1,0 +1,4 @@
+$ python3 scripts/dev/build_registry.py --check
+REGISTRY OK
+
+exit_code=0

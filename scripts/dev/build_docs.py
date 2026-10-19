@@ -292,6 +292,18 @@ def targets():
     yield "docs/designs/deconstruction/contracts.md", lambda t, w: fill(t, "decon-contracts", deconstruction_contracts(), w)
     for name, r in REG["roles"].items():
         yield f"agents/{name}.md", lambda t, w, r=r: frontmatter(frontmatter(t, "description", q(r["description"]), w), "color", r["color"], w)
+    for name, r in REG['development']['roles'].items():
+        def engineering_agent(t, w, r=r):
+            t = frontmatter(frontmatter(t, 'description', q(r['description']), w), 'color', r['color'], w)
+            skill = r['skill']
+            return fill(t, 'role-skill', '专业技能：`skills/' + skill + '/SKILL.md`。', w)
+        yield f"agents/{name}.md", engineering_agent
+    rows = ['| 角色 | 专业技能 | 按影响触发 | 必交付字段 |', '|---|---|---|---|']
+    for name, role in REG['development']['roles'].items():
+        skill = role['skill']
+        rows.append('| ' + name + '（' + role['label'] + '） | [' + skill + '](../../' + skill + '/SKILL.md) | ' + '、'.join(role['effects']) + ' | ' + '、'.join(role['outputs']) + ' |')
+    generated_roles = '\n'.join(rows)
+    yield 'skills/ncc-dev/references/roles.md', lambda t, w: fill(t, 'engineering-roles', generated_roles, w)
     for name, c in REG["commands"].items():
         def cmd(t, w, c=c):
             t = frontmatter(t, "description", q(c["description"]), w)

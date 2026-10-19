@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from pydantic import ValidationError
 from sqlalchemy import select, text
 
 from ncc_data.application.security import password_hash
@@ -18,7 +19,9 @@ from ncc_data.persistence.models import User
 from ncc_data.persistence.seeds import seed
 from ncc_data.runtime.settings import Settings
 from ncc_shared.configuration import configuration, initialize, template
+from ncc_shared.errors import DomainError
 from ncc_shared.http import APIClient
+from ncc_shared.paths import config_path
 
 
 async def create_user(settings, username, password):
@@ -37,10 +40,16 @@ async def create_user(settings, username, password):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="ncc-data", description="NCC私有数据与创作服务")
-    parser.add_argument("--config", type=Path, help="可选的项目.env路径；正常使用自动读取项目根.env")
+    parser.add_argument("--config", type=Path, help="可选的config/.env路径；正常使用自动读取config/.env")
     parser.add_argument("--test", action="store_true", help="使用唯一的正式库-test，连接参数保持一致")
     commands = parser.add_subparsers(dest="command", required=True)
-    init = commands.add_parser("init", help="初始化项目.env，不覆盖现有配置或改动数据库")
+    from ncc_data.cli.data import register
+
+    register(commands)
+    mcp_config = commands.add_parser("mcp-config", help="注册本项目只读MCP，不写入连接凭据")
+    mcp_config.add_argument("--host", choices=["codex", "claude", "both"], default="both")
+    commands.add_parser("mcp", help="启动只读PostgreSQL MCP（stdio），共用项目配置")
+    init = commands.add_parser("init", help="初始化config/.env，不覆盖现有配置或改动数据库")
     init.add_argument("--from-existing", type=Path, help="导入已有NCC配置文件，原文件保持原样")
     commands.add_parser("migrate", help="显式应用迁移并安装初始定义")
     create = commands.add_parser("create-user", help="通过终端安全建立账号")
@@ -69,10 +78,31 @@ def main(argv=None):
         if args.command == "init":
             created = initialize(args.config, args.from_existing, template())
             print(
-                "项目.env已初始化；请保留并填写已确定的连接参数。"
+                f"配置文件已就绪：{args.config or config_path()}；初始化或迁移不改变已有配置值。"
                 if created
-                else "项目.env已存在，原值保持不变。"
+                else f"配置文件已存在：{args.config or config_path()}；原值保持不变。"
             )
+            return
+        if args.command == "mcp-config":
+            from ncc_data.mcp.configuration import install
+
+            print(
+                json.dumps(
+                    install(args.host, profile="test" if args.test else "production", config=args.config),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+            return
+        if args.command == "mcp":
+            from ncc_data.mcp.server import create_server
+
+            create_server(args.config, "test" if args.test else "production").run(transport="stdio")
+            return
+        if args.command == "data":
+            from ncc_data.cli.data import run
+
+            print(json.dumps(run(args), ensure_ascii=False, indent=2))
             return
         client_values = configuration(args.config)
         if args.test:
@@ -170,6 +200,12 @@ def main(argv=None):
                 )
 
             asyncio.run(doctor())
+    except DomainError as exc:
+        print("ERROR: " + exc.code + ": " + exc.detail, file=sys.stderr)
+        raise SystemExit(1) from None
+    except ValidationError:
+        print("ERROR: 数据字段、类型或版本无效；输入内容不会输出", file=sys.stderr)
+        raise SystemExit(1) from None
     except (ValueError, OSError, subprocess.CalledProcessError) as exc:
         print("ERROR: " + str(exc), file=sys.stderr)
         raise SystemExit(1) from None

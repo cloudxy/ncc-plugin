@@ -1,0 +1,4 @@
+COMMAND: /Users/xuyun/Documents/ncc-workflow/.venv/bin/python /Users/xuyun/.codex/skills/.system/skill-creator/scripts/quick_validate.py /private/tmp/ncc-role-learning-mzeq_obm/skills/ncc-dev
+exit_code=1
+ModuleNotFoundError: No module named 'yaml'
+该辅助校验依赖的PyYAML不在项目环境，未为此新增运行依赖。SKILL.md/frontmatter未改；本轮共享协议、角色读取及生成内容由项目check_plugin/build_docs和行为验证检查。此辅助工具未计passed。

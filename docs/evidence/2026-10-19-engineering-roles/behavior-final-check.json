@@ -1,0 +1,53 @@
+[
+  {
+    "case": "configuration",
+    "command": [
+      "python3",
+      "scripts/dev/development.py",
+      "--repo",
+      "/private/tmp/ncc-engineering-roles-bdm6gxob",
+      "--task",
+      "docs/tasks/.engineering-behavior-configuration.md",
+      "check",
+      "--delivery"
+    ],
+    "expected_exit": 1,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "ENGINEERING CHECK FAILED: 必要工程职责未通过：project-architect=failed\n必要工程职责未通过：dba=failed\n"
+  },
+  {
+    "case": "feature",
+    "command": [
+      "python3",
+      "scripts/dev/development.py",
+      "--repo",
+      "/private/tmp/ncc-engineering-roles-bdm6gxob",
+      "--task",
+      "docs/tasks/.engineering-behavior-feature.md",
+      "check",
+      "--delivery"
+    ],
+    "expected_exit": 1,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "ENGINEERING CHECK FAILED: 必要工程职责未通过：product-manager=failed\n必要工程职责未通过：product-designer=failed\n必要工程职责未通过：project-architect=failed\n必要工程职责未通过：dba=failed\n"
+  },
+  {
+    "case": "documentation",
+    "command": [
+      "python3",
+      "scripts/dev/development.py",
+      "--repo",
+      "/private/tmp/ncc-engineering-roles-bdm6gxob",
+      "--task",
+      "docs/tasks/.engineering-behavior-documentation.md",
+      "check",
+      "--delivery"
+    ],
+    "expected_exit": 0,
+    "exit_code": 0,
+    "stdout": "{\n  \"product-manager\": \"not_applicable\",\n  \"product-designer\": \"not_applicable\",\n  \"project-architect\": \"not_applicable\",\n  \"dba\": \"not_applicable\"\n}\n",
+    "stderr": ""
+  }
+]

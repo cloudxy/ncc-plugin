@@ -8,6 +8,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from ncc_shared.http import APIClient
+from ncc_shared.runtime import ensure_data_runtime
 from ncc_shared.serialization import digest
 from ncc_shared.workspace import MARKER, STATE, metadata_path, read_metadata, scan_files, write_snapshot
 
@@ -23,10 +24,11 @@ def marker_root(path):
 
 
 def invoke(script, argv, root):
+    ensure_data_runtime(script, argv)
     marker = read_metadata(root, MARKER)
     client = APIClient(timeout=180)
     if marker.get('api_url', '').rstrip('/') != client.origin:
-        raise ValueError('工作副本API地址与项目.env不符；拒绝向资料指定的地址发送凭据')
+        raise ValueError('工作副本API地址与config/.env不符；拒绝向资料指定的地址发送凭据')
     if marker.get('profile', 'production') != client.profile:
         raise ValueError('工作副本的正式/测试模式与项目配置不一致')
     prefix = '/scopes/' + marker['scope_id'] + '/workspace'

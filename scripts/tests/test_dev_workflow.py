@@ -7,6 +7,7 @@ import os
 import subprocess
 import tempfile
 import unittest
+import shutil
 from pathlib import Path
 
 SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +16,8 @@ from unittest.mock import patch
 
 from dev import check_dev_workflow as dev
 from dev import check_plugin as plugin
+from dev.development import selection
+from ncclib.registry import load_registry
 
 
 class DevWorkflowTest(unittest.TestCase):
@@ -28,6 +31,7 @@ class DevWorkflowTest(unittest.TestCase):
         self.write('scripts/product.py', 'print("baseline")\n')
         self.write('skills/ncc-dev/SKILL.md', '# synthetic skill\n')
         self.write('.gitignore', 'novels/\nignored/\n')
+        shutil.copytree(SCRIPTS_ROOT.parent / 'workflow', self.root / 'workflow')
         self.run_git('add', '.')
         self.run_git('commit', '-qm', 'synthetic baseline')
         self.task = self.root / 'docs/tasks/T1.md'
@@ -40,6 +44,8 @@ class DevWorkflowTest(unittest.TestCase):
             'decisions': [{'source': '合成请求', 'scope': '本地修复'}],
             'scope': ['scripts/product.py'], 'foreign_changes': {}, 'evidence_paths': [],
             'candidate': {}, 'required': ['unit'], 'evidence': [],
+            'engineering_contract': 1,
+            'engineering': {**selection(load_registry(self.root)['development'], ['documentation']), 'inputs': [], 'reports': {}},
             'delivery': {k: 'pending' for k in ('local', 'commit', 'remote', 'clone', 'runtime')},
         }
         self.save()
@@ -84,6 +90,16 @@ class DevWorkflowTest(unittest.TestCase):
         self.freeze()
         self.assertEqual(self.call('check'), 0)
         self.assertEqual(self.call('check', '--delivery'), 1)
+
+    def test_regular_check_displays_pending_engineering_roles(self):
+        self.data['engineering'] = {**selection(load_registry(self.root)['development'], ['interaction']), 'inputs': [], 'reports': {}}
+        self.save()
+        self.freeze()
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            result = dev.main(['check', str(self.task), '--repo', str(self.root)])
+        self.assertEqual(result, 0)
+        self.assertIn('product-designer=pending', output.getvalue())
 
     def test_new_file_changes_fingerprint(self):
         before = self.freeze()
@@ -326,6 +342,7 @@ class EntryRegistryTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
+        self.engineering = {}
         for name in ('skills/entry/SKILL.md', 'commands/entry.md', 'docs/engineering/workflow.md'):
             p = self.root / name
             p.parent.mkdir(parents=True, exist_ok=True)
@@ -340,12 +357,52 @@ class EntryRegistryTest(unittest.TestCase):
 
     def check(self):
         bad = []
-        with patch.object(plugin, 'ROOT', self.root), patch.object(plugin, 'REG', {'roles': {}, 'commands': {'entry': {'skill': 'entry'}}}), patch.object(plugin, 'WRITER_READABLE', ()):
+        registry = {'roles': {}, 'commands': {'entry': {'skill': 'entry'}},
+                    'development': {'effects': {'implementation': 'synthetic'}, 'roles': self.engineering}}
+        if self.engineering:
+            registry['commands']['ncc-dev'] = {'skill': 'ncc-dev'}
+        with patch.object(plugin, 'ROOT', self.root), patch.object(plugin, 'REG', registry), patch.object(plugin, 'WRITER_READABLE', ()):
             plugin.check_registry(bad)
         return bad
 
     def test_valid_static_wiring(self):
         self.assertEqual(self.check(), [])
+
+    def add_professional_skill(self):
+        reads = ['agents/engineer.md', 'skills/ncc-dev/references/roles.md']
+        resources = {'sop': 'references/sop.md', 'sources': 'references/sources.md', 'template': 'templates/change.md'}
+        self.engineering['engineer'] = {'skill': 'professional', 'effects': ['implementation'],
+                                        'outputs': ['result'], 'reads': reads, 'resources': resources}
+        for name in reads + ['skills/professional/SKILL.md', 'skills/ncc-dev/SKILL.md', 'commands/ncc-dev.md'] + ['skills/professional/' + p for p in resources.values()]:
+            p = self.root / name
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text('synthetic professional input\n')
+        for mount in ('.agents/skills', '.claude/skills'):
+            (self.root / mount / 'professional').symlink_to('../../skills/professional')
+            (self.root / mount / 'ncc-dev').symlink_to('../../skills/ncc-dev')
+        (self.root / '.claude/commands/ncc-dev.md').symlink_to('../../commands/ncc-dev.md')
+        for mount in ('.agents/agents', '.claude/agents', '.grok/agents'):
+            p = self.root / mount / 'engineer.md'
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.symlink_to('../../agents/engineer.md')
+
+    def test_professional_skill_is_discovered_without_an_author_command(self):
+        self.add_professional_skill()
+        self.assertEqual(self.check(), [])
+        self.assertFalse((self.root / 'commands/professional.md').exists())
+
+    def test_professional_skill_missing_mount_or_resource_is_rejected(self):
+        self.add_professional_skill()
+        (self.root / '.agents/skills/professional').unlink()
+        self.assertTrue(any('软链' in s for s in self.check()))
+        (self.root / '.agents/skills/professional').symlink_to('../../skills/professional')
+        (self.root / 'skills/professional/references/sop.md').unlink()
+        self.assertTrue(any('资料缺失' in s for s in self.check()))
+
+    def test_professional_resource_outside_its_skill_is_rejected(self):
+        self.add_professional_skill()
+        self.engineering['engineer']['resources']['sop'] = '../entry/SKILL.md'
+        self.assertTrue(any('escapes' in s for s in self.check()))
 
     def test_unregistered_entry_detected(self):
         (self.root / 'commands/extra.md').write_text('extra')

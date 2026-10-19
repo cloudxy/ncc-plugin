@@ -1,0 +1,7 @@
+{
+  "product-manager": "passed",
+  "product-designer": "passed",
+  "project-architect": "passed",
+  "dba": "not_applicable"
+}
+exit_code=0

@@ -22,6 +22,7 @@ from pathlib import Path
 SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS_ROOT))
 from ncclib.registry import RegistryError, load_registry
+from dev.development import role_reads
 
 ROOT = SCRIPTS_ROOT.parent
 try:
@@ -84,6 +85,20 @@ def owned(path):
         return path.resolve().is_relative_to(ROOT.resolve())
     except (OSError, RuntimeError):
         return False
+
+
+def check_skill(skill, bad):
+    source = ROOT / 'skills' / skill / 'SKILL.md'
+    if not owned(source):
+        bad.append('技能源指向仓外：' + str(source.relative_to(ROOT)))
+    if not source.is_file():
+        bad.append('缺技能入口：' + str(source.relative_to(ROOT)))
+    for mount in ('.agents/skills', '.claude/skills'):
+        link = ROOT / mount / skill
+        if not link.is_symlink():
+            bad.append('缺项目级软链：' + str(link.relative_to(ROOT)))
+        elif Path(link.readlink()).is_absolute() or not link.exists() or link.resolve() != source.parent.resolve():
+            bad.append('项目级软链断裂或目标不符：' + str(link.relative_to(ROOT)))
 
 
 def check_manifests(root, bad):
@@ -154,12 +169,41 @@ def check_manifests(root, bad):
 
 
 def check_registry(bad):
-    for role in REG["roles"]:
+    development = REG.get('development', {})
+    engineering = development.get('roles', {})
+    professional_skills = set()
+    if set(engineering) & set(REG['roles']):
+        bad.append('工程角色不得混入创作角色域')
+    for role in set(REG["roles"]) | set(engineering):
         if not (ROOT / "agents" / f"{role}.md").is_file():
             bad.append(f"缺 agents/{role}.md")
-    extra = {p.stem for p in (ROOT / "agents").glob("*.md")} - set(REG["roles"])
+    extra = {p.stem for p in (ROOT / "agents").glob("*.md")} - set(REG["roles"]) - set(engineering)
     if extra:
         bad.append(f"agents 里有注册表没有的角色：{sorted(extra)}")
+    for role, definition in engineering.items():
+        try:
+            resources = role_reads(definition)
+        except ValueError as exc:
+            bad.append('工程角色专业技能：' + role + ': ' + str(exc))
+            continue
+        skill = definition['skill']
+        if skill in professional_skills or skill in {c['skill'] for c in REG['commands'].values()}:
+            bad.append('工程专业技能必须独立归属：' + skill)
+        professional_skills.add(skill)
+        for name in resources:
+            if not (ROOT / name).is_file() or not owned(ROOT / name):
+                bad.append('工程技能资料缺失或越界：' + role + ': ' + name)
+        if not definition.get('outputs') or not definition.get('effects') or not definition.get('reads'):
+            bad.append('工程角色缺少触发/交付/读取定义：' + role)
+        if not {'agents/' + role + '.md', 'skills/ncc-dev/references/roles.md'} <= set(definition.get('reads', [])):
+            bad.append('工程角色未读取本角色或共用执行协议：' + role)
+        if set(definition.get('effects', [])) - set(development.get('effects', {})):
+            bad.append('工程角色含未知影响类型：' + role)
+        for mount in ('.claude/agents', '.agents/agents', '.grok/agents'):
+            link = ROOT / mount / (role + '.md')
+            source = ROOT / 'agents' / (role + '.md')
+            if not link.is_symlink() or Path(link.readlink()).is_absolute() or not link.exists() or link.resolve() != source.resolve():
+                bad.append('工程角色项目级挂载错误：' + str(link.relative_to(ROOT)))
     for c, v in REG["commands"].items():
         if not owned(ROOT / "commands" / f"{c}.md"):
             bad.append(f"命令源指向仓外：commands/{c}.md")
@@ -169,19 +213,17 @@ def check_registry(bad):
             bad.append(f"缺 commands/{c}.md")
         if not (ROOT / "skills" / v["skill"] / "SKILL.md").is_file():
             bad.append(f"缺 skills/{v['skill']}/SKILL.md")
-    registered_skills = {v["skill"] for v in REG["commands"].values()}
+    registered_skills = {v["skill"] for v in REG["commands"].values()} | professional_skills
     extra_commands = {p.stem for p in (ROOT / "commands").glob("*.md")} - set(REG["commands"])
     extra_skills = {p.name for p in (ROOT / "skills").iterdir() if p.is_dir()} - registered_skills
     if extra_commands:
         bad.append(f"commands 里有未登记入口：{sorted(extra_commands)}")
     if extra_skills:
         bad.append(f"skills 里有未登记入口：{sorted(extra_skills)}")
-    for command, meta in REG["commands"].items():
-        for mount, name, source in (
-            (".agents/skills", meta["skill"], ROOT / "skills" / meta["skill"]),
-            (".claude/skills", meta["skill"], ROOT / "skills" / meta["skill"]),
-            (".claude/commands", command + ".md", ROOT / "commands" / (command + ".md")),
-        ):
+    for skill in sorted(registered_skills):
+        check_skill(skill, bad)
+    for command in REG["commands"]:
+        for mount, name, source in ((".claude/commands", command + ".md", ROOT / "commands" / (command + ".md")),):
             link = ROOT / mount / name
             if not link.is_symlink():
                 bad.append(f"缺项目级软链：{mount}/{name}")
@@ -257,7 +299,14 @@ def check_vocab_copies(md, bad):
 def check_budget(bad, report):
     lb = REG["load_budget"]
     cards = sorted((nws(p) for p in (ROOT / "skills/ncc/references/domains").glob("A*.md")), reverse=True)
-    for role, reads in lb["reads"].items():
+    engineering_reads = {}
+    for name, definition in REG.get('development', {}).get('roles', {}).items():
+        try:
+            engineering_reads[name] = role_reads(definition)
+        except ValueError as exc:
+            bad.append('工程技能读取契约：' + name + ': ' + str(exc))
+    reads_by_role = {**lb['reads'], **engineering_reads}
+    for role, reads in reads_by_role.items():
         total = 0
         for f in reads:
             if f.startswith("domains:"):
@@ -270,7 +319,7 @@ def check_budget(bad, report):
         report.append((role, total, cap))
         if total > cap:
             bad.append(f"读取量超上限：{role} {total} > {cap}")
-        if role in REG["roles"]:
+        if role in REG["roles"] or role in REG.get('development', {}).get('roles', {}):
             s = (ROOT / "agents" / f"{role}.md").read_text(encoding="utf-8")
             for m in re.finditer(r"`((?:skills|workflow)/[^`\s]+?\.md)`", s):
                 if m.group(1) not in reads:

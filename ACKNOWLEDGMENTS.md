@@ -184,4 +184,12 @@ NCC 按自己的执行方式补充了单章串行回写、偏好滚动裁剪和�
 
 ## 项目配置方式参考（2026-10-19）
 
-按作者指定参考本机`hcdataspider/config/__init__.py`的项目路径定位、配置文件自动加载方式（当日本地版本）。NCC以纯标准库实现单一项目`.env`读取，落点为`src/ncc_shared/configuration.py`；不复制参考项目业务配置或凭据，不引入其依赖或运行链。
+按作者指定参考本机`hcdataspider/config/__init__.py`的项目路径定位、默认文件、环境覆盖、私有.env与合并方式（当日本地版本）。NCC采用Dynaconf管理配置，并以python-dotenv解析文件、兼容旧JSON转义；落点为`config/default/settings.toml`及`src/ncc_shared/configuration.py`。不复制参考项目业务配置或凭据，不引入其爬虫运行链。
+
+MCP采用[官方Python SDK](https://github.com/modelcontextprotocol/python-sdk)的stdio传输与工具声明，业务权限和变更沿用本项目Service。项目级Codex清单按[OpenAI官方MCP说明](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)生成。版本以`uv.lock`为准。
+
+## 工程专业技能方法参考（2026-10-19）
+
+本轮核对GOV.UK Service Manual的用户需要、用户故事与优先级，W3C WCAG 2.2和APG键盘实践、GOV.UK错误摘要，C4图层与ADR决策记录，以及PostgreSQL17官方约束、隔离/锁、事务只读、EXPLAIN、pg_dump/pg_restore文档。具体原页、适用版本与转化在四专业技能的references/sources.md；这些索引供查证，NCC的SOP/模板自行编写，未复制上游正文/组件/模板，也未引入其运行链或管理依赖。
+
+落点：[产品经理](skills/ncc-product-manager/SKILL.md)、[产品设计师](skills/ncc-product-designer/SKILL.md)、[架构师](skills/ncc-project-architect/SKILL.md)、[DBA](skills/ncc-dba/SKILL.md)。外部方法用于需求证据、交互规格、架构取舍与数据生命周期，不替代本项目已确定的配置、双库、授权及验证边界。参考在线版本于当日核对，不伪称上游commit或实际产品已达标。

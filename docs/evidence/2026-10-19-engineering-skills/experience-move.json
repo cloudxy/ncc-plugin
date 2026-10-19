@@ -1,0 +1,7 @@
+{
+  "from": "docs/engineering/experience.md",
+  "to": "skills/ncc-dev/references/experience.md",
+  "before_sha256": "68ad2d28983b3692ce2352d663a70f2bd692d8b63cf6afb80fdfa6630e8a8ded",
+  "after_sha256": "a78245630f860112040b96b76058c6587d4814a1bd5fd1c8f68dd0fd287a4f4c",
+  "changes": "Relative links retargeted; methods/experience preserved; old path was untracked, no fake baseline deletion."
+}

@@ -1,0 +1,9 @@
+{
+  "packet": "docs/evidence/2026-10-19-engineering-skills/behavior/product-manager-packet.json",
+  "packet_sha256": "1cf978ff1cf09872098bbd809586664dd1c28307d2609134e3756d222c7a082c",
+  "report": "docs/evidence/2026-10-19-engineering-skills/behavior/product-manager-report.json",
+  "report_sha256": "6b2ffdae57c5ca6c3df4b0d6637166ec8b34443cc5a5cb4fdcd9973c61b49b6c",
+  "status": "failed"
+}
+
+exit_code=0

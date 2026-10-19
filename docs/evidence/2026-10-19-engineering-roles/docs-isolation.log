@@ -1,0 +1,4 @@
+COMMAND: python3 scripts/dev/build_docs.py --check
+DOCS OK
+
+exit_code=0

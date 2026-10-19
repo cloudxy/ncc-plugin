@@ -1,0 +1,87 @@
+{
+  "schema": 1,
+  "case": "documentation-routing",
+  "status": "passed",
+  "execution": "current_session",
+  "execution_identity": {
+    "agent": "/root/documentation_routing",
+    "dispatch": "subagent delegated by /root",
+    "performed": "This delegated session read the authorized inputs, assessed the effects, and executed the plan and check commands itself.",
+    "engineering_role_invocations": [],
+    "independent_role_review": false
+  },
+  "context": {
+    "plugin_root": "/private/tmp/ncc-engineering-roles-bdm6gxob",
+    "repo_root": "/private/tmp/ncc-engineering-roles-bdm6gxob",
+    "branch": "main",
+    "base_commit": "ac0fc44990a4f8c8e8d22a3a0a4a0540c4446393",
+    "git_describe": "ac0fc44-dirty",
+    "preexisting_worktree_changes": true,
+    "task": "docs/tasks/.engineering-behavior-documentation.md",
+    "input": "scripts/tests/fixtures/development/documentation.md"
+  },
+  "sources_read": [
+    "skills/ncc-dev/SKILL.md",
+    "docs/engineering/workflow.md",
+    "scripts/tests/fixtures/development/documentation.md",
+    "docs/tasks/.engineering-behavior-documentation.md"
+  ],
+  "effects": ["documentation"],
+  "effect_reason": "The synthetic proposal corrects one typo and two punctuation marks. It explicitly preserves commands, pages, functionality, configuration, models, data contracts, role responsibilities and review criteria. No interaction, architecture or data change is present.",
+  "roles": {
+    "product-manager": {
+      "required": false,
+      "status": "not_applicable",
+      "reason": "No new product scope, user objective, feature priority or acceptance tradeoff is introduced by typo and punctuation corrections."
+    },
+    "product-designer": {
+      "required": false,
+      "status": "not_applicable",
+      "reason": "No page, interaction, operation flow or user-facing behavior changes."
+    },
+    "project-architect": {
+      "required": false,
+      "status": "not_applicable",
+      "reason": "No code ownership, module boundary, interface, configuration contract or architecture changes."
+    },
+    "dba": {
+      "required": false,
+      "status": "not_applicable",
+      "reason": "No database connection, schema, migration, historical data or data access change. Database access is unnecessary and was not performed."
+    }
+  },
+  "commands": [
+    {
+      "command": "python3 scripts/dev/development.py --repo /private/tmp/ncc-engineering-roles-bdm6gxob --task docs/tasks/.engineering-behavior-documentation.md plan --effects documentation --input scripts/tests/fixtures/development/documentation.md",
+      "exit_code": 0,
+      "observed": {
+        "effects": ["documentation"],
+        "required_roles": [],
+        "input": "scripts/tests/fixtures/development/documentation.md",
+        "reports": {}
+      }
+    },
+    {
+      "command": "python3 scripts/dev/development.py --repo /private/tmp/ncc-engineering-roles-bdm6gxob --task docs/tasks/.engineering-behavior-documentation.md check --delivery",
+      "exit_code": 0,
+      "observed": {
+        "product-manager": "not_applicable",
+        "product-designer": "not_applicable",
+        "project-architect": "not_applicable",
+        "dba": "not_applicable"
+      }
+    }
+  ],
+  "observations": [
+    "The actual plan output agrees with the session's semantic assessment: documentation only, with all four engineering roles skipped.",
+    "The delivery check accepted the no-role plan without a packet or fabricated role report.",
+    "No packet or record command was run, because no engineering role was required.",
+    "Only the assigned synthetic task was a plan mutation target. This JSON report is the only evidence file written by this session. No product source was edited; no private configuration or other case report was read."
+  ],
+  "limitations": [
+    "This is a synthetic routing behavior case, not a real documentation correction or full candidate acceptance.",
+    "The successful check covers the engineering-role delivery contract only; it does not prove the full check_dev_workflow delivery contract or production correctness.",
+    "No engineering role was executed, so this case does not validate role-report quality, independent role review or report freshness rejection.",
+    "No database, functional tests, host new session, commit, publication or clone synchronization was necessary or performed."
+  ]
+}

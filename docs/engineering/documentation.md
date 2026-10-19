@@ -70,3 +70,5 @@ docs/
 4. 活动文档中的路径和链接由 `check_plugin.py` 核查；证据存在性、哈希和候选新鲜度由 `check_dev_workflow.py` 检查。
 5. 搜索先限定用途或模块，如 `rg --files docs/designs/deconstruction`；按任务号可同时找到 `tasks/` 的记录与 `evidence/` 的验证。
 6. 真实书稿、材料和私人会话不进入任何文档目录。
+
+角色如何执行的SOP、专业判断方法、参考索引、工件模板和案例归skills；agent只保存职责、边界及对应skill调用。docs中的工程规范描述本项目维护契约，设计说明取舍，任务/证据记录实际结果；可以链接技能，不持有角色执行材料的第二份正文。

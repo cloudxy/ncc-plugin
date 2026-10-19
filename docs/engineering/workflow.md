@@ -2,6 +2,8 @@
 
 本文件是开发路径、阶段、返回规则与证据契约的唯一规范。适用于 NCC 插件维护和升级；小说创作沿用原七技能与十二角色。设计依据见[升级设计](../designs/engineering/workflow.md)，方法出处见[致谢](../../ACKNOWLEDGMENTS.md#开发设计参考2026-10-12)。不要求安装或调用外部技能。
 
+工程角色通过ncc-dev单独调度，注册表development与[执行协议](../../skills/ncc-dev/references/roles.md)定义产品经理、产品设计师、项目架构师和DBA的触发、读取和交付。它们不加入小说每章流程。
+
 ## 定位与授权
 
 开始时显示 plugin_root（实际加载技能/脚本所在根）、repo_root（作者指定的活动 Git 工作树）、分支、基线与脏改动。不能因插件加载于独立克隆，就在该克隆中执行项目的 Git 操作。五端保持项目级接入，同任务只有一个活动工作树；zcode 独立克隆也可开发，通过 GitHub main 汇合。
@@ -38,6 +40,26 @@
 | D7 观察 | 新会话核验实际加载根/版本与代表操作，记录回滚条件和结果 | 缓存未刷新保持运行待验；缺陷进修复/回滚任务 |
 
 关键缺陷必须修；非关键延期记录理由、决定人和后续项。私有泄露、缺必要验证、陈旧证据不能豁免。小说角色不承担代码评审。独立会话、作者人工或宿主评审均可；遵守当次代理授权，多代理不是运行依赖。
+
+## 工程职责与执行接口
+
+新开发任务及实质范围变化在D1声明实际影响并选用职责，D2完成相应设计交付，D3处理major问题后实现，D4/D5复核行为和实现。纯文档明确使用documentation，无交互或数据影响时不调用相关角色。当前会话可按职责顺序执行，execution标为current_session；支持代理且已有授权时按角色派单，标为subagent。标识只是执行声明，是否实际执行仍需证据与独立核对。
+
+工程状态直接放在原任务的engineering字段，不另建状态库。脚本只做确定性计划、派单和报告验证，不调用模型：
+
+```bash
+python3 scripts/dev/development.py --repo "$REPO_ROOT" --task "$TASK" plan --effects architecture --input docs/engineering/code-layout.md
+python3 scripts/dev/development.py --repo "$REPO_ROOT" --task "$TASK" packet --role project-architect --output docs/evidence/任务号/architect-packet.json
+# 按派单实际执行角色，产生约定JSON报告；报告由代理或当前会话写入指定证据路径。
+python3 scripts/dev/development.py --repo "$REPO_ROOT" --task "$TASK" record --packet docs/evidence/任务号/architect-packet.json --report docs/evidence/任务号/architect-report.json
+python3 scripts/dev/development.py --repo "$REPO_ROOT" --task "$TASK" check --delivery
+```
+
+REPO_ROOT/TASK使用当前已定位值；影响类型可以组合，具体职责由注册表决定。输入限定已授权源码/设计/合成案例，真实私有.env、书稿和忽略文件不能进入派单。派单绑定目标、决定、角色定义、协议、入口及输入字节；变更后旧报告不能通过，需重新执行角色。计划改变会清空当前登记但保留旧报告文件。
+
+record检查职责字段、来源、问题证据、执行方式与结论。major未解决不能ready；changes_required和blocked分别登记失败/受阻，不能靠字段齐全放行。ready仅指该角色的本次设计/评审结论，真实数据库、UI和产品采用仍按各自证据判断。check --delivery要求选中角色全部通过，原check_dev_workflow的交付检查同步执行此约束；历史无engineering_contract的冻结任务不强制补角色报告。
+
+进入实现前由协调者处理角色提出的具体问题，已有授权内的修正不反复询问作者。新增关键取舍沿既有确认边界。产品经理维持小说创作主线，设计师减少作者操作，架构师统一归属和契约，DBA保护既定数据库及历史；不因角色增加作者审批或额外数据库。
 
 ## 任务记录与检查接口
 

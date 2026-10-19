@@ -43,3 +43,7 @@ cdk.out/
 eggs/
 pip-wheel-metadata/
 wheels/
+
+# 本机MCP注册由ncc-data mcp-config生成；包含绝对启动路径，不进仓库。
+/.mcp.json
+/.codex/config.toml

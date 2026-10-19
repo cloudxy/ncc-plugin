@@ -1,0 +1,6 @@
+$ .venv/bin/pytest tests/unit tests/backend -q
+........................................................................ [ 59%]
+.....ssssssssssssssssssssssssssssssssssssss.......                       [100%]
+84 passed, 38 skipped in 0.91s
+
+exit_code=0

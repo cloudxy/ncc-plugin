@@ -1,0 +1,9 @@
+$ python3 -m unittest discover -s scripts/tests -t scripts -p test_quality.py
+ERROR: 此范围以数据库为权威，请通过CLI入口或ncc-data应用接口读取；不能直接读写工作副本状态
+...
+----------------------------------------------------------------------
+Ran 3 tests in 0.444s
+
+OK
+
+exit_code=0

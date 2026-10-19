@@ -1,0 +1,14 @@
+$ python3 scripts/ncc_data.py data --help
+usage: ncc-data data [-h]
+                     {status,scopes,scope,definitions,search,get,history,revision,facts,create,update,edit,retire,apply}
+                     ...
+
+positional arguments:
+  {status,scopes,scope,definitions,search,get,history,revision,facts,create,update,edit,retire,apply}
+    status              只读连接与schema状态，不返回凭据
+    scopes              读取范围凭据可访问的作品/资料范围
+
+options:
+  -h, --help            show this help message and exit
+
+exit_code=0
