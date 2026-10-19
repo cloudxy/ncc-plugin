@@ -1,6 +1,6 @@
 # 数据底座、后台与创作自动化全面升级
 
-plugin_root/repo_root均为 /Users/xuyun/Documents/ncc-workflow，main，基线de8d1ab，当前v4.0.0。继承三份设计及2026-10-19全面升级授权；作者最新追加“自动定稿资格尚未启用：启用。提交并推送”，据此进入D6。原README任务与证据保留并随本次交付，历史证据不冒充v4功能验证。
+plugin_root/repo_root均为 /Users/xuyun/Documents/ncc-workflow，main，基线de8d1ab，当前v4.0.0。继承三份设计及2026-10-19全面升级授权；作者最新追加“自动定稿资格尚未启用：启用。提交并推送”，已完成D6发布，D7实际加载仍待验证。原README任务与证据保留并随本次交付，历史证据不冒充v4功能验证。
 
 设计依据：[底座](../designs/storage/postgresql-foundation.md)、[后台](../designs/storage/management-console.md)、[自动化评分](../designs/storage/creation-automation.md)。实施/回退见[计划](../designs/storage/implementation.md)，操作见[指南](../guides/data-console.md)，实际结果见[实施证据](../evidence/2026-10-18-postgresql-design/implementation.md)与[发布核验](../evidence/2026-10-18-postgresql-design/release.md)。
 
@@ -24,8 +24,8 @@ v4数据底座、专业后台、创作自动化与旧CLI显式接入已实现。
   "plugin_root": "/Users/xuyun/Documents/ncc-workflow",
   "branch": "main",
   "base_commit": "de8d1abee1a71d169451c994a8de0c9f64242289",
-  "stage": "D6",
-  "next": "对冻结候选进行精确暂存、交付检查、提交推送并核对origin/main；真实目标实例配置待作者提供，不能冒称真实作品已激活。",
+  "stage": "D7",
+  "next": "功能提交已推送并核对origin/main；本记录通过纯元数据提交补齐。真实目标服务/作品配置待作者提供，五端新会话及真实模型校准仍待验证。",
   "blocked": "",
   "decisions": [
     {
@@ -1187,12 +1187,25 @@ v4数据底座、专业后台、创作自动化与旧CLI显式接入已实现。
       "coverage": "界面与实际HTTP接线；Worker自动采用由42项数据回归验证，未接真实模型。",
       "report": "docs/evidence/2026-10-18-postgresql-design/auto-adoption-browser.log",
       "report_sha256": "07b158fceab96642e212f0905ab5429c2b9cd68bc0da6134af382a986143cf62"
+    },
+    {
+      "id": "remote-release",
+      "kind": "release",
+      "candidate": "b578894f6493f232ea39abbffd50b4bcc6563fdc0a287f10b57a03702b32907f",
+      "status": "passed",
+      "command": "git pull; git commit; git push origin main; git ls-remote origin refs/heads/main",
+      "exit_code": 0,
+      "summary": "功能提交已推送，远端完整SHA与本地一致；随后仅补齐发布记录。",
+      "environment": "main; core.hooksPath=.githooks; origin cloudxy/ncc-plugin",
+      "coverage": "代码发布与远端提交；不是新会话加载或真实作品激活。",
+      "report": "docs/evidence/2026-10-18-postgresql-design/release.md",
+      "report_sha256": "cd01a18ff61c1e4927941ea91bac05e7f8ee0524cff9991c8ac5471f454aaf55"
     }
   ],
   "delivery": {
     "local": "accepted",
-    "commit": "authorized_pending",
-    "remote": "authorized_pending",
+    "commit": "e96c1273d8e2d97064285d5fde05d47c6b24dd6d (product); record follows in metadata-only commit",
+    "remote": "origin/main contains e96c1273d8e2d97064285d5fde05d47c6b24dd6d; verified by git ls-remote",
     "clone": "not_applicable_local_root_directly_registered",
     "runtime": "web_and_cli_passed;five_hosts_unverified",
     "review": "independent_scoped_passed;release_authorized_by_author"
