@@ -10,4 +10,8 @@ plugin_root/repo_root均为`/Users/xuyun/Documents/ncc-workflow`，main/v4.0.0�
 
 ## 结果
 
-源码提交和推送进行中；实际SHA将在发布后补记。
+源码提交：`ad76853ce601294dd4ec59af8a0d94ee9027b9a8`（`refactor: centralize project config and module ownership`）。提交钩子与推送钩子正常执行，`git push origin main`成功；随后`git ls-remote origin refs/heads/main`返回同一完整SHA，远端源码已核实。源码发布后的工作树为空，无未提交改动。
+
+暂存核查：202个授权路径与任务scope/evidence_paths及任务记录完全一致；暂存的190个产品路径内容与冻结候选字节一致。私有路径和凭据标记检查未命中，`.env`保持忽略且未被Git跟踪。
+
+本补记只更新任务与交付证据，随后的元数据提交与源码同在main。真实数据库、浏览器、跨CLI、恢复演练与五端新会话保留待验，作者另安排专项任务；没有修改PostgreSQL既定参数或执行数据库操作。

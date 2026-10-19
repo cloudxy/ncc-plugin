@@ -25,8 +25,8 @@ plugin_root/repo_root均为`/Users/xuyun/Documents/ncc-workflow`，main/v4.0.0�
   "plugin_root": "/Users/xuyun/Documents/ncc-workflow",
   "branch": "main",
   "base_commit": "4b50690a696a4483dc1fb9f4c68d92b4e0db770f",
-  "stage": "D6",
-  "next": "按作者授权提交并推送当前源码候选，核对远端SHA；专项测试由作者另行安排，保留35项数据库及浏览器/跨CLI/恢复待验，不擅自改PostgreSQL参数。",
+  "stage": "D7",
+  "next": "源码已发布到origin/main；作者另行安排专项测试。专项任务按既定配置和唯一-test库核验数据库、真实浏览器、跨CLI及恢复流程，后续回填实际结果，不把当前发布当成完整验收。",
   "blocked": "既定PostgreSQL连接配置来源尚未提供；35项数据库集成、真实浏览器与恢复演练待验。",
   "decisions": [
     {
@@ -1377,13 +1377,14 @@ plugin_root/repo_root均为`/Users/xuyun/Documents/ncc-workflow`，main/v4.0.0�
   ],
   "delivery": {
     "local": "implemented_pending_integration",
-    "commit": "requested_pending",
-    "remote": "requested_pending",
-    "clone": "not_requested",
-    "runtime": "unverified",
+    "commit": "ad76853ce601294dd4ec59af8a0d94ee9027b9a8",
+    "remote": "verified origin/main source commit ad76853ce601294dd4ec59af8a0d94ee9027b9a8",
+    "clone": "not_requested; zcode directly registers this workspace",
+    "runtime": "unverified; author scheduled dedicated testing",
     "review": "passed_scoped_no_database",
     "acceptance_scope": "本次为源码提交推送；local保留implemented_pending_integration，不以发布冒充完整验收",
-    "tests": "author_scheduled_separate_task"
+    "tests": "author_scheduled_separate_task",
+    "source_publication": "completed"
   }
 }
 ```
