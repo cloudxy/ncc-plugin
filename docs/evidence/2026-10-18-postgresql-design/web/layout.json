@@ -1,0 +1,27 @@
+{
+  ".app-layout": {
+    "x": 0,
+    "width": 1440,
+    "flex": "1 1 auto"
+  },
+  ".sidebar": {
+    "x": 0,
+    "width": 228,
+    "flex": "0 0 228px"
+  },
+  ".brand": {
+    "x": 0,
+    "width": 227,
+    "flex": "0 1 auto"
+  },
+  ".topbar": {
+    "x": 228,
+    "width": 1212,
+    "flex": "0 0 auto"
+  },
+  ".content": {
+    "x": 228,
+    "width": 1212,
+    "flex": "1 1 auto"
+  }
+}

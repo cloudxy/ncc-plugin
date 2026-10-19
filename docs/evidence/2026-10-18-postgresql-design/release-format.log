@@ -1,0 +1,6 @@
+
+> ncc-management-console@4.0.0 format:check
+> prettier --check src *.ts *.json index.html
+
+Checking formatting...
+All matched files use Prettier code style!

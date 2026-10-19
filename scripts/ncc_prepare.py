@@ -602,6 +602,10 @@ def main(argv=None):
     a = parser().parse_args(argv)
     a.work = a.work.expanduser().resolve()
     try:
+        from ncclib.database_bridge import dispatch
+        code = dispatch(Path(__file__).resolve(), list(argv) if argv is not None else sys.argv[1:], [a.work])
+        if code is not None:
+            return code
         if a.command in ("search", "show", "check", "status"):
             return a.fn(a) or 0
         if a.command != "init":

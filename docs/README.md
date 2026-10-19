@@ -20,6 +20,7 @@
 | 工程架构 | [架构审查及复核](designs/engineering/architecture-audit.md)、[架构成长方案](designs/engineering/architecture-growth.md) | G1/G2/G5/G3a/G3b 已实施本地候选；设计依据留档，验证见实施任务 |
 | 记忆与进化 | [记忆与自进化设计](designs/memory/memory-evolution-design.md) | 已实施（v3.0），留档设计依据 |
 | 创作前准备 | [准备设计](designs/preparation/preparation-design.md) | 已实施，留档设计依据 |
+| 小说数据底座与管理后台 | [PostgreSQL底座](designs/storage/postgresql-foundation.md)、[基础管理后台](designs/storage/management-console.md)、[创作自动化与AI评分](designs/storage/creation-automation.md) | 设计候选，待作者审核；简洁创作台、自动编排和评分纳入方案，未定表结构或实施 |
 
 ## 未执行的计划与待办
 
@@ -27,6 +28,7 @@
 
 | 事项 | 状态 | 入口 |
 |---|---|---|
+| PostgreSQL底座、专业后台与创作自动化评分 | 设计供审核；三入口、自动生成/评分/返修、人工介入及数据治理；未实施 | [底座](designs/storage/postgresql-foundation.md)、[后台](designs/storage/management-console.md)、[自动化评分](designs/storage/creation-automation.md)、[任务](tasks/2026-10-18-postgresql-design.md) |
 | 仓库架构成长：G0 基线 → G1 清单映射校验 → G2 兼容迁移 → G5 CLI 注册拆分 → G3a 统一读取/G3b 分片 | 本地实现完成，历史验收见[实施任务](tasks/2026-10-18-architecture-upgrade.md)；宿主新会话与独立评审待办；后续拆书变化独立记录 | [架构成长方案](designs/engineering/architecture-growth.md) |
 | 拆书统一升级 P1–P6：契约 → 索引 → 入库恢复 → 分层场次 → 统计转化 → 验证整合 | 功能和测试代码已交付本地候选；P6 回归、规则行为、独立评审与五端加载由作者单独验证，未执行 | [实施与测试交接](tasks/2026-10-18-deconstruction-upgrade.md) |
 | README 文案独立评审 | 自查完成，独立评审待办 | [任务记录](tasks/2026-10-12-readme-refresh.md) |
@@ -43,3 +45,5 @@
 | 验证输入、结果与限制 | `evidence/<任务号>/`：[已发布开发入口](evidence/2026-10-12-ncc-dev/task.md)、[README 验证](evidence/2026-10-13-readme-refresh/validation.md)、[文档整合验证](evidence/2026-10-16-deconstruction-docs/validation.md)、[文档更新验证](evidence/2026-10-16-docs-refresh/validation.md)、[注册切换验证](evidence/2026-10-17-zcode-registration/validation.md)、[架构方案验证](evidence/2026-10-18-architecture-plan/validation.md)、[架构升级验证](evidence/2026-10-18-architecture-upgrade/validation.md) |
 
 新增模块时在 `designs/` 下建立模块目录并更新[模块清单](engineering/documentation.md)；新增使用说明或工程规范放入对应用途目录。已被替代的方案直接删除并清理引用，历史由 Git 保留。
+
+- [数据服务与创作后台使用指南](guides/data-console.md)：v4安装、模型配置、专业资料维护、旧CLI接入与备份恢复。

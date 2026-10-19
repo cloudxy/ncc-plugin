@@ -16,10 +16,12 @@ when_to_use: "User says /ncc-write, 写下一章, 今更N章, 黄金三章, or r
   pack(脚本组装写手包) → writer 草稿(关键节拍 2–3 版) + 三本账回写 → check_chapter.py
   → review plan(continuity 必派；pulse 仅兑现章/关键章/开篇) → 有 major/critical: editor 修订 → review delta → 原审稿人只复审改动
   → 关键章: 成对比较(pulse) + 记忆测试(reader) → 作者 chapter pick
-  → complete --hard pass
+  → AI成果quality评分/有限返修 → complete --hard pass
 ```
 
-常规章顺利时约 2.7 次角色调用（写手 1、continuity 1、场景卡批量摊约 0.7），返工一轮约 4.7 次；兑现章多一次 pulse；关键章另走多版比选。
+每份AI成果均有按类型评分；关键章另走多版比选。调用数和预算按实际任务记录，不沿用新增评分之前的次数估算。
+
+作者默认只表达目标、看成果/分数、采用或提出修改；以下Step由经理自动推进，不要求作者逐项操作。作者随时可暂停、直接写改或接管，旧任务不得覆盖新基线。评分、阈值、两次总修订预算与人工例外统一见[AI内容评分与自动处理](../ncc-review/references/quality-scoring.md)。
 
 执行阶段**禁停顿**（铁律 5）：循环里的决策按推荐项执行、登记为暂定；哪几种情况可以当场打断作者，见 guidance 的"与执行阶段禁停顿的关系"。
 
@@ -32,7 +34,7 @@ when_to_use: "User says /ncc-write, 写下一章, 今更N章, 黄金三章, or r
 
 ## Step 1 — 一批场景卡
 
-1. `ncc_state.py scene next <书目录>` 给出下一批章号；逐章 `chapter add <书目录> <章号> --file 04-正文/第NNNN章-标题.md [--key]`。
+1. `ncc_state.py scene next <书目录>` 给出下一批章号；逐章 `chapter add <书目录> <章号> --file 04-正文/第NNNN章-标题.md --origin ai [--key]`。
 2. `ncc_state.py brief <书目录> --role outliner --seq 4 5 6` 出派单头（本角色记忆、作者刚说的、技法参考），派 outliner（task: scene）按 [references/scene-card.md](references/scene-card.md) 一次写完这一批 `02-大纲/场景卡/ch-NNNN.md`：每章 1–3 场；常规章每场五项（能写出"默认写法"就加上），关键章十项全写；作者的素材卡用得上就挂一行"素材：M-NNNN"（`material list` 看索引），技法卡用得上就挂一行"技法：T-NNNN"。园丁模式可以没有章纲，从上一章结尾与人物欲望往下推。
 3. `ncc_state.py scene check <书目录> 4 5 6` 过格式。
 
@@ -77,7 +79,7 @@ task: draft，派单包只给写手包路径。写手按 [references/chapter-loo
 2. **硬伤层**：continuity（task: audit）必派，常规章顺带查契约与毒点；pulse（task: pulse）只在本章兑现了爽点欠账或名场面、关键章、开篇时参加。fresh 上下文，只产带正文引用的 observation，结论是通过或不通过；包括核对"场景卡里的翻转与两难，正文是否真的写出来了"。
 3. 有 critical 或 major → 派 editor 显式修订 → `ncc_state.py review delta <书目录> <章号>` 列出改动的段落 → **只由上次给出不通过项的审稿人**复审这些段落与那几项（不再全文重审）。
 4. 设定级矛盾（与圣经、词典、三本账冲突且不是笔误）→ 停，回作者：给"改设定／改本章"的推荐与理由。不允许写手悄悄圆。
-5. **品质层（仅关键章）**：pulse 对各版本做**成对比较**，reader 做**记忆测试**；经理把比较结论、记忆测试和推荐呈给作者，作者 `chapter pick <书目录> <章号> --version B --note "…"`。选中版本接进正文后，`review delta` 看改动，再过一次硬伤层。常规章不评品质分。
+5. **品质层**：按[AI内容评分与自动处理](../ncc-review/references/quality-scoring.md)为每章生成P1评分包，由pulse的quality任务独立给分项和证据，`quality ingest`确定性汇总并路由有限返修。契约审仍按review plan，常规章新增的quality任务不扩大契约审范围。关键章保留成对比较和reader记忆测试，作者一次选定版本；接入正文后重新核对硬伤与当前评分。
 
 ## Step 7 — 定稿
 

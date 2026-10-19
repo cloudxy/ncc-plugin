@@ -61,7 +61,14 @@ def skeleton(lib, idx):
 def make_plan(lib, goal, selected=None, reason=None, screenplay=None):
     idx = load(lib, validate_source=False)
     require(idx.get('schema_version') == 2, '旧索引仍可查询 legacy 覆盖；新分层请先显式 decon index 重建到新契约')
-    old = current(lib, idx)
+    # A deliberate new plan is the recovery path after an acknowledged reindex.
+    # Looking up a plan without an explicit goal must still reject stale coverage.
+    old = read(local(lib, CFG['plan'])) if goal is not None else current(lib, idx)
+    if old:
+        validate('plan', old)
+        require(old['fingerprint'] == digest({k: v for k, v in old.items() if k != 'fingerprint'}), '选章计划已被手改，请先核对来源')
+        if goal == 'transfer':
+            require(old['index_fingerprint'] == idx['fingerprint'], '只读转化不能沿用旧索引计划，请先重新确认研究范围')
     if goal is None and old and selected is None and screenplay is None:
         return old
     goal = goal or 'technique'

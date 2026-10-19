@@ -349,6 +349,10 @@ def die(msg, code=1):
 
 
 def write_json(path: Path, data):
+    if os.environ.get('NCC_DATABASE_BRIDGE_ACTIVE') != '1':
+        from .database_bridge import marker_root
+        if marker_root(path):
+            die('数据库范围不能直接写工作副本；请通过CLI入口或应用接口回写')
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".tmp-", suffix=".json")
     with os.fdopen(fd, "w", encoding="utf-8") as f:
@@ -357,6 +361,10 @@ def write_json(path: Path, data):
 
 
 def read_json(path: Path, default):
+    if os.environ.get('NCC_DATABASE_BRIDGE_ACTIVE') != '1':
+        from .database_bridge import marker_root
+        if marker_root(path):
+            die('此范围以数据库为权威，请通过CLI入口或ncc-data应用接口读取；不能直接读写工作副本状态')
     if not path.exists():
         return default
     try:

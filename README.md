@@ -1,102 +1,124 @@
 # ncc-workflow — Novel Create Center
 
-ZCode 插件 · v3.2.0 · 五端项目级工作流
+ZCode 插件 · v4.0.0 · 小说创作与数据工作流
 
-NCC 是面向长篇网文的本地创作工作流：从资料与设定准备、立书、写章和审稿，到拆书学习、复盘、收束与导出。你可以只给一句想法，由 `/ncc` 推荐下一步；也可以直接进入具体任务。经理窗口协调十二个角色，关键创作决定由作者确认。
+NCC 是面向长篇网文的创作工作流，覆盖资料准备、立书规划、章节写作、审稿修订、连载复盘、完本导出和拆书学习。
 
-创作前准备可独立使用，不要求书名、主角、大纲或 `book.json`。进入书项目后，`book.json` 与承诺、知情、世界三本账记录进度和连续性。写章先审场景卡，再写正文；写手、审稿和修订分开，正文变更后复评。关键章用多版比选和读者记忆测试，不给创意质量打绝对分。
+作者决定作品方向，经理入口协调各创作角色，脚本保存进度、检查产物并生成视图。任务可以从一句想法开始，也可以从已有资料、书项目或指定章节继续。
 
-## 接入与更新
-
-共同源是 [cloudxy/ncc-plugin](https://github.com/cloudxy/ncc-plugin)。本仓库同时是创作工作区和插件开发现场。Claude、Codex、Kimi、Grok 通过仓库内项目级入口读取同一套技能、命令和角色；编辑源文件即更新这些入口。ZCode 在 `~/.zcode/cli/config.json` 的 `plugins.dirs` 中直接注册本仓库目录（本机已如此配置，改源文件后开新会话即加载）；其他机器也可以把仓库克隆到 `~/.zcode/local-plugins/ncc-workflow` 并注册该克隆，经 GitHub 同步，`git pull` 后再开新会话加载更新。
-
-| 宿主 | 项目级接入 | 常用入口 |
-|---|---|---|
-| Claude | `.claude/skills`、`.claude/commands`、`.claude/agents` | `/ncc`、`/ncc-write` 等 |
-| Codex | `.agents/skills` | 技能菜单或直接描述意图 |
-| Kimi | `.agents/skills`、`.agents/agents` | `/skill:ncc`、`/skill:ncc-write` 等 |
-| Grok | `.claude/skills`、`.claude/commands`、`.agents/skills`、`.grok/agents` | 命令或技能菜单 |
-| ZCode | 本仓库目录直注册（其他机器可用独立克隆） | `/ncc`、`/ncc-new` 等 |
-
-项目级入口随仓库存在；在相应 CLI 中打开本项目即可使用。各宿主的命令发现和参数语法以实际会话为准。完整命令对照和场景示例见[使用指南](docs/guides/usage.md)。
-
-## 快速开始
-
-以下是 ZCode 和 Claude 的斜杠命令示例；在 Codex 等宿主中，也可以直接说出相同意图。
-
-```text
-/ncc 我想写本书，但只有一个模糊的想法
-/ncc-prepare 整理资料 ~/Documents/我的资料库
-/ncc-prepare 创建一个由潮汐支配的城市设定
-/ncc-prepare 治理素材库 ~/Documents/我的资料库
-/ncc-new 都市+诡异，主角是守夜人学徒
-/ncc-write 黄金三章
-/ncc-write 接着写
-/ncc status
-/ncc-review 第12章
-/ncc-deconstruct ~/Documents/对标书.txt
-/ncc 这个单元写完了
-/ncc 准备收尾
-/ncc 导出成 epub
-```
+## 功能与入口
 
 | 入口 | 用途 |
 |---|---|
-| `/ncc` | 一句话路由、状态、卡文、复盘、收束与导出 |
-| `/ncc-prepare` | 整理、完善或创建资料和设定；治理现有素材库 |
-| `/ncc-new` | 作者种子、书魂、人物与设定、大纲和开书闸门 |
-| `/ncc-write` | 黄金三章、日更、攒稿与中断续写 |
-| `/ncc-review` | 独立审章、修订复评与全书体检 |
-| `/ncc-deconstruct` | 按章节索引拆对标书，沉淀设定和技法 |
-| `/ncc-eval` | 锚定章回归与模型横评 |
-| `/ncc-dev` | 维护本插件；`continue <任务号>` 恢复开发任务 |
+| `/ncc` | 统一入口：识别创作意图、查看进度、恢复任务、处理卡文、复盘和收束 |
+| `/ncc-prepare` | 整理、完善或创建资料与设定；诊断和治理素材库，无需先建书 |
+| `/ncc-new` | 从作者想法建立书魂、类型契约、人物、世界设定和大纲 |
+| `/ncc-write` | 写开篇、续写章节和攒稿；执行场景规划、写稿、检查与定稿循环 |
+| `/ncc-review` | 审查场景与正文、记录问题、安排修订和复评，支持全书体检 |
+| `/ncc-deconstruct` | 建立对标书索引、分析结构、抽取关键章技法、整理场次和转化写作方法 |
+| `/ncc-eval` | 评测审稿判据的检出与稳定性，或比较同一写作任务的模型结果 |
+| `/ncc-dev` | 维护插件的技能、脚本、规则和文档，记录开发任务与交付状态 |
 
-## 流程总览
+## 数据服务与创作后台
+
+v4提供PostgreSQL知识底座、Python/FastAPI服务、React管理后台与创作自动化。日常只有“创作台、作品资料、我的待办”三个入口；类型定义、人物与世界资料、关系时间线、历史恢复、导入导出和权限在高级管理维护。
+
+AI正文、纲要、设定、抽取和修订按P1–P5量表给分项、证据和总分，系统执行有限返修；作者可直接修改、暂停或采用。自动定稿支持有范围、期限和次数的作者试运行或已校准策略；试运行保留质量闸门并记录校准未验证。
+
+原文件模式继续可用。数据库模式显式启用，真实书库不会自动迁移；安装、模型配置、CLI接入与备份恢复见[数据后台使用指南](docs/guides/data-console.md)。
+
+## 开始使用
+
+在宿主中加载本项目后，可以调用对应入口，也可以直接描述目标，由 `/ncc` 推荐下一步。
+
+```text
+/ncc 我想写一本长篇小说，先帮我梳理想法
+/ncc-prepare 整理资料 <资料目录>
+/ncc-new 都市悬疑，主角是一名夜班值守员
+/ncc-write 黄金三章
+/ncc-write 接着写
+/ncc-review 第1章
+/ncc status
+/ncc-deconstruct <原著路径>
+/ncc 导出成 epub
+```
+
+项目提供以下宿主接入文件。命令菜单与调用语法按所用宿主选择，详细示例见[使用指南](docs/guides/usage.md)。
+
+| 宿主 | 接入位置 |
+|---|---|
+| Claude | `.claude/skills`、`.claude/commands`、`.claude/agents` |
+| Codex | `.agents/skills` |
+| Kimi | `.agents/skills`、`.agents/agents` |
+| Grok | `.claude/skills`、`.claude/commands`、`.agents/skills`、`.grok/agents` |
+| ZCode | 通过 `plugins.dirs` 注册本仓库目录 |
+
+## 创作流程
+
+创作前准备可以独立进行：收集资料、整理素材、补全设定，再选择需要的成果用于具体作品。
+
+书项目按以下阶段推进：
 
 ```mermaid
 flowchart LR
-  A["创作前准备<br/>资料、设定、素材库"] --> B["S0 立书<br/>作者种子、书魂与类型契约"]
-  B --> C["S1 立骨<br/>人物、世界、大纲"]
-  C --> D["S2 开篇<br/>黄金三章"]
-  D --> E["S3 连载<br/>写章、审稿、复评"]
-  E --> F["S4 卷复盘"]
-  F --> E
-  F --> G["S5 收束<br/>承诺清算、导出"]
-  H["拆书与技法库"] -.-> B
-  H -.-> E
+  A[立书：想法、书魂、类型契约] --> B[立骨：人物、世界、纲要]
+  B --> C[开篇：黄金三章]
+  C --> D[连载：写章、审稿、修订]
+  D --> E[卷复盘]
+  E --> D
+  E --> F[收束：清算承诺、完本、导出]
 ```
 
-准备阶段用独立 `prepare.json` 管理来源、成果、关系、采用与待解问题。通用资料可留在准备工作区，进入具体作品时再选用。素材库治理会先诊断全部来源、制定适配规范，再分批整理内容与结构，最后检查全库和写作取用；方法见[创作前准备](skills/ncc-prepare/SKILL.md)。
+每章依次经过章节登记、场景卡、故事审、写作简报、正文起草、台账回写、机械检查、硬伤审、AI成果评分和定稿。需要修订时，修改后的正文重新评审；关键章节可准备多个版本，由作者比较和选择。
 
-立书和立骨从作者自己的想法开始，给候选与推荐，并在书魂、设定、大纲等闸门请作者决定。写章循环为“章节登记 → 场景卡 → 故事审 → 写作简报与读者此刻 → 草稿与台账回写 → 机械检查 → 硬伤审 → 修订复评 → 定稿”。单元、卷与全书复盘负责检查承诺、读者反馈和后续方向。阶段与状态由 [registry 分片](workflow/registry/) 维护，[registry.json](workflow/registry.json) 是兼容生成视图。
+文件模式的 `book.json` 与承诺、知情、世界三本账保存作品状态和连续性。记忆与交接记录按角色提供，帮助任务恢复和后续写作。单元、卷及全书复盘用于检查承诺兑现、读者反馈和故事走向。完本内容可导出为 Markdown、TXT 或 EPUB。
 
-角色有按书和跨书的记忆，作者会话中的决定按角色切入派单；审稿和试读读者保持盲读。拆书产出的技法卡可供后续规划参考。审稿规则变更须经过锚定章回归和作者确认，不能由记忆自动改写。详细设计见[架构说明](workflow/architecture.md)与[信息架构七律](workflow/principles.md)。
+## 拆书学习
 
-## 项目结构与数据边界
+拆书按研究目标确定范围：
+
+| 层次 | 处理内容 |
+|---|---|
+| L0 索引 | 识别卷章与正文边界，记录唯一序号、字数和内容指纹 |
+| L1 骨架 | 汇总卷章结构、字数和对话比例等机械信息，明确尚未分析的语义内容 |
+| L2 技法 | 深拆已选章节，记录事实、证据、状态变化和可选场次；默认关键章去重后最多27章，完整逐章需明确选择 |
+| L3 转化 | 从已验收结论中提炼方法，写明证据、适用条件、代价和失效条件 |
+
+抽取结果经校验入库后才计入相应层的完成进度，基础事实与场次分别记录。统计区分全书、连续范围和非连续样本。技法可供后续规划参考，对标报告保留在拆书库中。
+
+具体操作见[拆书技能](skills/ncc-deconstruct/SKILL.md)。
+
+## 项目结构与数据
 
 | 路径 | 内容 |
 |---|---|
-| `workflow/` | registry/ 分片事实源、registry.json 兼容生成视图，以及原则与架构 |
-| `skills/`、`commands/`、`agents/` | 八个入口及十二个创作角色的源文件 |
-| `scripts/` | 运行入口与 ncclib/ 领域实现；dev/ 开发工具；tests/ 测试；旧开发入口保留转发 |
-| `docs/` | [文档导航](docs/README.md)：使用指南、工程规范、模块设计、活动任务与验证证据 |
-| `eval/anchors/` | 审稿回归所用的锚定章 |
-| `novels/` | 私有书项目、准备工作区与拆书库，不进入 Git 仓库 |
+| `skills/` | 八个工作流入口及其参考文件、模板 |
+| `commands/` | 宿主命令入口 |
+| `agents/` | 十二个创作角色的职责与执行约束 |
+| `workflow/registry/` | 阶段、角色、闸门、词表和路径的配置源 |
+| `workflow/registry.json` | 由配置分片生成的兼容视图 |
+| `workflow/contracts/` | 结构化产物的机器契约 |
+| `scripts/ncclib/` | 状态管理、创作支撑、拆书和交付的领域实现 |
+| `scripts/dev/`、`scripts/tests/` | 开发工具、自动化用例和合成样例 |
+| `src/ncc_data/`、`alembic/` | 数据服务、事务规则、自动编排与数据库迁移 |
+| `apps/management-web/` | 创作台与专业资料管理前端 |
+| `docs/` | 使用指南、工程规范、模块设计和任务记录 |
+| `eval/` | 审稿评测的锚定样章与评测说明 |
+| `novels/` | 默认私有书库：书项目、准备工作区和拆书库 |
 
-书稿和素材只作为本地创作数据。`novels/`、`books/`、`_作者/`、`_拆书库/` 被忽略，提交钩子还会拦截书项目标记。拆书只处理作者合法持有的作品；使用原著时保留短定位引用及证据，不复制原文作为技法卡。
+书稿、原著、素材和书内状态属于私有创作数据。`novels/`、`books/`、`_作者/`、`_拆书库/` 已加入忽略规则，提交守卫检查私有内容路径。拆书产物保存短定位证据，技法与场次使用自己的话概括。
 
-## 开发与验证
+## 开发与文档
 
-维护插件使用 `/ncc-dev <目标>`，任务恢复使用 `/ncc-dev continue <任务号>`。阶段、证据和交付要求见[开发工作流](docs/engineering/workflow.md)。测试按实际影响范围选择，局部改动只验证受影响部分，大范围改造才跑全量；创作规则实质变化须做相应行为验证并交作者确认，审稿判据变化再执行 `/ncc-eval 回归`。
+维护插件使用 `/ncc-dev <目标>`；恢复开发任务使用 `/ncc-dev continue <任务号>`。开发流程见[工程规范](docs/engineering/workflow.md)，项目设计见[架构说明](workflow/architecture.md)和[信息架构原则](workflow/principles.md)，其余文档从[文档导航](docs/README.md)查找。
 
-在仓库根目录运行：
+在仓库根目录按改动范围选择检查：
 
 ```bash
 python3 -m unittest discover -s scripts/tests -t scripts -p 'test_*.py'
 python3 scripts/dev/build_registry.py --check
 python3 scripts/dev/check_plugin.py -v
 python3 scripts/dev/build_docs.py --check
-python3 scripts/ncc_eval.py mech
 ```
 
-本机 ZCode 直接注册当前工作树，改完开新会话加载；其他机器的独立克隆经 GitHub 同步；提交前先 `git pull`，提交钩子会检查远端是否领先和是否误暂存私有内容。第三方项目只作设计参考，不属于插件的受管依赖或必需运行链。来源、转化与材料许可见[设计出处与致谢](ACKNOWLEDGMENTS.md)。
+配置值在 `workflow/registry/` 的对应分片中修改，再依次运行 `scripts/dev/build_registry.py` 和 `scripts/dev/build_docs.py` 更新生成文件。纯文档改动核对内容、链接和生成格式；功能与规则变更按影响范围验证。

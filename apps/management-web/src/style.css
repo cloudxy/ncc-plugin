@@ -1,0 +1,458 @@
+:root {
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  color: #24362d;
+  background: #f5f6f8;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button,
+input,
+textarea {
+  font: inherit;
+}
+.app-layout {
+  min-height: 100vh;
+}
+.sidebar {
+  border-right: 1px solid #e6eae6;
+  position: sticky !important;
+  top: 0;
+  height: 100vh;
+}
+.brand {
+  height: 96px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+}
+.brand b {
+  font-size: 23px;
+  letter-spacing: 3px;
+}
+.brand small {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #87918a;
+  margin-top: 2px;
+}
+.brand-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #245d4d;
+  color: #f3e6bd;
+  width: 60px;
+  height: 64px;
+  border-radius: 15px 3px 15px 3px;
+  font: italic bold 40px Georgia;
+}
+.brand-mark.small {
+  width: 42px;
+  height: 46px;
+  font-size: 30px;
+  border-radius: 11px 2px;
+}
+.sidebar .ant-menu {
+  padding: 0 10px;
+  border-inline-end: 0 !important;
+}
+.sidebar .ant-menu-item {
+  height: 45px;
+  line-height: 45px;
+}
+.sidebar-footer {
+  position: absolute;
+  bottom: 22px;
+  padding: 0 24px;
+  font-size: 11px;
+  color: #839187;
+  line-height: 2;
+}
+.sidebar-footer small {
+  display: block;
+  font-size: 10px;
+}
+.live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: #5d9a72;
+  border-radius: 50%;
+  margin-right: 7px;
+}
+.topbar {
+  height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 34px;
+  border-bottom: 1px solid #e8ece8;
+}
+.content {
+  padding: 30px 34px;
+  min-height: calc(100vh - 76px);
+}
+.page-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 26px;
+  gap: 16px;
+}
+.page-title h3 {
+  margin: 0 0 6px !important;
+  font-size: 25px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.ant-card {
+  box-shadow: 0 3px 18px #20362603;
+  border-color: #e6eae7;
+}
+.writing-card > .ant-card-body {
+  padding: 0;
+}
+.writing-card .ant-card-head {
+  background: #fcfdfb;
+}
+.chapter-title {
+  padding: 27px 28px 8px;
+  font-size: 24px;
+  font-family: Georgia, "Songti SC", serif;
+  font-weight: 600;
+}
+.text-editor {
+  border: 1px solid #e6eae5;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+.writing-card .text-editor {
+  border: 0;
+  border-radius: 0;
+}
+.editor-footer {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid #eff1ee;
+  padding: 12px 24px;
+  color: #9aa29a;
+  font-size: 11px;
+}
+.intent-card .ant-card-body {
+  padding: 22px;
+}
+.intent-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.intent-card textarea {
+  background: #fafbf9;
+  border-color: #e0e6de;
+  padding: 14px;
+  line-height: 1.8;
+}
+.intent-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  margin-top: 18px;
+}
+.intent-actions > span {
+  font-size: 11px;
+  color: #8b958d;
+}
+.score-card .ant-statistic {
+  margin: 18px 0;
+}
+.score-summary {
+  margin: 20px 0 12px;
+  line-height: 1.9;
+}
+.suggestion {
+  font-size: 13px;
+  line-height: 1.8;
+  display: flex;
+  gap: 10px;
+}
+.suggestion b {
+  color: #b29257;
+}
+.score-foot {
+  font-size: 10px;
+  color: #929b94;
+  border-top: 1px solid #edf0ec;
+  margin-top: 24px;
+  padding-top: 14px;
+}
+.score-number {
+  font: 24px Georgia;
+  color: #245d4d;
+}
+.table-toolbar,
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.pager {
+  margin-top: 20px;
+  margin-bottom: 0;
+}
+.json-block,
+.json-small {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #f5f7f4;
+  padding: 18px;
+  border-radius: 6px;
+  max-height: 650px;
+  overflow: auto;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.json-small {
+  max-height: 250px;
+  padding: 8px;
+}
+.graph-canvas {
+  height: 530px;
+  background: radial-gradient(#dae3da 1px, transparent 1px);
+  background-size: 18px 18px;
+  border-radius: 8px;
+}
+.world-map {
+  height: 540px;
+  background: #eef1e7;
+  border: 1px solid #dce4d4;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  background: #fcfdfb;
+}
+.login-intro {
+  background: #e9eee6;
+  padding: 12vh 11%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background-image: radial-gradient(
+    ellipse at 100% 0%,
+    #f6ecd1 0,
+    transparent 55%
+  );
+}
+.login-intro h1 {
+  font:
+    42px/1.5 Georgia,
+    "Songti SC",
+    serif;
+  letter-spacing: 3px;
+  color: #294c3b;
+  margin: 35px 0 18px;
+}
+.login-intro p {
+  color: #78907d;
+  line-height: 1.8;
+}
+.login-lines {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 50px;
+  font-size: 12px;
+  color: #708773;
+}
+.login-lines span {
+  border-top: 1px solid #b4c5b2;
+  padding-top: 12px;
+}
+.login-form {
+  max-width: 430px;
+  width: 75%;
+  margin: auto;
+  padding: 40px 0;
+}
+.login-form .ant-form {
+  margin-top: 32px;
+}
+.muted {
+  font-size: 12px;
+  color: #8f998f;
+  line-height: 1.9;
+  margin-top: 24px;
+}
+.fullscreen,
+.onboarding {
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+}
+.onboarding h1 {
+  font:
+    30px/1.6 Georgia,
+    "Songti SC",
+    serif;
+  margin: 0;
+}
+.onboarding p {
+  color: #7b897e;
+}
+.ant-alert {
+  margin-bottom: 12px;
+}
+.ant-table-cell code {
+  font-size: 11px;
+  word-break: break-all;
+}
+details {
+  padding: 15px;
+  color: #6d7e70;
+}
+summary {
+  cursor: pointer;
+}
+@media (max-width: 1100px) {
+  .content {
+    padding: 24px;
+  }
+  .sidebar {
+    width: 190px !important;
+    max-width: 190px !important;
+    min-width: 190px !important;
+    flex-basis: 190px !important;
+  }
+  .topbar {
+    padding: 0 24px;
+  }
+  .score-card {
+    margin-top: 24px;
+  }
+  .login-intro h1 {
+    font-size: 30px;
+  }
+  .intent-actions {
+    align-items: flex-end;
+  }
+}
+@media (max-width: 760px) {
+  .ant-layout,
+  .content {
+    min-width: 0;
+  }
+  .sidebar {
+    transition: none !important;
+  }
+  .topbar .ant-typography {
+    display: none;
+  }
+  .page-title {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .writing-card .ant-card-head-wrapper {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 0;
+  }
+  .writing-card .ant-card-head-title {
+    flex: auto;
+    width: 100%;
+    min-width: 0;
+  }
+  .writing-card .ant-card-head-title .ant-space {
+    flex-wrap: wrap;
+  }
+  .writing-card .ant-card-head-title .ant-select {
+    width: 210px !important;
+    max-width: 100%;
+  }
+  .writing-card .ant-card-extra {
+    margin-inline-start: 0;
+  }
+  .intent-title,
+  .intent-actions,
+  .editor-footer {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .sidebar {
+    width: 64px !important;
+    max-width: 64px !important;
+    min-width: 64px !important;
+    flex-basis: 64px !important;
+  }
+  .brand {
+    padding: 12px;
+  }
+  .brand > div:not(.brand-mark),
+  .sidebar-footer,
+  .sidebar .ant-menu-title-content {
+    display: none;
+  }
+  .sidebar .ant-menu-item {
+    padding-left: 11px !important;
+  }
+  .content {
+    padding: 18px 12px;
+  }
+  .topbar {
+    padding: 0 12px;
+    height: 68px;
+  }
+  .topbar .ant-select {
+    width: 150px !important;
+  }
+  .topbar .ant-tag {
+    display: none;
+  }
+  .page-title {
+    align-items: flex-start;
+  }
+  .page-title h3 {
+    font-size: 21px;
+  }
+  .login-shell {
+    display: block;
+  }
+  .login-intro {
+    padding: 35px 12%;
+  }
+  .login-intro h1 {
+    font-size: 24px;
+    margin: 20px 0;
+  }
+  .login-lines {
+    display: none;
+  }
+  .login-form {
+    padding: 30px 0;
+  }
+  .editor-footer {
+    gap: 8px;
+  }
+  .intent-actions > span {
+    display: none;
+  }
+}

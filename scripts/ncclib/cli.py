@@ -181,7 +181,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from .core import MODES, OPLOG, SCHEMA, V, now, read_json
+from .core import MODES, OPLOG, SCHEMA, V, die, now, read_json
 from .views import render
 
 from .cli_parsers import COMMAND_ORDER, REGISTRARS
@@ -220,6 +220,14 @@ def build_parser():
 
 def main():
     a = build_parser().parse_args()
+    from .database_bridge import dispatch
+    try:
+        code = dispatch(Path(__file__).resolve().parents[1] / 'ncc_state.py', sys.argv[1:],
+                        [getattr(a, key, None) for key in ('book_dir', 'lib', 'lib_dir', 'root', 'path')])
+    except ValueError as exc:
+        die(str(exc))
+    if code is not None:
+        raise SystemExit(code)
     a.fn(a)
     log_op(a)
     auto_render(a)

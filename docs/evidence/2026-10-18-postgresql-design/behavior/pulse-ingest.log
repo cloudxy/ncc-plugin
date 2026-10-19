@@ -1,0 +1,19 @@
+{
+  "fresh": true,
+  "schema": 1,
+  "content_sha256": "b3ff011f951e5525117c1027fa344cbcdfc9498f827f14cb7d9eefca5a54ce3a",
+  "policy_hash": "64633ae314d2460042c3aa2a5ba19ce66700a0b96563bec379299f5e31578ca3",
+  "scheme": "P1",
+  "evaluator": "fresh-pulse-quality-behavior",
+  "at": "2026-10-19T10:45:23",
+  "result": {
+    "score": null,
+    "verdict": "incomplete",
+    "errors": [
+      "检查结论无效或覆盖不足"
+    ],
+    "policy_hash": "64633ae314d2460042c3aa2a5ba19ce66700a0b96563bec379299f5e31578ca3"
+  },
+  "author_override": null,
+  "target": "sample.md"
+}

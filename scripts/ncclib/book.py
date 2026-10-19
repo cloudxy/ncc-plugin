@@ -535,6 +535,8 @@ def cmd_chapter(a):
             "hook": None, "mood": None, "retry": 0, "sha": "", "review": None,
             "scenes": {"count": 0, "review": "pending"}, "selection": None,
             "pack": None})
+        if getattr(a, 'origin', 'legacy') != 'legacy':
+            d['chapters'][-1]['origin'] = a.origin
         d["chapters"].sort(key=lambda c: c["seq"])
         msg = f"OK chapter add ch{a.seq} → {a.file}" + ("（关键章）" if key else "")
     else:
@@ -610,6 +612,10 @@ def cmd_complete(a):
     book_dir = Path(a.book_dir)
     d = load(book_dir)
     c = find_ch(d, a.seq)
+    from .quality import quality_ready
+    quality_problem = quality_ready(book_dir, c)
+    if quality_problem:
+        die('章定稿闸：' + quality_problem)
     why = scene_ready(book_dir, c)
     if why:
         die(f"章定稿闸：{why}")

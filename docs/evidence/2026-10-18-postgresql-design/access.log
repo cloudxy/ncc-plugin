@@ -1,0 +1,1 @@
+{"synthetic_only": true, "checks": ["secret displayed with permission", "dirty edit preserved until revocation", "offline revocation detected on reconnect", "local secret form cleared", "read revocation removes scope"], "page_errors": []}

@@ -1,0 +1,1 @@
+{"synthetic_only": true, "checks": ["owner trial registration in UI", "unverified calibration label", "target-scoped authorization selection", "creation payload delegation binding"], "page_errors": [], "live_model_tested": false}

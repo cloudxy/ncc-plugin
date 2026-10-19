@@ -52,7 +52,7 @@
     "name": "missing-argument",
     "code": 2,
     "stdout": "",
-    "stderr": "usage: ncc_state.py chapter add [-h] --file FILE [--key] book_dir seq\nncc_state.py chapter add: error: the following arguments are required: seq, --file\n",
+    "stderr": "usage: ncc_state.py chapter add [-h] --file FILE [--key]\n                                [--origin {ai,author,legacy}]\n                                book_dir seq\nncc_state.py chapter add: error: the following arguments are required: seq, --file\n",
     "files_sha256": "02057ddf5cde483c19e62bd78649aaa8c480d81e90ce81863f09eb85493012ac"
   },
   {

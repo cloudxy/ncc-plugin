@@ -63,6 +63,7 @@ def register_chapter(sub):
     p = sub.add_parser("chapter"); cs = p.add_subparsers(dest="action", required=True)
     q = cs.add_parser("add"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
     q.add_argument("--file", required=True); q.add_argument("--key", action="store_true")
+    q.add_argument("--origin", choices=['ai', 'author', 'legacy'], default='legacy')
     q = cs.add_parser("key"); q.add_argument("book_dir"); q.add_argument("seq", type=int); q.add_argument("--off", action="store_true")
     q = cs.add_parser("hook"); q.add_argument("book_dir"); q.add_argument("seq", type=int)
     q.add_argument("--type", required=True); q.add_argument("--intensity", type=int, required=True); q.add_argument("--line")

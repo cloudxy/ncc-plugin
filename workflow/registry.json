@@ -84,7 +84,7 @@
     "ncc-review": {
       "skill": "ncc-review",
       "mode": "review",
-      "description": "独立审稿与修订闭环，三层评价：硬伤层通过／不通过（正文证据锚点）、故事层（场景卡，正文之前）、品质层（关键章成对比较＋读者记忆测试，不打分）。SHA 新鲜度绑定、修订后强制复审。审稿者不产稿，修订是显式动作。",
+      "description": "独立审稿与有限修订：硬伤、故事审、AI成果P1–P5证据评分；关键章保留成对比较与读者记忆测试。版本绑定，修改后重评，评分不代替采用权限。",
       "argument_hint": "[章号或范围 | 全书 | 第3章打回重写]"
     },
     "ncc-deconstruct": {
@@ -263,7 +263,7 @@
     "pulse": {
       "skill": "ncc-review",
       "task": "pulse",
-      "description": "Use this agent only on chapters that pay off a satisfaction debt or signature scene, key chapters, and the opening (review plan decides): genre-contract checks (poison list, signing points, missing debt/earn/exceed/witness in payoffs) and, on key chapters, pairwise comparison of versions (which is better and why, order-swapped to check bias). Never gives absolute quality scores. The /ncc parent coordinates this role; run the specialist task in its execution context and return results to the manager.",
+      "description": "Independent typed P1–P5 quality scoring of AI artifacts with quoted evidence; genre-contract checks on chapters selected by review plan; key-chapter pairwise comparison with order reversal. Never drafts or grants adoption authority. Return reports to the manager.",
       "color": "orange",
       "fresh": true,
       "function": "质量",
@@ -507,12 +507,12 @@
   ],
   "iron_rules": [
     "写这章的帽不审这章；审稿帽只产带证据的 observation，不改稿。",
-    "book.json 与 06-台账 是状态权威；markdown 投影与正文永不回写状态。",
+    "每个范围只用一个状态权威：文件模式为 book.json 与 06-台账，数据库模式经统一应用服务；投影不绕过采用流程回写。",
     "修订是显式独立动作；正文 SHA 一变，旧评审即作废，必须复评。",
     "每章动笔前必由 ncc_state.py pack 组装并留档写手包（写作简报＋读者此刻），无包不写；场景卡没过故事审不写正文。",
     "创作决策点（G0–G5）作者拍板；执行阶段（写作/审稿循环）禁停顿——循环内的决策按推荐项执行、记为暂定，单元复盘时集中呈给作者。",
     "宁可记「待定/文本未明确」，不可编造设定；场景用到的学科知识须有出处。",
-    "审稿三层：硬伤层只判通过／不通过，每条带正文引用；故事层在正文之前审场景卡；品质层只在关键章做成对比较与读者记忆测试，不打绝对分。",
+    "审稿三层：硬伤判通过／不通过并附正文引用；故事审在正文之前；AI成果按类型独立评分，关键章保留成对比较与读者记忆测试。",
     "每个要作者决定的地方，都给推荐、理由和备选；作者可以先用推荐、以后再改。",
     "写作简报与质检清单分离：写手的上下文里不放审稿清单、分数阈值与书魂原文。"
   ],
@@ -1713,7 +1713,8 @@
       "pulse": [
         "agents/pulse.md",
         "skills/ncc-review/references/review-domains.md",
-        "skills/ncc/references/mind-frame.md"
+        "skills/ncc/references/mind-frame.md",
+        "skills/ncc-review/references/quality-scoring.md"
       ],
       "reader": [
         "agents/reader.md",

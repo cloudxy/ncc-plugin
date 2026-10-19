@@ -1,0 +1,1 @@
+{"browser": "Chromium", "synthetic_only": true, "page_errors": [], "checks": ["login", "scope creation", "server draft autosave", "adopt author edit", "materials", "read historical revision", "definitions", "jobs", "mobile rendering"]}

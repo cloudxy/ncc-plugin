@@ -52,6 +52,18 @@ git clone https://github.com/mattpocock/skills.git /path/to/reference-projects/m
 
 这次设计未复制上述技能正文，也未建立对它们的运行调用。下面的创作机制出处保留原有来源说明；历史版本标签只表示当时参照范围，不表示上游当前版本或兼容承诺。
 
+## 创作评分研究参考（2026-10-18）
+
+以下研究用于[创作自动化与AI内容评分候选设计](docs/designs/storage/creation-automation.md)，不表示现行技能已启用评分。参考论文的机制与限制，未复制正文、提示模板或代码，也未安装上游项目。
+
+| 研究与作者 | 版本依据与参考内容 | NCC拟转化的机制 |
+|---|---|---|
+| [G-Eval — Yang Liu等](https://arxiv.org/abs/2303.16634) | arXiv:2303.16634v3；标准化文本评价及其任务边界，2026-10-18核对 | 按内容类型给出量表、分项和证据；总分由服务计算，需本书样本校准，不外推其摘要/对话实验 |
+| [Judging LLM-as-a-Judge — Lianmin Zheng等](https://arxiv.org/abs/2306.05685) | arXiv:2306.05685v4；位置、冗长、自偏好及评价限制，2026-10-18核对 | 隐藏生成模型身份、受控候选比较、分歧与稳定性检查、误放抽查 |
+| [PairS — Yinhong Liu等](https://arxiv.org/abs/2403.16950) | arXiv:2403.16950v5；成对偏好与人类判断，2026-10-18核对 | 将关键候选比较用于校准和争议处理，不把票数当质量概率 |
+
+权重、阈值、预算及留出验证要求由NCC本次设计提出，未经本轮模型或读者测试，不以论文实验结果替代小说工作流验证。
+
 ## [chinese-novelist-skill](https://github.com/PenglongHuang/chinese-novelist-skill)（MIT）
 
 | 借鉴 | 落点 |

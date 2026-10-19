@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "ncc-workflow",
-  "version": "3.2.0",
+  "version": "4.0.0",
   "description": "Novel Create Center：长篇网文从立书到收束的工作流。十二个专职角色、三本账、质量闸门、锚定章回归评测、EPUB 导出。含通用创作前准备与素材库治理。",
   "author": {
     "name": "xuyun"

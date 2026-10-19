@@ -1,0 +1,1 @@
+{"synthetic_only": true, "checks": ["legacy init", "shadow import", "explicit bind", "CLI read", "promise write", "external author edit", "typed chapter sync", "safe pull", "original preserved"]}

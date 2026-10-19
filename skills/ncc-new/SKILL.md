@@ -6,6 +6,8 @@ when_to_use: "User wants to start a new novel, has only a vague idea for one, or
 
 # 开书（S0 立书 → S1 立骨）
 
+AI交付成果按[统一评分与有限返修](../ncc-review/references/quality-scoring.md)执行：纲要P2、设定P3、拆书抽取P4；内部报告不递归评分。作者只看成果、分数与待决定事项。
+
 目标：把一个想法——哪怕只是一句模糊的话——变成**可连载的冻结起点**：书魂闸（G0）、设定冻结（G1）、大纲冻结（G2），然后交给 ncc-write 写开篇。
 
 每个需要作者决定的地方都按 [../ncc/references/guidance.md](../ncc/references/guidance.md) 执行：一次一问、推荐置顶、给备选、可以先用推荐以后再改。判据见 [../ncc/references/mind-frame.md](../ncc/references/mind-frame.md)。

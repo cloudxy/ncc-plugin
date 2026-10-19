@@ -1,0 +1,29 @@
+
+> ncc-management-console@4.0.0 build
+> tsc -b && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 3401 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                        0.56 kB │ gzip:   0.34 kB
+dist/assets/maps-BtPuoxOl.css          5.35 kB │ gzip:   1.39 kB
+dist/assets/index-CYsWD3Do.css         6.05 kB │ gzip:   1.98 kB
+dist/assets/visuals-DRc9OiDQ.js        3.50 kB │ gzip:   1.95 kB
+dist/assets/maintenance-Dpp0WFZQ.js    4.35 kB │ gzip:   2.09 kB
+dist/assets/creative-yyV7N49-.js      15.29 kB │ gzip:   6.41 kB
+dist/assets/index-SMN9KPDv.js         15.59 kB │ gzip:   6.47 kB
+dist/assets/management-B2jUOdtm.js    16.99 kB │ gzip:   6.38 kB
+dist/assets/materials-CwlOBhen.js     25.15 kB │ gzip:   9.25 kB
+dist/assets/maps-CQ1JVVMH.js         283.95 kB │ gzip:  82.50 kB
+dist/assets/vendor-DwgFKfFj.js       328.37 kB │ gzip: 106.05 kB
+dist/assets/graphs-BDkkwuE4.js       443.17 kB │ gzip: 141.37 kB
+dist/assets/editor-DTNdmIeI.js       604.44 kB │ gzip: 205.56 kB
+dist/assets/antd-DrtN_lbA.js         927.47 kB │ gzip: 298.12 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 4.24s
