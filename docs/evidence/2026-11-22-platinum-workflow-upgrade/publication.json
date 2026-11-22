@@ -1,0 +1,16 @@
+{
+  "source_commit": "0c7342aba68b8a8a8db897e1e7fa4444768a6634",
+  "remote": "https://github.com/cloudxy/ncc-plugin.git",
+  "branch": "main",
+  "remote_source_commit_verified": "0c7342aba68b8a8a8db897e1e7fa4444768a6634",
+  "verified_at_utc": "2026-11-22T09:33:24.918936+00:00",
+  "git_hooks": ".githooks; pre-commit and pre-push retained",
+  "source_files_changed": 45,
+  "publication_scope": "Qidian platinum serialized workflow engine, Producer mode, pre-battle sandbox, five playbooks + Track Deep-Forge, 9 Grill-Me gold rules, and 5 distilled external narrative frameworks",
+  "first_push": "sandbox network blocked; aborted cleanly without hook bypass",
+  "retry": "approved external git push origin main succeeded",
+  "remote_verification": "origin/main verified at source_commit 0c7342aba68b8a8a8db897e1e7fa4444768a6634",
+  "private_configuration_or_novels_uploaded": false,
+  "runtime": "Five-host CLI new-session loading and live multi-chapter LLM serialized runs remain unverified until author starts a book.",
+  "metadata_note": "This record is a subsequent documentation-only commit; source_commit identifies the published implementation."
+}

@@ -26,8 +26,8 @@ plugin_root 与 repo_root 均为 `/Users/xuyun/Documents/ncc-workflow`，分支 
   "plugin_root": "/Users/xuyun/Documents/ncc-workflow",
   "branch": "main",
   "base_commit": "f3f6bc1af80967b15b4fc575e3ccb273bd8e8e1a",
-  "stage": "D6",
-  "next": "完成全网小说创作框架吸收后的最终候选验证、三工程职责与 D5 复核后，先拉取远端再精确暂存、提交并推送 origin/main。",
+  "stage": "D7",
+  "next": "Source publication completed on origin/main; five-host CLI new-session loading and first live novel run remain for future author sessions.",
   "blocked": "",
   "decisions": [
     {
@@ -121,6 +121,7 @@ plugin_root 与 repo_root 均为 `/Users/xuyun/Documents/ncc-workflow`，分支 
     "docs/evidence/2026-11-22-platinum-workflow-upgrade/project-architect-report-v3.json",
     "docs/evidence/2026-11-22-platinum-workflow-upgrade/project-architect-report.json",
     "docs/evidence/2026-11-22-platinum-workflow-upgrade/publication-preflight.json",
+    "docs/evidence/2026-11-22-platinum-workflow-upgrade/publication.json",
     "docs/evidence/2026-11-22-platinum-workflow-upgrade/registry.log",
     "docs/evidence/2026-11-22-platinum-workflow-upgrade/review.md",
     "docs/evidence/2026-11-22-platinum-workflow-upgrade/unit.log",
@@ -487,13 +488,26 @@ plugin_root 与 repo_root 均为 `/Users/xuyun/Documents/ncc-workflow`，分支 
       "coverage": "Platinum narrative engine, 9 Grill-Me gold rules, 5 distilled external narrative frameworks, three-line foreshadowing mask, 4D plight, pre-battle sandbox, playbooks, and legacy snapshot compatibility",
       "report": "docs/evidence/2026-11-22-platinum-workflow-upgrade/review.md",
       "report_sha256": "5bfd15a64298e886ea9afa9a49c77bf9b29f8c937f35caea21d36036aba1ff1f"
+    },
+    {
+      "id": "source-publication",
+      "kind": "publication",
+      "candidate": "9934821e365215222c70b8d9e4a579221f39de84a5d912260acf6091e2f6bc74",
+      "status": "passed",
+      "command": "git pull --ff-only origin main; git commit; git push origin main; git ls-remote origin refs/heads/main",
+      "exit_code": 0,
+      "summary": "Published source commit 0c7342aba68b8a8a8db897e1e7fa4444768a6634 pushed and verified on origin/main; runtime remains unverified.",
+      "environment": "Local main workspace with .githooks synchronization and private-content guards enabled",
+      "coverage": "Source publication and remote SHA verification; zero private novels or credentials uploaded",
+      "report": "docs/evidence/2026-11-22-platinum-workflow-upgrade/publication.json",
+      "report_sha256": "58de7d32649cd69d1eb3fff8be7b6851c0f3cf5b4ef48d0db5bef4a83ce321aa"
     }
   ],
   "delivery": {
     "local": "accepted",
-    "commit": "pending",
-    "remote": "pending",
-    "clone": "not_requested",
+    "commit": "0c7342aba68b8a8a8db897e1e7fa4444768a6634",
+    "remote": "verified origin/main source commit 0c7342aba68b8a8a8db897e1e7fa4444768a6634",
+    "clone": "not_requested; zcode registers this workspace directly",
     "runtime": "unverified"
   },
   "engineering_contract": 1,
@@ -554,7 +568,10 @@ plugin_root 与 repo_root 均为 `/Users/xuyun/Documents/ncc-workflow`，分支 
     "authorization": "作者明确指令：1 先不做开书；2 检索全网高质量网文与小说写作框架通过 learn 提升能力；3 提交并推送。",
     "scope": "45 verified product files plus task record and evidence logs; five-host new-session runtime remains unverified.",
     "preflight": "docs/evidence/2026-11-22-platinum-workflow-upgrade/publication-preflight.json",
-    "status": "ready_to_commit"
+    "status": "source_published",
+    "source_commit": "0c7342aba68b8a8a8db897e1e7fa4444768a6634",
+    "remote_source_commit_verified": "0c7342aba68b8a8a8db897e1e7fa4444768a6634",
+    "record": "docs/evidence/2026-11-22-platinum-workflow-upgrade/publication.json"
   }
 }
 ```
