@@ -25,6 +25,7 @@
 | 记忆与进化 | [记忆与自进化设计](designs/memory/memory-evolution-design.md) | 已实施（v3.0），留档设计依据 |
 | 创作前准备 | [准备设计](designs/preparation/preparation-design.md) | 已实施，留档设计依据 |
 | 小说数据底座与管理后台 | [PostgreSQL底座](designs/storage/postgresql-foundation.md)、[基础管理后台](designs/storage/management-console.md)、[创作自动化与AI评分](designs/storage/creation-automation.md) | v4已实现并发布；保留设计依据，现行行为和未验范围见使用指南与实施任务 |
+| 写章与白金连载引擎 | [起点白金连载引擎与出品人工作流升级方案](designs/writing/platinum-upgrade.md) | 本地候选实施中；待作者 grill-me 深度打磨与规则确认 |
 
 ## 未执行的计划与待办
 

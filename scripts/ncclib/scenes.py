@@ -3,8 +3,8 @@
 import re
 import sys
 from pathlib import Path
-from .core import (BRIEF_DIR, HANDOFF_CFG, ROLES, TECH_CFG, WRITER_GUARD, book_root, chars, ENTRY, ERAS, FACTS, KNOW_DIR, L, MATERIAL_HINT, PACK_BUDGET, PACK_DIR, PROMISES, SCENE_BATCH, SCENE_DIR, SCENE_KEY_REQUIRED, SCENE_REQUIRED, SEEDS, SNAPSHOT_DIR, STYLE_ANCHOR, WRITER_SEEDS, chapter_file, die, ensure_m3_fields, find_ch, han_words, knowledge_path, ledger, length_band, load, normalize_domain, now, plain, read_json, save, scene_path, section, sha16)
-from .ledgers import focus_core, reader_now_lines
+from .core import (BRIEF_DIR, HANDOFF_CFG, OPEN_STATES, ROLES, TECH_CFG, TRACK_PLAYBOOK, WRITER_GUARD, book_root, chars, current_chapter, ENTRY, ERAS, FACTS, KNOW_DIR, L, MATERIAL_HINT, PACK_BUDGET, PACK_DIR, PROMISES, SCENE_BATCH, SCENE_DIR, SCENE_KEY_REQUIRED, SCENE_REQUIRED, SEEDS, SNAPSHOT_DIR, STYLE_ANCHOR, WRITER_SEEDS, chapter_file, die, ensure_m3_fields, find_ch, han_words, knowledge_path, ledger, length_band, load, next_seq, normalize_domain, now, open_unit, plain, read_json, save, scene_path, section, sha16)
+from .ledgers import dark_line_cooling, focus_core, reader_now_lines
 from .materials import material_cards, material_refs
 from .memory import handoff_slice, memory_slice
 from .core import writer_input_problems
@@ -223,6 +223,40 @@ def cmd_study(a):
     print("一书一深学：" + ("、".join(d["study"]) or "（未选）"))
 
 
+REVEAL_RE = re.compile(r"(?:伏笔回收|回收伏笔|揭晓伏笔|兑现承诺|本场兑现)[：:][^\n]*")
+
+
+def revealing_ids(card: str) -> set:
+    ids = set()
+    for m in REVEAL_RE.finditer(card):
+        ids.update(re.findall(r"\b[A-Z]{1,4}-\d{4}\b", m.group(0)))
+    return ids
+
+
+def truth_leaks(book_dir: Path, seq: int, text: str, allowed_ids: set = None) -> list:
+    """铁律 9 延伸：未在本章揭晓（或晚于本章才兑现）的伏笔，里层真相禁止混入写手包，防止剧透式笔法。"""
+    allowed = allowed_ids or set()
+    items = ledger(book_dir, PROMISES)["items"]
+    leaks = []
+    for p in items:
+        truth = (p.get("true_meaning") or "").strip()
+        if len(truth) < 2 or p["id"] in allowed or p.get("resolved_ch") == seq:
+            continue
+        unrevealed_at_seq = p.get("status") in OPEN_STATES or ((p.get("resolved_ch") or 0) > seq)
+        if unrevealed_at_seq and truth in text:
+            leaks.append(f"未揭晓伏笔真相（{p['id']}）：{truth}")
+    return leaks
+
+
+def npc_sketches(card: str) -> list:
+    out = []
+    for m in re.finditer(r"配角(?:活人)?速写[：:]\s*([^\n]+)", card):
+        val = m.group(1).strip()
+        if val and val not in ("无", "——", "-"):
+            out.append(val)
+    return out
+
+
 def cmd_pack(a):
     book_dir = Path(a.book_dir)
     d = load(book_dir)
@@ -234,7 +268,12 @@ def cmd_pack(a):
     blocks = re.split(r"^##\s*场景", card, flags=re.M)[1:]
     out = [f"# 第 {a.seq} 章 写手包", "", "> 由 ncc_state.py pack 组装。阅读顺序：写作简报 → 本书经验 → 作者刚说的 → 读者此刻 → 人物声音 → 可用材料 → 前情 → 前一章结尾 → 文风基准。", ""]
 
+    prev = next((x for x in d.get("chapters", []) if x["seq"] == a.seq - 1), None)
     out += ["## 写作简报", ""]
+    if prev and prev.get("hook") and prev["hook"].get("type"):
+        hk = prev["hook"]
+        hline = f"（定格：{hk['line']}）" if hk.get("line") else ""
+        out += [f"- **章首 300 字秒接**：上一章停在「{hk['type']}·强度{hk.get('intensity')}{hline}」，本章开篇直接正面接住演下去，勿切镜头写无关寒暄或景物过渡。", ""]
     for i, b in enumerate(blocks, 1):
         body = b.split("\n", 1)[1] if "\n" in b else ""
         out += [f"### 场景 {i}", body.strip()]
@@ -260,7 +299,7 @@ def cmd_pack(a):
     if said:
         out += ["## 作者刚说的", ""] + said + [""]
 
-    out += reader_now_lines(book_dir, d, a.seq) + [""]
+    out += reader_now_lines(book_dir, d, a.seq, mask_truth=True) + [""]
 
     rows = knowledge_rows(book_dir, a.seq)
     if rows:
@@ -273,18 +312,34 @@ def cmd_pack(a):
 
     out += ["## 人物声音", ""]
     names = []
+    u = open_unit(d)
+    is_arc_beat = bool(c.get("key") or (u and u.get("arc_ch") == a.seq))
+    arc_stage = (d.get("soul") or {}).get("arc_stage") or ""
     for p in sorted((book_dir / L("characters")).glob("*.md")):
         if p.stem.endswith("-采访") or p.stem not in card:
             continue
         names.append(p.stem)
         t = p.read_text("utf-8")
         out.append(f"### {p.stem}")
-        for sec in ("欲望", "恐惧", "声音"):
+        for sec in ("欲望", "恐惧", "声音", "标志细节", "关系"):
             v = section(t, sec)
-            if v:
+            if v and not v.startswith("<"):
                 out.append(f"- {sec}：{v}")
+        if is_arc_beat:
+            lie = section(t, "信错的那句话")
+            clash = section(t, "内在矛盾")
+            is_protag = bool(section(t, "弧光"))
+            cues = [x for x in (f"旧执念：{lie}" if lie and not lie.startswith("<") else "",
+                                f"内在拉扯：{clash}" if clash and not clash.startswith("<") else "",
+                                f"当前刻度：{arc_stage}" if (is_protag and arc_stage) else "") if x]
+            if cues:
+                out.append(f"- 行为反差张力（只通过动作与选择演出来，严禁内心独白点破）：{'；'.join(cues)}")
         out.append("")
-    if not names:
+    sketches = npc_sketches(card)
+    if sketches:
+        out.append("### 场内配角活人算盘（人人有私货，拒绝纯捧哏或无脑送人头）")
+        out += [f"- {s}" for s in sketches] + [""]
+    if not names and not sketches:
         out += ["（场景卡里没有出现已建卡的人物名）", ""]
 
     out += ["## 可用材料", ""]
@@ -300,6 +355,18 @@ def cmd_pack(a):
             m = mats[r]
             out.append(f"- 素材 {r}：{m['内容']}（可用在：{m['可用处']}）{MATERIAL_HINT.get(m.get('可信级'), '')}")
     out += writer_lines(book_dir, card)
+    rev_ids = revealing_ids(card)
+    for p in ledger(book_dir, PROMISES)["items"]:
+        revealing_here = (p.get("resolved_ch") == a.seq) or (p["id"] in rev_ids)
+        touched_here = (p.get("created_ch") == a.seq
+                        or any(e.get("ch") == a.seq for e in p.get("progress", []))
+                        or p["id"] in card)
+        unrevealed_at_seq = p.get("status") in OPEN_STATES or ((p.get("resolved_ch") or 0) > a.seq)
+        if revealing_here and p.get("true_meaning"):
+            rev_ids.add(p["id"])
+            out.append(f"- 伏笔回收揭晓：{p['true_meaning']}（呼应第{p.get('created_ch')}章埋下的明面细节「{p.get('surface_cover') or p.get('content')}」）")
+        elif touched_here and p.get("surface_cover") and unrevealed_at_seq and not revealing_here:
+            out.append(f"- 明面细节埋设（当作寻常明线事物自然写出，切勿暗示深意）：{p['surface_cover']}")
     facts = read_json(book_dir / FACTS, {"facts": {}}).get("facts", {})
     for k, f in facts.items():
         if k in card:
@@ -317,7 +384,6 @@ def cmd_pack(a):
     out.append("")
 
     out += ["## 前情", ""] + focus_core(book_dir, d, a.seq) + [""]
-    prev = next((x for x in d.get("chapters", []) if x["seq"] == a.seq - 1), None)
     if prev and (book_dir / prev.get("file", "")).is_file():
         tail = plain((book_dir / prev["file"]).read_text("utf-8")).strip()[-800:]
         out += ["## 前一章结尾（原文）", "", tail, ""]
@@ -326,7 +392,7 @@ def cmd_pack(a):
         out += ["## 文风基准（最后读）", "", style.read_text("utf-8").strip(), ""]
 
     text = "\n".join(out)
-    problems = writer_input_problems(d, text)
+    problems = writer_input_problems(d, text) + truth_leaks(book_dir, a.seq, text, rev_ids)
     if problems:
         die("写手包内容不可见：" + "；".join(problems))
     size = len(re.findall(r"[\u4e00-\u9fff]", text))
@@ -365,6 +431,15 @@ def cmd_brief(a):
     if role in TECH_CFG["per_role"]:
         tl = brief_lines(book_dir, d, role, seqs)
         out += ["## 技法参考（借写法，不借事件链；推荐理由仍先从作者种子长出来）", ""] + (tl or ["- （技法库里没有合适的卡）"]) + [""]
+    if role in ("outliner", "story-editor"):
+        ref_seq = seqs[0] if seqs else next_seq(d)
+        cool = dark_line_cooling(ledger(book_dir, PROMISES)["items"], ref_seq)
+        if cool:
+            out += ["## 暗线冷却预警（建议本批用一石二鸟明线遮眼法顺手擦碰）", ""]
+            out += [f"- {p['id']} [{line}] 沉底 {gap} 章：{p['content']}"
+                    + (f"（明面伪装：{p['surface_cover']}）" if p.get("surface_cover") else "") for p, line, gap in cool[:4]] + [""]
+        if (book_dir / TRACK_PLAYBOOK).is_file():
+            out += ["## 本书赛道白金母本", "", f"- 已生成专属赛道母本：`{TRACK_PLAYBOOK}`，排卡与故事审须对齐其核心爽感杠杆、配速与红线。", ""]
     if a.note:
         out += ["## 经理的特别提醒", a.note, ""]
     name = role + (f"-ch-{seqs[0]:04d}" if seqs else "") + (f"-{a.persona}" if a.persona else "") + (f"-{a.task}" if a.task and not seqs else "")

@@ -304,6 +304,24 @@ TECHNIQUE_STAGES = tuple(V["technique_stages"])
 CONFIDENCE = tuple(V["confidence"])
 
 
+PROMISE_LINES = tuple(V["promise_lines"])
+
+
+HOOK_TYPES = tuple(V["hook_types"])
+
+
+ARC_STAGES = tuple(V["arc_stages"])
+
+
+DARK_LINE_COOL = 8
+
+
+TRACK_PLAYBOOK = L("track_playbook")
+
+
+SANDBOX_DIR = L("sandbox_dir")
+
+
 MEMORY_CFG = REGISTRY["memory"]
 
 

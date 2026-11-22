@@ -46,7 +46,7 @@ def intent_view(book_dir: Path, d: dict) -> str:
              f"## 书魂（{st}{when}）", "",
              f"- 主题之问：{v(soul.get('question'))}", f"- 主角的答案：{v(soul.get('answer'))}",
              f"- 世界的不公：{v(soul.get('injustice'))}", f"- 终局的回答：{v(soul.get('ending'))}",
-             f"- 主角弧光：{v(soul.get('arc'))}", "",
+             f"- 主角弧光：{v(soul.get('arc'))}" + (f"（当前刻度：{soul['arc_stage']}）" if soul.get("arc_stage") else ""), "",
              "## 类型契约", "", f"- 主契约：{v(ct.get('main'))}", f"- 附加契约：{'、'.join(ct.get('extras', [])) or '（无）'}",
              f"- 毒点：{'、'.join(ct.get('poison', [])) or '（未填）'}", f"- 目标读者：{v(ct.get('audience'))}", "",
              "### 签约点（黄金三章内必须落地）", "", "| 签约点 | 落在 |", "|---|---|"]
@@ -67,7 +67,10 @@ def ledger_view(book_dir: Path, d: dict, kind: str) -> str:
     if kind == "promise":
         items, cur = ledger(book_dir, PROMISES)["items"], current_chapter(d)
         s = promise_summary(book_dir, d)
-        row = lambda p: (f"| {p['id']} | {p['type']} | {p['content']} | {p.get('strength')} | {p.get('created_ch')} | "
+        has_v5 = any(p.get("line") or p.get("surface_cover") for p in items)
+        row = lambda p: (f"| {p['id']} | {p['type']}{('·' + p['line']) if p.get('line') else ''} | "
+                         + (f"{p['content']}（伪装：{p['surface_cover']}）" if has_v5 and p.get("surface_cover") else p["content"])
+                         + f" | {p.get('strength')} | {p.get('created_ch')} | "
                          + (f"{p['window'][0]}–{p['window'][1]}" if p.get("window") else (p.get("deadline") or "—"))
                          + f" | {p['status']}{'（逾期）' if promise_overdue(p, cur) else ''} |")
         head = ["| 编号 | 类型 | 内容 | 强度 | 建立 | 兑现窗口／最晚 | 状态 |", "|---|---|---|---|---|---|---|"]

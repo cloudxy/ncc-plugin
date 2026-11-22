@@ -673,7 +673,7 @@
     "园丁": "只定书魂、第一卷方向与主要人物，按场景探索着写，台账事后补记",
     "混合": "默认：书魂与人物先定，情节只规划到当前单元"
   },
-  "principle": "下限靠系统，上限靠作者与选择。",
+  "principle": "下限靠铁律，上限靠白金连载引擎，直觉与拍板靠出品人（作者）。",
   "loops": {
     "章": "ncc-write",
     "单元": "unit open/close＋report unit（loops.md 的「单元循环」）",
@@ -1284,6 +1284,37 @@
         "强推断",
         "弱推断"
       ]
+    },
+    "promise_lines": {
+      "label": "叙事线（三线织网）",
+      "used_by": "promise add --line、promise list --line、sandbox",
+      "values": [
+        "明线",
+        "暗线",
+        "灰线"
+      ]
+    },
+    "hook_types": {
+      "label": "白金断章钩五型（兼容自由命名）",
+      "used_by": "chapter hook --type、场景卡章尾断章、sandbox",
+      "values": [
+        "半步揭晓钩",
+        "绝境悬刀钩",
+        "开箱前夜钩",
+        "装逼抬手钩",
+        "人性背刺钩"
+      ]
+    },
+    "arc_stages": {
+      "label": "弧光显影刻度",
+      "used_by": "soul --arc-stage、sandbox、写手包行为反差提示",
+      "values": [
+        "旧活法奏效",
+        "裂痕初现",
+        "至暗拷问",
+        "反差证道",
+        "平弧殉道加码"
+      ]
     }
   },
   "layout": {
@@ -1323,6 +1354,12 @@
           "what": "本书的对标书（拆书库里的书名），单元复盘拿它的基线作参照",
           "writer": "decon link",
           "view": "单元复盘底稿"
+        },
+        {
+          "field": "plight",
+          "what": "主角当下四维高压处境（头顶恶规、身边暗箭、兜里短板、唯一生门）",
+          "writer": "plight",
+          "view": "current-focus.md；sandbox"
         }
       ]
     },
@@ -1356,6 +1393,22 @@
       "kind": "角色",
       "what": "对标书分析",
       "writer": "scout"
+    },
+    "track_playbook": {
+      "path": "00-策划/赛道白金母本.md",
+      "kind": "角色",
+      "what": "本书专属赛道的极致白金母本（配速、处境、爽感杠杆、钩子配比、剧毒红线）",
+      "writer": "scout + outliner（赛道深挖协议）",
+      "on_demand": true
+    },
+    "sandbox_dir": {
+      "path": "00-策划/沙盘",
+      "kind": "角色",
+      "what": "每个剧情展开前的明暗线交织进度与爽点排布沙盘（生成区块是数据与体检，区块外是出品人战前调优）",
+      "writer": "sandbox --write；outliner 与作者",
+      "dir": true,
+      "on_demand": true,
+      "eg": "单元-U1.md、ch-0001-0010.md"
     },
     "change_log": {
       "path": "00-策划/变更提议.md",
@@ -1809,7 +1862,8 @@
     },
     "reads": {
       "scout": [
-        "agents/scout.md"
+        "agents/scout.md",
+        "skills/ncc-new/references/platinum-playbooks.md"
       ],
       "worldbuilder": [
         "agents/worldbuilder.md",
@@ -1824,6 +1878,7 @@
       "outliner": [
         "agents/outliner.md",
         "skills/ncc-new/references/outline.md",
+        "skills/ncc-new/references/platinum-playbooks.md",
         "skills/ncc-write/references/scene-card.md",
         "skills/ncc/references/domains/README.md",
         "skills/ncc/references/finale.md"

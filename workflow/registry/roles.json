@@ -179,7 +179,8 @@
     },
     "reads": {
       "scout": [
-        "agents/scout.md"
+        "agents/scout.md",
+        "skills/ncc-new/references/platinum-playbooks.md"
       ],
       "worldbuilder": [
         "agents/worldbuilder.md",
@@ -194,6 +195,7 @@
       "outliner": [
         "agents/outliner.md",
         "skills/ncc-new/references/outline.md",
+        "skills/ncc-new/references/platinum-playbooks.md",
         "skills/ncc-write/references/scene-card.md",
         "skills/ncc/references/domains/README.md",
         "skills/ncc/references/finale.md"

@@ -3,7 +3,7 @@
 import re
 import sys
 from pathlib import Path
-from .core import (MEMORY_DIR, MEMORY_ROLES, ARCS, CHAPTER_STATES, CHARACTER_REQUIRED, COLORS, CRAFT_EXCERPT, CRAFT_LIBRARY, DIRS, EVENTS, FACTS, FINALE_LIST, FINALE_REQUIRED, GATES, HAN, KNOWLEDGE, L, LEGACY_MOOD, LEVELS, MODES, NON_READER_TYPES, OLD_FORESHADOW, OPEN_STATES, PLANNED_GATES, PROMISES, READER_DATA, REVIEW_DIR, SCENE_DIR, SCHEMA, SEEDS, SIGNING_POINTS, STYLE_ANCHOR, STYLE_FP, TENSION, VOLUME_REVIEW_REQUIRED, as_int, chapter_file, copy_template, current_chapter, die, ensure_m3_fields, find_ch, han_words, ledger, length_band, load, load_cfg, next_id, now, open_unit, open_volume, parse_window, read_json, save, section, sha16, split_names, write_json)
+from .core import (ARC_STAGES, MEMORY_DIR, MEMORY_ROLES, ARCS, CHAPTER_STATES, CHARACTER_REQUIRED, COLORS, CRAFT_EXCERPT, CRAFT_LIBRARY, DIRS, EVENTS, FACTS, FINALE_LIST, FINALE_REQUIRED, GATES, HAN, KNOWLEDGE, L, LEGACY_MOOD, LEVELS, MODES, NON_READER_TYPES, OLD_FORESHADOW, OPEN_STATES, PLANNED_GATES, PROMISES, READER_DATA, REVIEW_DIR, SCENE_DIR, SCHEMA, SEEDS, SIGNING_POINTS, STYLE_ANCHOR, STYLE_FP, TENSION, VOLUME_REVIEW_REQUIRED, as_int, chapter_file, copy_template, current_chapter, die, ensure_m3_fields, find_ch, han_words, ledger, length_band, load, load_cfg, next_id, now, open_unit, open_volume, parse_window, read_json, save, section, sha16, split_names, write_json)
 from .ledgers import chapter_touches, promise_due_soon, promise_overdue, promise_summary
 from .materials import material_cards, material_usage
 from .scenes import knowledge_ready, knowledge_rows, scene_ready
@@ -244,6 +244,12 @@ def cmd_status(a):
         print("设定类目: " + ("、".join(f"{k} {len(cards.get(k, []))} 张" for k in sc["used"]) or f"不用（{sc['none']}）"))
     if d.get("benchmarks"):
         print("对标书: " + "、".join(d["benchmarks"]))
+    pl = d.get("plight") or {}
+    if any(pl.values()):
+        parts = [f"{lbl}:{pl[k]}" for k, lbl in (("overhead", "头顶"), ("peers", "身边"), ("shortfall", "短板"), ("leverage", "生门")) if pl.get(k)]
+        print("主角处境: " + "｜".join(parts))
+    if soul.get("arc_stage"):
+        print(f"弧光刻度: {soul['arc_stage']}")
     print(f"更新于: {d.get('updated_at')}")
 
 
@@ -480,6 +486,13 @@ def cmd_soul(a):
         if a.arc not in ARCS:
             die(f"--arc 只能是 {'/'.join(ARCS)}")
         soul["arc"] = a.arc
+    if getattr(a, "arc_stage", None) is not None:
+        if a.arc_stage and a.arc_stage not in ARC_STAGES:
+            die(f"--arc-stage 只能是 {'/'.join(ARC_STAGES)}")
+        if a.arc_stage:
+            soul["arc_stage"] = a.arc_stage
+        else:
+            soul.pop("arc_stage", None)
     if a.status:
         if a.status not in ("暂定", "确定"):
             die("--status 只能是 暂定 或 确定")
@@ -488,7 +501,8 @@ def cmd_soul(a):
             soul["deadline"] = ""
     save(book_dir, d)
     print(f"OK 书魂 status={soul.get('status')}" + (f" deadline={soul.get('deadline')}" if soul.get("deadline") else "")
-          + (f" arc={soul.get('arc')}" if soul.get("arc") else ""))
+          + (f" arc={soul.get('arc')}" if soul.get("arc") else "")
+          + (f" arc_stage={soul.get('arc_stage')}" if soul.get("arc_stage") else ""))
 
 
 def cmd_contract(a):
@@ -529,7 +543,8 @@ def cmd_chapter(a):
     if a.action == "add":
         if any(c["seq"] == a.seq for c in d.get("chapters", [])):
             die(f"第 {a.seq} 章已登记")
-        key = a.key or a.seq <= 3
+        u = open_unit(d)
+        key = a.key or a.seq <= 3 or bool(u and u.get("arc_ch") == a.seq)
         d.setdefault("chapters", []).append({
             "seq": a.seq, "file": a.file, "status": "pending", "key": key, "word_count": 0,
             "hook": None, "mood": None, "retry": 0, "sha": "", "review": None,

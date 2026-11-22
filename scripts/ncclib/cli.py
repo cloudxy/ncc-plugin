@@ -19,7 +19,12 @@
   sign <book> <签约点> --ch N             签约点：{signing_points}
 
 循环与收束（M3）
-  unit open <book> --start N [--title T]   开一个剧情单元（10–40 章）
+  unit open <book> --start N [--title T] [--countdown C] [--milestone M] [--arc-ch K]
+                                         开一个剧情单元（10–40 章），挂悬顶倒计时、跃迁目标与弧光显影章
+  sandbox <book> [--from A] [--to B] [--write]
+                                         每个剧情展开前的战前沙盘预览：明暗线交织进度、爽点排布与战前体检
+  plight <book> [--overhead H] [--peers P] [--shortfall S] [--leverage L] [--clear]
+                                         主角当下四维高压处境账（头顶恶规、身边暗箭、兜里短板、唯一生门）
   unit close <book> --end N               关单元：须先有 00-策划/复盘/单元-Uk.md
   unit list <book>
   volume end <book> --end N               本卷写完，进入卷复盘（stage → volume），之后过 gate volume
@@ -195,6 +200,10 @@ def auto_render(a):
         return
     if a.cmd == "gate" and getattr(a, "action", "") == "check":
         return
+    if a.cmd == "sandbox" and not getattr(a, "write", False):
+        return
+    if a.cmd == "plight" and not getattr(a, "clear", False) and all(getattr(a, k, None) is None for k in ("overhead", "peers", "shortfall", "leverage")):
+        return
     if getattr(a, "book_dir", None):
         targets = [Path(a.book_dir)]
     elif a.cmd == "pref":
@@ -245,6 +254,10 @@ READ_ONLY = {("status", None), ("next", None), ("report", None), ("sha", None), 
 def log_op(a):
     """团队交接用：每个成功的写操作追加一行到 .ncc/操作日志.jsonl。"""
     key = (a.cmd, getattr(a, "action", None))
+    if a.cmd == "sandbox" and not getattr(a, "write", False):
+        return
+    if a.cmd == "plight" and not getattr(a, "clear", False) and all(getattr(a, k, None) is None for k in ("overhead", "peers", "shortfall", "leverage")):
+        return
     if key in READ_ONLY or (a.cmd, None) in READ_ONLY or a.cmd == "gate" and getattr(a, "action", "") == "check":
         return
     book = getattr(a, "book_dir", None)

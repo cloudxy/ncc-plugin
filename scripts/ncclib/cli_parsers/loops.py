@@ -1,10 +1,11 @@
 """CLI 参数注册：loops；不执行书项目读写。"""
-from ..loops import cmd_feedback, cmd_finale, cmd_report, cmd_team, cmd_unit, cmd_volume
+from ..loops import cmd_feedback, cmd_finale, cmd_report, cmd_sandbox, cmd_team, cmd_unit, cmd_volume
 
 
 def register_unit(sub):
     p = sub.add_parser("unit"); us = p.add_subparsers(dest="action", required=True)
     q = us.add_parser("open"); q.add_argument("book_dir"); q.add_argument("--start", type=int, required=True); q.add_argument("--title")
+    q.add_argument("--countdown"); q.add_argument("--milestone"); q.add_argument("--arc-ch", type=int)
     q = us.add_parser("close"); q.add_argument("book_dir"); q.add_argument("--end", type=int, required=True)
     q = us.add_parser("list"); q.add_argument("book_dir")
     p.set_defaults(fn=cmd_unit)
@@ -43,6 +44,13 @@ def register_team(sub):
     q = ts.add_parser("list"); q.add_argument("book_dir")
     p.set_defaults(fn=cmd_team)
 
+
+def register_sandbox(sub):
+    p = sub.add_parser("sandbox"); p.add_argument("book_dir")
+    p.add_argument("--from", dest="from_ch", type=int); p.add_argument("--to", dest="to_ch", type=int)
+    p.add_argument("--write", action="store_true"); p.add_argument("--force", action="store_true")
+    p.set_defaults(fn=cmd_sandbox)
+
 REGISTRARS = {
     'unit': register_unit,
     'volume': register_volume,
@@ -50,4 +58,5 @@ REGISTRARS = {
     'report': register_report,
     'feedback': register_feedback,
     'team': register_team,
+    'sandbox': register_sandbox,
 }

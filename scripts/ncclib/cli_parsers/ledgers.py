@@ -1,5 +1,5 @@
 """CLI 参数注册：ledgers；不执行书项目读写。"""
-from ..ledgers import cmd_event, cmd_fact, cmd_know, cmd_promise, cmd_reader_now, cmd_water
+from ..ledgers import cmd_event, cmd_fact, cmd_know, cmd_plight, cmd_promise, cmd_reader_now, cmd_water
 
 
 def register_water(sub):
@@ -11,15 +11,17 @@ def register_promise(sub):
     q = ps.add_parser("add"); q.add_argument("book_dir"); q.add_argument("--type", required=True)
     q.add_argument("--content", required=True); q.add_argument("--ch", type=int, required=True)
     q.add_argument("--strength", type=int, default=3); q.add_argument("--window"); q.add_argument("--deadline")
-    q.add_argument("--desire")
+    q.add_argument("--desire"); q.add_argument("--line"); q.add_argument("--cover"); q.add_argument("--truth")
     for act in ("touch", "resolve"):
         q = ps.add_parser(act); q.add_argument("book_dir"); q.add_argument("id")
         q.add_argument("--ch", type=int, required=True); q.add_argument("--note")
+        if act == "touch":
+            q.add_argument("--line"); q.add_argument("--cover"); q.add_argument("--truth")
     q = ps.add_parser("reschedule"); q.add_argument("book_dir"); q.add_argument("id")
     q.add_argument("--window", required=True); q.add_argument("--note", required=True); q.add_argument("--ch", type=int)
     q = ps.add_parser("drop"); q.add_argument("book_dir"); q.add_argument("id")
     q.add_argument("--ch", type=int, required=True); q.add_argument("--compensation", required=True)
-    q = ps.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--open", action="store_true"); q.add_argument("--type")
+    q = ps.add_parser("list"); q.add_argument("book_dir"); q.add_argument("--open", action="store_true"); q.add_argument("--type"); q.add_argument("--line"); q.add_argument("--show-truth", action="store_true")
     p.set_defaults(fn=cmd_promise)
 
 
@@ -56,6 +58,12 @@ def register_reader_now(sub):
     p = sub.add_parser("reader-now"); p.add_argument("book_dir"); p.add_argument("seq", type=int)
     p.add_argument("--top", type=int, default=5); p.set_defaults(fn=cmd_reader_now)
 
+
+def register_plight(sub):
+    p = sub.add_parser("plight"); p.add_argument("book_dir")
+    p.add_argument("--overhead"); p.add_argument("--peers"); p.add_argument("--shortfall"); p.add_argument("--leverage")
+    p.add_argument("--clear", action="store_true"); p.set_defaults(fn=cmd_plight)
+
 REGISTRARS = {
     'water': register_water,
     'promise': register_promise,
@@ -63,4 +71,5 @@ REGISTRARS = {
     'fact': register_fact,
     'event': register_event,
     'reader-now': register_reader_now,
+    'plight': register_plight,
 }

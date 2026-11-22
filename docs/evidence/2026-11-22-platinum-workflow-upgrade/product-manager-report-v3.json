@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "role": "product-manager",
+  "input_sha256": "39b29a2c7ec7e2f1ee85d509ed2c6efeff271651fc4c33888305cb069ca13950",
+  "execution": {
+    "mode": "subagent",
+    "identity": "ncc-dev:product-manager-subagent"
+  },
+  "decision": "ready",
+  "deliverables": {
+    "author_task": "【使用者与情境】目标使用者是不熟悉起点长篇网文编剧技法，但具备阅读审美与直觉拍板能力的「白金出品人/制片人」型作者。产品主线始终锚定小说创作，资源管理（`/ncc-prepare`）保持独立可用且不构成写章前置阻塞；按作者最新决定，本轮暂不开新书，聚焦完成白金连载引擎、Grill-Me 九项定音与全网高阶小说创作框架吸收，并在验证通过后执行同步发布。\n【端到端可采用成果（含决定四框架吸收）】1）立书与赛道一步同屏交付（`/ncc-new`）：基于五大王牌母本与六项白金骨架动态深挖产出 `00-策划/赛道白金母本.md`，一步同屏呈交「前 5 标杆爽感杠杆与死穴 + 前 30 章三级火箭表 + 3 段 300 字试映片花」供点选/混搭/重拍，卷纲内嵌「30-40 章换地图不断根（保留 1-2 个旧图残余回响锚点）」与「MICE 嵌套开合栈（先进后出 FILO）」；2）8-12 章受管战前沙盘与单元五拍锚定：在 S2 开篇、新单元开启前及重大偏航停驻呈示 `ncc_state.py sandbox`，自动标出「单元五拍中点攻守易形锚（前半受压拿牌→中点摸清底牌转主动设局反猎杀）」与「多线雪崩合拢（同场引爆兑现至少 2 条线索）」，将钩子撞车、暗香断档、零交织、同型爽点疲劳列为后台先行自修项，仅将连压憋屈与十章一响缺位列为呈出品人 A/B 白话二选一拍板项，并带 `sandbox-sha` 脏改保护；3）单元内直通写审、防毒掀桌与完本雪崩清算（`/ncc-write`、`/ncc`）：场景卡与故事审内部消化「封路逼宫（显式划掉 1-2 条顺手退路或金手指逃课法）」「反防御性掀桌检视（禁冲突半途各退一步和稀泥）」「受挫不受辱与章内微爽机锋保底」「九紧一松开箱余波章」「众星拱月 100-200 字微切见证且破局焊死主角」「阶梯双轨反派死律」；写手严守铁律 9 盲写并通过既有 `event add --attr 持有|消耗|损毁` 完成关键筹码流转记账；关键章用三行「极速看片卡」一键点字母定稿；S5 完本收束按 MICE 逆序清算并优先采用多线雪崩合拢。\n【证据与待验证假设】1）作者约束：`packet.authorization[0..3]`。2）已核源码与文档证据：`docs/designs/writing/platinum-upgrade.md`（sha256 `40b3a018...`）、`ACKNOWLEDGMENTS.md`、`platinum-playbooks.md`、`outline.md`、`finale.md`、`scene-card.md`、`chapter-loop.md` 与 `scripts/ncclib/loops.py`。3）待验证假设：本轮按作者决定暂不开书，单元五拍中点锚、封路逼宫、多线雪崩合拢与筹码记账在百章级真实 LLM 连载中的长程稳定性留待后续实写观测。",
+    "value": "1）吸收全网高阶编剧框架且保持出品人零新增负担：决定四吸收的六项机制（对抗式封路逼宫、单元五拍中点攻守易形、MICE 嵌套开合栈与多线雪崩合拢、反防御性掀桌、关键筹码记账、换地图不断根与章内微爽保底）全部沉淀在 `outliner`、`story-editor`、`writer` 台账回写与 `loops.py` 沙盘自动计算内部，没有给出品人增加任何新表单、新术语问答或单章审批点。\n2）精准克制大模型长篇连载三大顽疾：以「封路逼宫 + 反防御性掀桌」根治 AI 靠金手指逃课秒杀或冲突半途和稀泥降级；以复用 `event add --attr 持有|消耗|损毁` 根治一次性底牌反复使用或遗忘；以「换地图不断根 + MICE 先进后出栈 + 多线雪崩合拢」根治 30-40 章换图断层弃书与卷末完本排队报账式烂尾。\n3）严守零第三方运行依赖与清晰知识产权边界：`loops.py` 仅使用 Python 标准库与仓内模块，舍弃外部论文的高成本多轮树搜索生成、十余代理重管线与外部向量库；所有学术论文、创作理论与开源参考均在 `ACKNOWLEDGMENTS.md` 的「白金连载引擎与全网创作框架吸收（2026-11-22）」如实记录转化与舍弃依据，零代码或提示词复制。\n4）完整延续铁律 9、防丢稿与 `schema 4` 兼容：写手禁读沙盘、母本与考核清单，未揭晓暗线物理防泄漏，`sandbox-sha` 脏改保护及旧书无新字段逐字节兼容毫发无损。",
+    "scope": "【本批最终纵向交付切片】1）状态、回路与沙盘内核切片：`workflow/registry/`、`scripts/ncclib/`（已核实 `loops.py` 实现 `mid_ch` 单元五拍中点反守为攻锚、`converge_chs` 多线雪崩合拢识别、后台自修 vs 呈出品人 A/B 拍板分流体检、5 条活跃暗线锁池与十章一响提醒、`TRACK_PLAYBOOK` 非阻塞挂载及 `sandbox-sha` 脏改保护/快照失效提示）与 `check_chapter.py`；2）母本、全阶段技能与致谢归档切片：`skills/ncc-new/references/platinum-playbooks.md`、`skills/ncc-new/references/outline.md`、`skills/ncc/references/finale.md`、`skills/ncc-write/references/scene-card.md`、`skills/ncc-write/references/chapter-loop.md`、`agents/*.md` 及 `ACKNOWLEDGMENTS.md` 完成七大机关、Grill-Me 九项定音与决定四全网创作框架吸收的端到端接线，满足 20000/35000 字符 `load_budget`；3）验证与授权发布切片：跑通 `test_platinum_upgrade.py`、全量单测、`build_registry.py --check`、`check_plugin.py -v`、`ncc_eval.py mech` 与工程角色最终复核后，按作者决定四执行 `git pull` → 提交 → 推送远端 `main`。\n【明确非目标】1）按作者最新决定暂不开新书，不跑单章对比样章，严禁将任何私有书稿标记内容暂存提交；2）不为筹码记账或 MICE 栈另建新数据库表、新配置文件或引入任何第三方 Python/JS 依赖与锁文件；3）不破坏 `schema 4` 旧书与冻结 CLI/运行时兼容快照；4）不改动 PostgreSQL、Dynaconf、`config/.env` 或 `apps/management-web/`。\n【依赖与后续项】前置依赖基线 `f3f6bc1a...`、`.githooks/pre-commit` 与 `pre-push` 同步及私有内容守卫。后续项：1）主协调者完成最终全量检查与角色报告登记后执行 `git pull` → `git commit` → `git push`（负责人：主会话协调者）；2）后续作者正式开书时，在五套宿主 CLI 新会话及真实多章连载中检验整套白金引擎体感（触发条件：作者发起新书或连载任务）。",
+    "priority": "【方案取舍对比】1）直接照搬外部论文/开源多代理重管线（逐段树搜索生成 + 每章十余代理 + 外部向量数据库）：调用成本与延迟暴增，引入外部运行依赖且极易破坏正文语态与离线 CLI 可用性（淘汰）；2）为关键筹码记账、单元五拍中点、MICE 栈分别新增独立 JSON 台账与必填 CLI 步骤：违背 E04 通用机制复用原则，把出品人与写手变成填表员并增加旧书兼容负担（淘汰）；3）思想内化 + 标准库自动推导 + 复用既有事件/承诺台账（当前最终方案）：`loops.py` 自动推导单元中点锚与多线合拢，筹码流转直接复用 `event add --attr 持有|消耗|损毁`，封路逼宫与反防御掀桌内化进场景卡与故事审，零外部依赖、零出品人额外操作、零旧书破坏。\n【内部优先级排序（按潜在损害度排序）】P0（阻断级安全、零外部依赖与发布合规）：1）铁律 9 正序揭晓防剧透与写手视野隔离、`sandbox-sha` 脏改保护及 `.githooks` 私有内容零泄漏发布；2）零第三方运行依赖、`schema 4` 旧书逐字节兼容及合入决定四增量后 20000/35000 `load_budget` 达标。P1（核心连载上限与战前排雷分流）：1）受管 8-12 章 `sandbox`（含五拍中点锚、多线雪崩合拢识别、后台自修项 vs 呈出品人 A/B 拍板项分流）；2）封路逼宫、反防御性掀桌、受挫红线与章内微爽保底、活跃暗线 5 条锁池与十章一响、关键筹码 `持有|消耗|损毁` 记账及章首 300 字秒接。P2（全书长程留存与极速交互）：1）一步同屏赛道三件套交付、换地图不断根（保留 1-2 个旧图残余回响锚点）及完本 MICE 逆序雪崩收束；2）九紧一松开箱余波章、高潮 100-200 字微切见证与关键章三行「极速看片卡」点字母定稿。",
+    "acceptance": "【场景级验收追踪】AC-01（防剧透隔离、暗线锁池、MICE 栈与多线雪崩合拢）：未揭晓章及重打历史章 `pack` 仅含 `surface_cover` 且拦截 2 字及以上 `true_meaning`；`outline.md` 与 `finale.md` 落实 MICE 先进后出嵌套与逆序清算；`loops.py` 检出活跃暗线超 5 条锁池预警、8 章暗香断档预警、十章一响提醒及同章兑现至少 2 条线索的「多线雪崩合拢达标」。AC-02（8-12 章受管沙盘、五拍中点锚、排雷分流与脏改保护）：`loops.py` 在窗口至少 6 章时自动标出「单元五拍中点锚」与「中点反守为攻」定位，体检项明确标示 `[后台自修项]` 与 `[呈出品人 A/B 拍板项]` 且返回码为 0（缺 `00-策划/赛道白金母本.md` 或 `plight` 时回退通用底盘与引导提示，不卡旧书）；`--write` 具备 `sandbox-sha` 无标记手写文件保护、生成区块手改拦截与底层变更快照待复核提示。AC-03（封路逼宫、反防御掀桌、筹码记账与防毒护栏）：`scene-card.md` 常规/关键章模板与故事审清单落实封路逼宫、反防御性掀桌、晚进早出并场、配角私货算盘与高潮 100-200 字微切见证（破局归主角）；`chapter-loop.md` 落实 `event add --attr 持有|消耗|损毁` 关键筹码流转记账；`platinum-playbooks.md` 与 `outline.md` 落实受挫不受辱、章内微爽保底、小反派 3 章按死、九紧一松开箱余波章与 30-40 章换地图不断根。AC-04（零外部依赖、致谢归档与发布前自测）：`ACKNOWLEDGMENTS.md` 完整记录 2026-11-22 五组外部来源、转化取舍与落点，无第三方包或锁文件变更；`build_registry.py --check`、`check_plugin.py -v`（20000/35000 预算）、全量单测与 `ncc_eval.py mech` 通过后按同步纪律拉取、提交并推送。\n【测量方案】因作者明确决定暂不开书，本次不伪造创作实测指标；待后续开书时跟踪一步同屏定调轮次、单元内免打扰直通率、筹码吃书拦截率与换地图章节追读留存。\n【五层交付状态复核】1）方案层、2）核心源码与参考规则实现层、3）跨技能/致谢文档接线层：已直接只读核验 `product-manager-packet-v3.json`、`ACKNOWLEDGMENTS.md`、`platinum-playbooks.md`、`outline.md`、`finale.md`、`scene-card.md`、`chapter-loop.md` 与 `scripts/ncclib/loops.py`，均已落实且一致（`passed`）；4）自动化测试、预算校验与授权 Git 推送层：由主协调者运行命令执行（本子代理标 `pending`）；5）五套宿主 CLI 新会话加载与后续开书多章实写层：标 `pending`。",
+    "experience_application": "1）E02（实施缺口与承诺到代码/落点的端到端核实）：触发条件为决定四新增六项全网创作框架机制与授权发布，必须防止「写进方案与致谢但未落进实际技能或脚本」。对比前两轮仅读派单包，本轮直接对照核查了 `ACKNOWLEDGMENTS.md`、`platinum-playbooks.md`、`outline.md`、`finale.md`、`scene-card.md`、`chapter-loop.md` 与 `scripts/ncclib/loops.py`，逐一定位到封路逼宫、五拍中点锚（`mid_ch`）、MICE 栈与雪崩合拢（`converge_chs`）、反防御掀桌、筹码记账（`持有|消耗|损毁`）与换地图不断根的具体代码行与规则段；同时将本子代理未亲跑的单测/预算命令、Git 推送及五宿主新会话如实标为 `pending`。\n2）E04（复用既有通用存储机制，不增空层或冗余表）：触发条件为吸收外部多代理工作流的「关键道具与底牌状态防吃书」及「单元五拍/多线合拢」。对比为每项新概念增设独立 JSON 表与新 CLI 子命令的膨胀做法，本次方案在 `chapter-loop.md` 直接复用既有事件溯源世界账 `event add --attr 持有|消耗|损毁`，在 `loops.py` 直接由既有章节区间与 `PROMISES` 台账实时推导 `mid_ch` 与 `converge_chs`，零新增存储表、零第三方依赖，保持作品语义清晰与 `schema 4` 完全兼容。\n3）E07 与 E08（保护人工拍板基线、保持出品人低负担与硬伤闸门并行，兼顾 E01 非阻塞原则）：触发条件为战前沙盘重刷与排雷分流。已在 `loops.py` 源码核实：`cmd_sandbox` 对无 `GEN_BEGIN` 标记的手写文件及 `sandbox-sha` 不匹配的被手改生成区块默认拒绝覆盖，底层变更重刷自动插入快照更新待复核提示（闭环 E07）；体检项显式区分 `[后台自修项]` 与 `[呈出品人 A/B 拍板项]`，缺失 `00-策划/赛道白金母本.md` 或 `plight` 时仅给非阻断提示且单元内不绕过硬伤审稿闸门（闭环 E08 与 E01）。"
+  },
+  "findings": [],
+  "verification": [
+    {
+      "scenario": "核验 `product-manager-packet-v3.json`（`input_sha256`: `39b29a2c...`）中四项作者授权决定、小说创作主线定位、零第三方依赖边界与 `ACKNOWLEDGMENTS.md` 来源归档合规性",
+      "expected": "`platinum-upgrade.md` 与 `ACKNOWLEDGMENTS.md` 完整承接决定一至决定四（含暂不开书、六项创作框架吸收与授权发布），如实说明转化与舍弃依据，不引入任何第三方运行时、外部包或锁文件",
+      "status": "passed",
+      "evidence": "已只读审阅 `product-manager-packet-v3.json`（`input_sha256`: `39b29a2c7ec7e2f1ee85d509ed2c6efeff271651fc4c33888305cb069ca13950`）、内嵌 `platinum-upgrade.md`（`sha256`: `40b3a018f8d7d801f41bdf574d7d049953277e5225b55cc28534f005d032e015`）及仓内 `ACKNOWLEDGMENTS.md`「白金连载引擎与全网创作框架吸收（2026-11-22）」，五组外部参考均标明出处、取舍与本地落点，零代码/提示词复制"
+    },
+    {
+      "scenario": "核查六项全网高阶创作框架与出品人低负担体验在核心源码（`loops.py`）及五份创作技能参考中的实际落点与铁律 9 隔离",
+      "expected": "封路逼宫、单元五拍中点攻守易形、MICE 嵌套开合栈与多线雪崩合拢、反防御性掀桌、关键筹码 `持有|消耗|损毁` 记账、换地图不断根与章内微爽保底均已在对应脚本与技能文件落位，写手不接触审稿清单/沙盘/母本，出品人无额外表单负担，旧书缺省字段非阻塞",
+      "status": "passed",
+      "evidence": "已只读核查 `scripts/ncclib/loops.py`（仅用标准库；已实现 `mid_ch` 中点锚、`converge_chs` 多线雪崩合拢、`[后台自修项]` vs `[呈出品人 A/B 拍板项]` 分流、5 条暗线锁池、十章一响、`TRACK_PLAYBOOK` 优雅回退及 `sandbox-sha` 脏改保护）以及 `platinum-playbooks.md`、`outline.md`、`finale.md`、`scene-card.md`、`chapter-loop.md`，全部承诺落点真实一致，`findings` 为空"
+    },
+    {
+      "scenario": "全量单元测试（含 `test_platinum_upgrade.py`）、`ncc_eval.py mech`、注册表生成与 `check_plugin.py -v`（含 20000/35000 `load_budget`）执行核验",
+      "expected": "`python3 -m unittest discover -s scripts/tests -t scripts -p 'test_*.py'`、`python3 scripts/dev/build_registry.py --check`、`python3 scripts/dev/check_plugin.py -v` 与 `ncc_eval.py mech` 全部通过，合入决定四增量后各角色读取预算不超上限，`schema 4` 兼容夹具逐字节一致",
+      "status": "pending",
+      "evidence": "本子代理保持只读不跑命令，待主协调者执行上述校验命令并登记实测结果"
+    },
+    {
+      "scenario": "按作者决定四与仓库同步纪律执行 `git pull`、私有内容守卫检查、提交与推送远端 `main`",
+      "expected": "全部工程校验与角色报告通过后，按 `.githooks/pre-commit` 与 `pre-push` 纪律完成先拉取、无私有书稿泄漏提交并推送至远端 `main`",
+      "status": "pending",
+      "evidence": "发布动作归属主协调者在全部评审收口后执行，当前处于发布前复核阶段"
+    },
+    {
+      "scenario": "五套宿主 CLI（claude、codex、kimi、grok、zcode）新会话加载与后续开书多章 LLM 实写验证",
+      "expected": "五宿主新会话正常加载更新后的技能与角色；后续作者正式开书时验证一步同屏三件套、8-12 章单元五拍沙盘、封路逼宫与三行看片卡实写体感",
+      "status": "pending",
+      "evidence": "作者明确决定本轮暂不开书，且五宿主新会话加载不在当前单会话内冒充已测"
+    }
+  ],
+  "limitations": [
+    "本轮只读核验了 `product-manager-packet-v3.json`、`ACKNOWLEDGMENTS.md`、`platinum-playbooks.md`、`outline.md`、`finale.md`、`scene-card.md`、`chapter-loop.md` 与 `scripts/ncclib/loops.py`；未读取 `.env`、私有书稿（`novels/`）或其他工程角色报告，也未修改任何产品或任务文件。",
+    "本子代理未直接运行单测、`build_registry.py --check`、`check_plugin.py -v`、`ncc_eval.py mech` 及 `git pull`/`commit`/`push`，命令行测试通过率、角色 `load_budget` 精确数值与远端推送状态以主协调者实测输出为准。",
+    "按作者最新决定本轮暂不开新书、不跑对比样章，七大白金机关、Grill-Me 九项细则与决定四吸收的六项编剧机制在真实多章 LLM 连载中的长程创作表现留待后续开书实测。",
+    "五套宿主 CLI（claude、codex、kimi、grok、zcode）的新会话实际加载尚未在各自独立新会话中实测。"
+  ]
+}

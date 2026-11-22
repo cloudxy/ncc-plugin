@@ -60,7 +60,7 @@ docs/
 
 ## 模块清单与扩展
 
-现有模块：`deconstruction`（拆书）、`engineering`（开发流程与工具）、`memory`（记忆与自进化）、`preparation`（创作前准备与素材库治理）、`storage`（小说数据底座、管理后台及其创作自动化/AI评分候选）。预留命名（出现实际设计文件才建目录）：`writing`（写章）、`review`（审稿）、`materials`（素材）、`eval`（评测）。新增模块时同步更新本清单与[文档导航](../README.md)的模块表。
+现有模块：`deconstruction`（拆书）、`engineering`（开发流程与工具）、`memory`（记忆与自进化）、`preparation`（创作前准备与素材库治理）、`storage`（小说数据底座、管理后台及其创作自动化/AI评分候选）、`writing`（白金连载引擎与出品人创作工作流）。预留命名（出现实际设计文件才建目录）：`review`（审稿）、`materials`（素材）、`eval`（评测）。新增模块时同步更新本清单与[文档导航](../README.md)的模块表。
 
 ## 维护与查找
 

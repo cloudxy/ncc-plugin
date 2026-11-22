@@ -69,15 +69,25 @@ class CliArchitectureTest(unittest.TestCase):
         frozen = json.loads((Path(__file__).parent / 'fixtures/cli-contract.json').read_text())
         data = describe(build_parser())
         # v4 adds an optional stdlib quality command and explicit AI provenance.
-        # Keep every pre-existing parameter and handler checked against the original snapshot.
-        data = [row for row in data if not row['path'] or row['path'][0] != 'quality']
+        # Platinum upgrade adds optional plight/sandbox commands and additive flags;
+        # keep every pre-existing parameter and handler checked against the original snapshot.
+        extra_top = {'quality', 'plight', 'sandbox'}
+        data = [row for row in data if not row['path'] or row['path'][0] not in extra_top]
         for row in data:
             if not row['path']:
                 for action in row['actions']:
                     if 'subparsers' in action:
-                        action['subparsers'] = [name for name in action['subparsers'] if name != 'quality']
+                        action['subparsers'] = [name for name in action['subparsers'] if name not in extra_top]
             elif row['path'] == ['chapter', 'add']:
                 row['actions'] = [action for action in row['actions'] if action.get('dest') != 'origin']
+            elif row['path'] == ['soul']:
+                row['actions'] = [action for action in row['actions'] if action.get('dest') != 'arc_stage']
+            elif row['path'] == ['unit', 'open']:
+                row['actions'] = [action for action in row['actions'] if action.get('dest') not in {'countdown', 'milestone', 'arc_ch'}]
+            elif row['path'] in (['promise', 'add'], ['promise', 'touch']):
+                row['actions'] = [action for action in row['actions'] if action.get('dest') not in {'line', 'cover', 'truth'}]
+            elif row['path'] == ['promise', 'list']:
+                row['actions'] = [action for action in row['actions'] if action.get('dest') not in {'line', 'show_truth'}]
         # P1 contract explicitly adds only these decon actions/options. Keep the
         # original baseline immutable and continue checking every other action.
         extra_actions = {'plan', 'packet', 'ingest'}

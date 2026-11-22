@@ -15,6 +15,7 @@
 | 每章结束时的时间、地点、下一章要接的事 | 源头 | `book.json` 的 `chapters[].end` | chapter end | current-focus.md（续写状态卡） |
 | 本书用哪些设定类目、本书新提的类目与字段、为什么 | 源头 | `book.json` 的 `setting_categories` | 作者在 G1 确认后 setting use/new/none | setting list |
 | 本书的对标书（拆书库里的书名），单元复盘拿它的基线作参照 | 源头 | `book.json` 的 `benchmarks` | decon link | 单元复盘底稿 |
+| 主角当下四维高压处境（头顶恶规、身边暗箭、兜里短板、唯一生门） | 源头 | `book.json` 的 `plight` | plight | current-focus.md；sandbox |
 | 作者种子（原话） | 作者 | `00-策划/作者种子.md` | 经理按作者原话记 | 写手包带 #1、#3、#6 |
 | 冻结后的变更提议与作者决定（只追加） | 历史 | `00-策划/变更提议.md` | 经理 | — |
 | 每章要发生的事：视角、目标、翻转、两难、情感（关键章十项） | 源头 | `02-大纲/场景卡/` | outliner 起草，过故事审 | 写手包；current-focus.md 的近三章 |

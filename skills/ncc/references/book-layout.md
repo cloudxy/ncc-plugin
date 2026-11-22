@@ -17,6 +17,8 @@
     作者种子.md    # [作者] 作者种子（原话）｜经理按作者原话记
     briefing.md    # [角色] 选题一页纸：题材、对标、差异点、目标读者、爽点承诺｜scout
     对标分析.md    # [角色] 对标书分析｜scout
+    赛道白金母本.md    # [角色] 本书专属赛道的极致白金母本（配速、处境、爽感杠杆、钩子配比、剧毒红线）｜scout + outliner（赛道深挖协议）
+    沙盘/    # [角色] 每个剧情展开前的明暗线交织进度与爽点排布沙盘（生成区块是数据与体检，区块外是出品人战前调优）｜sandbox --write；outliner 与作者｜如 单元-U1.md、ch-0001-0010.md
     变更提议.md    # [历史] 冻结后的变更提议与作者决定（只追加）｜经理
     技艺库摘录.md    # [视图] 别的书里与本书相关的经验｜craft read 生成
     复盘/    # [角色] 单元、卷、全书复盘：生成区块是台账数据，区块外是作者与角色的判断｜report --write；作者与角色｜如 单元-U1.md、卷1.md、全书.md
@@ -120,4 +122,7 @@
 | 技法卡状态（由证据与使用结果推出）（`technique_states`） | 样本、手法、已验证、停用 | technique list |
 | 技法适用阶段（`technique_stages`） | 开篇、连载、卷末、收束 | technique add --applies 阶段=… |
 | 置信级（`confidence`） | 原文明说、强推断、弱推断 | technique add --confidence；拆书抽取 |
+| 叙事线（三线织网）（`promise_lines`） | 明线、暗线、灰线 | promise add --line、promise list --line、sandbox |
+| 白金断章钩五型（兼容自由命名）（`hook_types`） | 半步揭晓钩、绝境悬刀钩、开箱前夜钩、装逼抬手钩、人性背刺钩 | chapter hook --type、场景卡章尾断章、sandbox |
+| 弧光显影刻度（`arc_stages`） | 旧活法奏效、裂痕初现、至暗拷问、反差证道、平弧殉道加码 | soul --arc-stage、sandbox、写手包行为反差提示 |
 | 写作模式（`writing_modes`） | 建筑师、园丁、混合 | init --mode、mode |

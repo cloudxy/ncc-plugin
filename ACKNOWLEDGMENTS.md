@@ -193,3 +193,15 @@ MCP采用[官方Python SDK](https://github.com/modelcontextprotocol/python-sdk)�
 本轮核对GOV.UK Service Manual的用户需要、用户故事与优先级，W3C WCAG 2.2和APG键盘实践、GOV.UK错误摘要，C4图层与ADR决策记录，以及PostgreSQL17官方约束、隔离/锁、事务只读、EXPLAIN、pg_dump/pg_restore文档。具体原页、适用版本与转化在四专业技能的references/sources.md；这些索引供查证，NCC的SOP/模板自行编写，未复制上游正文/组件/模板，也未引入其运行链或管理依赖。
 
 落点：[产品经理](skills/ncc-product-manager/SKILL.md)、[产品设计师](skills/ncc-product-designer/SKILL.md)、[架构师](skills/ncc-project-architect/SKILL.md)、[DBA](skills/ncc-dba/SKILL.md)。外部方法用于需求证据、交互规格、架构取舍与数据生命周期，不替代本项目已确定的配置、双库、授权及验证边界。参考在线版本于当日核对，不伪称上游commit或实际产品已达标。
+
+## 白金连载引擎与全网创作框架吸收（2026-11-22）
+
+本轮围绕[起点白金连载引擎与出品人工作流升级方案](docs/designs/writing/platinum-upgrade.md)检索并甄别学术叙事规划研究、西方类型小说结构框架、开源网文智能体工作流与起点白金公开创作总结。仅吸收经[外部来源审查](docs/engineering/source-vetting.md)核验的编剧结构与状态防呆思想，由本项目用纯标准库与自有规则独立实现，零代码或提示词复制，不引入任何第三方运行时、外部包或锁文件。
+
+| 来源与作者 | 版本依据与参考内容 | NCC 的转化与取舍 | 落点 |
+|---|---|---|---|
+| [Creating Suspenseful Stories — Kaige Xie 等](https://arxiv.org/abs/2402.17119) | arXiv:2402.17119（EACL 2024）；基于 Gerrig & Bernardo 认知悬念理论的对抗式退路剪枝规划，2026-11-22 核对 | 转化为场景卡与故事审的**封路逼宫法**（交锋前显式划掉主角 1–2 条最顺手退路或金手指逃课法，逼出带代价险招）；舍弃逐段多轮树搜索生成，避免高昂调用成本与语态机械化 | [scene-card.md](skills/ncc-write/references/scene-card.md)、[story-editor.md](agents/story-editor.md)、[platinum-playbooks.md](skills/ncc-new/references/platinum-playbooks.md) |
+| Orson Scott Card、Mary Robinette Kowal 与 Brandon Sanderson 公开创作课 | *MICE Quotient*（Milieu/Idea/Character/Event 嵌套结构）、*Promises-Progress-Payoff* 与 *Sanderlanche* 多线收束法 | 转化为大纲与完本清算的**MICE 嵌套开合栈（先进后出，外框先开后关、内框后开先关）**与**多线雪崩合拢**（单元或卷末高潮单场引爆同时合拢 ≥2 条线索，拒绝排队点名报账） | [outline.md](skills/ncc-new/references/outline.md)、[finale.md](skills/ncc/references/finale.md)、[loops.py](scripts/ncclib/loops.py) |
+| Dan Wells *7-Point Story Structure* 与 Lester Dent *Master Plot Formula* | 七点结构之中点“被动转主动（Reactive → Proactive）”枢轴与通俗小说层层加码模型 | 转化为 **8–12 章单元五拍骨架与中点攻守易形锚**（受压入局→初试拿牌→中点摸清底牌转入主动设局反猎杀→至暗封路→掀桌收网＋开箱余波），并在 `sandbox` 战前沙盘自动标出单元中点锚章 | [platinum-playbooks.md](skills/ncc-new/references/platinum-playbooks.md)、[loops.py](scripts/ncclib/loops.py) |
+| [Agents' Room — Fantine Huot 等](https://arxiv.org/abs/2410.02603)、[StoryVerse — Yi Chen 等](https://arxiv.org/abs/2405.13042)、[StoryWriter](https://arxiv.org/abs/2506.16445) 及开源网文工作流实践 | ICLR 2025 等多代理叙事分工、世界状态防吃书与社区对大模型“防御性写作（和稀泥降级冲突）”的总结，2026-11-22 核对 | 转化为故事审**反防御性掀桌检视**（拦截冲突半途各退一步和稀泥）与写手**关键筹码流转记账约定**（复用 `event add --attr 持有\|消耗\|损毁` 防忘底牌或重复用消耗品）；舍弃每章十余代理重管线、外部向量库及向写手暴露审稿清单的做法 | [scene-card.md](skills/ncc-write/references/scene-card.md)、[chapter-loop.md](skills/ncc-write/references/chapter-loop.md)、[story-editor.md](agents/story-editor.md) |
+| 起点白金连载公开方法论（爱潜水的乌贼卷末创作总结等） | 长篇连载换地图留存复盘、明暗线遮眼草蛇灰线、3·10·30 三级爽点密度与五类追读钩共识 | 转化为七大白金叙事机关、五大王牌母本、**换地图不断根定律**（30–40 章升维换图保留 1–2 个旧图残余回响锚点防断层弃书）与**章内微爽机锋保底**（蓄压章亦留 1 处局部占优或机锋锚点） | [platinum-upgrade.md](docs/designs/writing/platinum-upgrade.md)、[platinum-playbooks.md](skills/ncc-new/references/platinum-playbooks.md)、[outline.md](skills/ncc-new/references/outline.md) |

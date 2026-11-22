@@ -28,7 +28,7 @@ when_to_use: "User says /ncc-write, 写下一章, 今更N章, 黄金三章, or r
 ## Step 0 — 定位
 
 1. `ncc_state.py status <书目录>` 确认 stage、写作模式与断点。`opening` 阶段从第 1 章开始；`serial` 阶段找第一个非 done 章。
-2. 单元开始时（每 10–40 章一次）：`ncc_state.py unit open <书目录> --start N --title …`；经理和作者一起确认本单元的**关键章**（系统按"卷首卷末、名场面兑现、重要人物登场与退场、主题显形"先推荐，作者确认，约占两成，D8），用 `chapter key` 标注。第 1–3 章默认是关键章。
+2. **战前沙盘停驻与单元内全自动闭环**：仅在 **S2 开篇、新单元/新剧情段展开前及偏航告警** 时停驻，运行 `ncc_state.py unit open <书目录> --start N --title … --countdown "悬顶倒计时" --milestone "10章台阶跃迁" [--arc-ch 弧光显影章]`、核对 `plight`，先由 `outliner`/`story-editor` 在后台消解可自修的慢热或爽钩撞车，再跑 `ncc_state.py sandbox <书目录> --write` 连同关键章推荐呈出品人战前调优拍板（出品人批注由经理回写台账/场景卡后重刷核验；旧书未设处境或母本只给引导不阻断续写）。**已拍板单元窗口内的常规章继承授权全自动闭环直通**（硬伤闸门不绕过），每章结束仅推白话故事战报（区分返修中候选与已定稿）。
 3. `status` 提示存稿低于存稿线时，按 `../ncc/references/sustain.md` 进入保更模式（关键章后挪或降为常规工序，登记为暂定决策）。
 4. `writing_mode: batch` 时按批推进（每批 3–5 章），批间走一次审稿；默认 `serial` 单章循环。
 

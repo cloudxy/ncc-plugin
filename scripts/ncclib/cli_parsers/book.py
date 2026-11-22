@@ -44,7 +44,7 @@ def register_mode(sub):
 
 def register_soul(sub):
     p = sub.add_parser("soul"); p.add_argument("book_dir")
-    for k in ("question", "answer", "injustice", "ending", "status", "deadline", "arc"):
+    for k in ("question", "answer", "injustice", "ending", "status", "deadline", "arc", "arc-stage"):
         p.add_argument(f"--{k}")
     p.set_defaults(fn=cmd_soul)
 

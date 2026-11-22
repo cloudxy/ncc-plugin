@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "role": "project-architect",
+  "input_sha256": "f8b7074fa60d55490c0d02ee2b7f9d3d7ff37cc3a074705d1b76685c2b04c011",
+  "execution": {
+    "mode": "subagent",
+    "identity": "ncc-dev:project-architect-subagent"
+  },
+  "decision": "ready",
+  "deliverables": {
+    "ownership": "模块责任与唯一事实源归属（Grill-Me 九项细则定稿复核，零新增空层、零数据库或配置侵入）：\n1. 注册表分片源（workflow/registry/）：storage.json 唯一维护 promise_lines、hook_types、arc_stages 词表与 book.json.plight、track_playbook（00-策划/赛道白金母本.md）、sandbox_dir（00-策划/沙盘）按需布局；roles.json 唯一维护 scout 与 outliner 对 platinum-playbooks.md 的读取清单；rules.json 维护创作总原则与铁律；workflow/registry.json 及生成文档由 build_registry.py、build_docs.py 单向生成。\n2. 核心与读写基座（scripts/ncclib/core.py）：投影注册表常量，持有 write_json 原子替换（mkstemp + os.replace）、数据库工作副本写入守卫与 writer_input_problems 禁词检查。\n3. 台账与处境层（scripts/ncclib/ledgers.py）：唯一维护承诺三线字段（line/surface_cover/true_meaning）、按序暗线冷却（promise_last_touch(before_seq)、dark_line_cooling）、暗线遮罩判定（is_secret_foreshadow）、主角四维处境账（cmd_plight、plight_lines）、续写前情（focus_core）与读者此刻切片（reader_now_lines 的 mask_truth 隔离）。\n4. 场景与派单层（scripts/ncclib/scenes.py）：唯一负责写手包组装（cmd_pack：章首 300 字秒接、人物标志细节与关系、主角卡专属 arc_stage 行为反差提示、配角活人速写、基于 revealing_ids 的正序伏笔真相注入、truth_leaks 跨章防剧透拦截）与非写手派单头（cmd_brief）。\n5. 视图层（scripts/ncclib/views.py）：唯一生成 author-intent.md、current-focus.md、06-台账/承诺台账.md 与 write_block 生成区块刷新。\n6. 循环与战前沙盘层（scripts/ncclib/loops.py）及书状态层（scripts/ncclib/book.py）：loops.py 负责单元推进锁与受管战前沙盘（sandbox_lines、cmd_sandbox：含活跃暗线 >5 超载锁池预警、8–12 章单元「十章一响」旧伏笔回收检查、后台自修项 vs 呈出品人 A/B 拍板项分流标签、_cell 转义、sandbox-sha 脏改保护及 outside != skeleton.strip() 细粒度快照失效提示）；book.py 负责 soul --arc-stage、status 摘要及 chapter add 对活动单元 arc_ch 的顺序无关关键章标记。\n7. CLI 装配与章节机检（scripts/ncclib/cli_parsers/*、scripts/ncclib/cli.py、scripts/check_chapter.py）：cli_parsers 纯参数注册；cli.py 编排 database_bridge、只读短路、oplog 与 auto_render；check_chapter.py 执行跨章断章钩前 350 字承接告警。",
+    "dependencies": "依赖方向与模块边界（C4 组件层）：\n维持严格单向有向无环拓扑：\nworkflow/registry/*.json -> ncclib/registry.py -> ncclib/core.py -> ncclib/{ledgers,materials,learning,memory,settings,evolve,quality,decon} -> ncclib/techniques.py -> ncclib/scenes.py -> ncclib/views.py -> ncclib/{loops,delivery}.py -> ncclib/book.py -> ncclib/cli_parsers/*.py -> ncclib/cli.py -> scripts/{ncc_state,check_chapter}.py。\n核查结论：\n- loops.py 对战前沙盘新增的「暗线池超载 >5」与「十章一响」检查仅依赖已导入的 core 与 ledgers 数据结构，未引入任何跨层或反向导入；\n- 领域层不导入 cli/cli_parsers，运行期标准库脚本不导入 scripts/dev 或后台 Web/ORM 依赖。",
+    "read_path": "两条核心代表读链复核（Grill-Me 增量核验通过）：\n1. 写手包组装与铁律 9 隔离读链（ncc_state.py pack <book> <seq> -> scenes.cmd_pack）：\n   校验 scene_ready SHA -> 读取场景卡（`scene-card.md` 模板已补齐 `- 伏笔回收：FS-NNNN` 指引）提取 `revealing_ids(card)` 与配角速写 -> `reader_now_lines(mask_truth=True)` 遮蔽未揭晓暗/灰线 -> 读取在场人物卡（仅含 `## 弧光` 主角卡附带 `arc_stage`） -> 扫描承诺台账注入正序揭晓真相或明面伪装 -> 现算 `focus_core` -> 执行 `writer_input_problems` + `truth_leaks`（`len(truth) >= 2`，覆盖开放态与 `(resolved_ch or 0) > seq` 回溯态） -> 输出 `.ncc/写手包/ch-NNNN.md`。\n2. 受管战前沙盘只读预览链（ncc_state.py sandbox <book> [--from A] [--to B] -> loops.cmd_sandbox）：\n   读取 book.json、TRACK_PLAYBOOK、承诺台账与 [lo, hi] 范围场景卡/章纲 -> 统计已 `resolved_ch == seq` 或场景卡/章纲显式标回收标记的旧伏笔/悬念 `resolved_old`（限定 `created_ch < seq`，排除当章现埋现收） -> 输出三线交织表、逐章排布表及分级体检：将推进待补、暗线 >5 超载锁池、明暗零交织、暗香断档、断章钩撞车、同型爽点疲劳标为 `[后台自修项]`/`[后台锁池项]`/`[后台补齐项]`，将 ≥3 章连压憋屈与 `hi - lo + 1 >= 8` 无旧伏笔回收（「十章一响」）标为 `[呈出品人 A/B 拍板项]`，恒返回退出码 0，无 `--write` 时零文件与 oplog 副作用。",
+    "write_path": "核心代表写链、并发保护与幂等语义复核：\n1. 源头状态与台账写链（promise add/touch/resolve、plight、soul --arc-stage、unit open、chapter add）：\n   经词表与边界校验（含 `arc_ch >= start` 与 `chapter add` 自动承接 `open_unit.arc_ch`） -> `core.write_json` 同目录临时文件原子替换 -> `cli.log_op` 追加操作日志 -> `cli.auto_render` 重算派生视图。\n2. 战前沙盘生成区块写链（sandbox <book> --write [--force]）：\n   计算纯正文 `sandbox-sha` -> 拦截无生成区块手写文件或被手改的生成区块（除非 `--force`） -> 通过 `outside != skeleton.strip()` 精准识别出品人对区块外任一拍板行的修改（即便另一行仍含待填字样也能触发底层快照变更复核横幅） -> `views.write_block` 局部刷新生成区块并保留出品人手写拍板 -> 记录 `oplog`。\n3. 数据库工作副本桥接写链（database_bridge.dispatch -> invoke）：\n   新增沙盘与处境操作均走既有 `ncc_shared.workspace.scan_files` 快照哈希与 `base_version` 乐观并发校验，运行中若本地并发改稿则拒绝覆盖。",
+    "compatibility": "向后兼容、CLI 快照与角色读取预算复核：\n1. Schema 4 与旧书零破坏兼容：不新增必选字段、不改 schema_version，旧书无 `plight`/`arc_stage`/三线字段或缺少专属母本时，所有既有命令与视图输出保持原样，沙盘体检仅作非阻断提示（退出码 0）。\n2. CLI 与运行时冻结契约兼容：`test_architecture.py` 对照 `fixtures/cli-contract.json` 与 `fixtures/runtime-contract.json` 全量通过。\n3. 角色读取预算（load_budget）复核：经 Grill-Me 九项规则增补后，`check_plugin.py -v` 实测全角色仍在预算上限内：`scout` 6004/20000、`worldbuilder` 19575/20000、`outliner` 16471/20000、`story-editor` 16589/20000、`writer` 6419/20000、`manager:new` 34550/35000（余量 450 非空白字符）、`manager:write` 30693/35000。",
+    "rollback": "安全回退与候选管理复核：\n1. 任务 `scope` 已在 `docs/tasks/2026-11-22-platinum-workflow-upgrade.md` 完整覆盖全部 43 个受管改动与新增文件路径；本轮登记 v2 工程报告后重新执行 `check_dev_workflow.py snapshot` 刷新候选指纹即可保持元数据闭环。\n2. 如需整包或局部回退：以基线提交 `f3f6bc1af80967b15b4fc575e3ccb273bd8e8e1a` 还原 `scope` 内已跟踪文件并移除本轮新增文件（`platinum-playbooks.md`、`test_platinum_upgrade.py`、`platinum-upgrade.md`），随后执行 `build_registry.py --check`、`build_docs.py --check`、`check_plugin.py -v` 核验恢复。\n3. 私有书库安全：不触碰 `novels/`，增量可选 JSON 键与按需 `00-策划/沙盘/` 目录对旧版读取无破坏性。",
+    "acceptance": "Grill-Me 定稿架构验收结论（`ready`）：\n1. 前序所有 `major` 与 `minor` 发现（含 `scene-card.md` 补入 `- 伏笔回收：FS-NNNN` 模板行与 `task.scope` 全量收口）均已落实；\n2. Grill-Me 新增「活跃暗线封顶 5 条锁池预警」「8–12 章单元十章一响回收检查」「排雷后台自修 vs 出品人 A/B 拍板分流标签」及细粒度沙盘快照失效判定均已落地并通过 `test_platinum_upgrade.py` 自动化断言；\n3. 注册表、生成文档、插件自检、机械锚定章及架构契约测试全部绿灯，可登记 v2 报告并重刷 D4/D5 候选快照完成定稿。",
+    "experience_application": "关联历史工程经验应用（选自 skills/ncc-dev/references/experience.md）：\n1. E02（实施缺口：规则承诺、脚本判定与测试证据对齐）：\n   - 触发条件：Grill-Me 确认了「暗线封顶 5 条」与「十章一响」等硬性体验承诺，若只写进 Markdown 规则而不进 `sandbox` 体检，易退化为空头口号。\n   - 本次核对与落点：已在 `loops.py:445-496` 落地确定性检测（同时识别已 `resolve` 与场景卡/章纲计划回收的旧伏笔），并在 `test_platinum_upgrade.py:292-298` 实测验证。\n2. E04（唯一维护点与复用）：\n   - 触发条件：场景卡与沙盘均需识别显式伏笔回收标记。\n   - 本次核对与落点：正则语义保持一致，仅留一项极轻量可维护性提示（`loops.py` 可直接复用 `scenes.revealing_ids`，见 findings[0]），不增新层。\n3. E07（生成基线与人工拍板分离）：\n   - 触发条件：出品人在沙盘区块外局部填写拍板意见（仅改一行、保留另一行待填）后，底层台账又发生变更。\n   - 本次核对与落点：`loops.py:540-542` 将失效横幅触发条件从「不含待填字样」收紧为 `outside != skeleton.strip()`，确保出品人只要动过任一拍板行即受快照变更提醒保护。"
+  },
+  "findings": [
+    {
+      "severity": "minor",
+      "location": "scripts/ncclib/loops.py:11,445; scripts/ncclib/scenes.py:226-233",
+      "problem": "`loops.py:445` 内联重写了一份伏笔回收标记匹配正则，与 `scenes.py:226` 的 `REVEAL_RE` / `revealing_ids` 存在同义双处维护；当前两处词表完全一致无行为偏差，但未来若扩充回收标记词需改两处。",
+      "evidence": "`loops.py:11` 已 `from .scenes import knowledge_rows`（单向依赖允许 `loops -> scenes`），而 `loops.py:445` 另写了 `re.findall(r\"(?:伏笔回收|回收伏笔|揭晓伏笔|兑现承诺|本场兑现)[：:][^\\n]*\", ...)`。",
+      "fix": "后续常规维护时可在 `loops.py` 直接 `from .scenes import knowledge_rows, revealing_ids` 复用 `revealing_ids(card_txt + '\\n' + out_txt)` 保持单一维护点（当前行为完全一致，不阻断定稿放行）。"
+    }
+  ],
+  "verification": [
+    {
+      "scenario": "Grill-Me 规则升级后的注册表、生成文档与插件读取预算检查",
+      "expected": "REGISTRY OK、DOCS OK、PLUGIN OK，全角色 load_budget 未超上限且无章节序号违规引用",
+      "status": "passed",
+      "evidence": "运行 `python3 scripts/dev/build_registry.py --check && python3 scripts/dev/build_docs.py --check && python3 scripts/dev/check_plugin.py -v`，全部退出码 0（`manager:new` 34550/35000、`outliner` 16471/20000、`story-editor` 16589/20000、`scout` 6004/20000、`writer` 6419/20000）。"
+    },
+    {
+      "scenario": "白金引擎全特性（含暗线封顶 >5 报警与十章一响检查）与冻结 CLI/运行时契约回归",
+      "expected": "正序揭晓、回溯防泄密、弧光章顺序无关、沙盘脏改保护、暗线超载预警、十章一响提醒及 CLI/运行时快照全部通过",
+      "status": "passed",
+      "evidence": "运行 `python3 -m unittest scripts/tests/test_platinum_upgrade.py scripts/tests/test_architecture.py`，12 项用例全部 OK；`python3 scripts/ncc_eval.py mech` 6 章锚定集全部 PASS。"
+    },
+    {
+      "scenario": "v2 报告登记与候选指纹重冻结（development.py record + check_dev_workflow.py snapshot/check）",
+      "expected": "v2 派单与报告登记通过，候选快照与证据哈希刷新一致",
+      "status": "pending",
+      "evidence": "待协调者汇总三角色 v2 报告后统一执行 `development.py record` 与 `check_dev_workflow.py snapshot`。"
+    },
+    {
+      "scenario": "PostgreSQL 工作副本在线往返与五套宿主 CLI 新会话加载实测",
+      "expected": "正式库-test 工作副本同步正常，各宿主新会话加载更新后的白金规则无异常",
+      "status": "pending",
+      "evidence": "只读架构评审未连接真实 PostgreSQL-test 数据库或重启外部宿主客户端。"
+    }
+  ],
+  "limitations": [
+    "本次复核严格保持只读工程角色边界，未读取真实 config/.env、novels/ 私有书库或其他角色报告，未执行真实 PostgreSQL-test 在线事务测试。",
+    "按作者确认决定跳过对比样章生成，Grill-Me 九项白金细则在长篇多单元连载中的实际模型表现待实书创作闭环进一步验证。",
+    "五套 CLI 宿主的新会话实际加载未在当前子代理环境内拉起外部进程验证。"
+  ]
+}

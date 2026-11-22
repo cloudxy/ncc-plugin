@@ -280,6 +280,37 @@ def stock_reaction_warnings(text: str):
     return [f"身体小动作标注情绪 {len(hits)} 处（{'、'.join(hits[:5])}）：只留有后果的，其余改成选择、台词、物件或后果"]
 
 
+def hook_handoff_warnings(book_dir: Path, seq: int, raw: str):
+    """跨章断章承接提醒：上一章登记了高强断章定格句与下一章待接事件时，检查本章前 350 字是否有呼应词。"""
+    if seq <= 1:
+        return []
+    bj = book_dir / "book.json"
+    if not bj.exists():
+        return []
+    try:
+        d = json.loads(bj.read_text("utf-8"))
+    except json.JSONDecodeError:
+        return []
+    prev = next((c for c in d.get("chapters", []) if c.get("seq") == seq - 1), None)
+    if not prev:
+        return []
+    hk = prev.get("hook") or {}
+    end_next = (prev.get("end") or {}).get("next") or ""
+    line = (hk.get("line") or "").strip()
+    cue = line + end_next
+    if (hk.get("intensity") or 0) < 4 or len(HAN_RE.findall(cue)) < 4:
+        return []
+    body = strip_md(re.sub(r"(?m)^\s*#{1,6}\s.*$", "", REV_LINE.sub("", raw))).strip()
+    body = re.sub(r"\A第[一二三四五六七八九十百千零〇0-9]+章[^\n]*\n", "", body).strip()
+    opening = "".join(HAN_RE.findall(body))[:350]
+    src = "".join(HAN_RE.findall(cue))
+    grams = {src[i:i + 2] for i in range(len(src) - 1)}
+    label = (line or end_next)[:24]
+    if grams and not any(g in opening for g in grams):
+        return [f"跨章断章承接：上一章结尾定格在「{label}」，本章前 300 字未见呼应词，请审稿核实是否正面秒接"]
+    return []
+
+
 def waived_snippets(book_dir: Path):
     p = book_dir / L("waivers")
     if not p.exists():
@@ -395,6 +426,7 @@ def main():
     warns += style_drift_lines(book_dir, raw)
     warns += scene_copy_warnings(book_dir, seq, text)
     warns += stock_reaction_warnings(text)
+    warns += hook_handoff_warnings(book_dir, seq, raw)
     rhythm = burstiness(raw) or {}
     rhythm["dialogue_share"] = dialogue_share(raw)
 

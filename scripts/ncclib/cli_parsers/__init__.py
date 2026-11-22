@@ -3,7 +3,7 @@ from . import book, loops, ledgers, scenes, learning, deconstruction, delivery, 
 
 COMMAND_ORDER = ('init', 'status', 'next', 'migrate', 'gate', 'level', 'mode', 'soul', 'contract', 'sign', 'scene', 'chapter', 'unit', 'volume', 'finale', 'report', 'feedback', 'team', 'complete', 'water', 'promise', 'know', 'fact', 'knowledge', 'era', 'study', 'material', 'style', 'heat', 'pref', 'craft', 'memory', 'handoff', 'recall', 'brief', 'setting', 'decon', 'technique', 'evolve', 'dashboard', 'export', 'pack', 'review', 'words', 'render', 'check', 'event', 'reader-now', 'sha')
 
-COMMAND_ORDER = COMMAND_ORDER + ('quality',)
+COMMAND_ORDER = COMMAND_ORDER + ('quality', 'plight', 'sandbox')
 REGISTRARS = {}
 for _domain in (book, loops, ledgers, scenes, learning, deconstruction, delivery, quality):
     for _name, _register in _domain.REGISTRARS.items():

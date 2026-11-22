@@ -5,7 +5,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from .core import (EVENTS, FACTS, KNOWLEDGE, NON_READER_TYPES, OPEN_STATES, PROMISES, PROMISE_PREFIX, PROMISE_TYPES, as_int, current_chapter, die, ledger, load, mood_of, next_id, parse_window, read_json, save, scene_path, split_names, write_json)
+from .core import (DARK_LINE_COOL, EVENTS, FACTS, KNOWLEDGE, NON_READER_TYPES, OPEN_STATES, PROMISE_LINES, PROMISES, PROMISE_PREFIX, PROMISE_TYPES, as_int, current_chapter, die, ledger, load, mood_of, next_id, open_unit, parse_window, read_json, save, scene_path, split_names, write_json)
 
 
 def promise_overdue(p, cur: int) -> bool:
@@ -56,7 +56,57 @@ def chapter_touches(items, seq: int):
     return hits
 
 
-def reader_now_lines(book_dir: Path, d: dict, seq: int, top: int = 5):
+def promise_last_touch(p, before_seq: int = None) -> int:
+    c0 = as_int(p.get("created_ch")) or 0
+    chs = [c0] + [as_int(e.get("ch")) for e in p.get("progress", []) if as_int(e.get("ch")) is not None]
+    if before_seq is not None:
+        chs = [x for x in chs if x < before_seq]
+    return max(chs) if chs else 0
+
+
+def infer_line(p) -> str:
+    if p.get("line"):
+        return p["line"]
+    if p.get("type") in ("期权", "母题"):
+        return "灰线"
+    if p.get("type") == "伏笔":
+        return "暗线"
+    return "明线"
+
+
+def is_secret_foreshadow(p) -> bool:
+    return bool((p.get("surface_cover") or p.get("true_meaning")) and infer_line(p) in ("暗线", "灰线"))
+
+
+def dark_line_cooling(items, seq: int, limit: int = DARK_LINE_COOL) -> list:
+    out = []
+    for p in items:
+        if p.get("type") == "暂定决策":
+            continue
+        unrevealed = p.get("status") in OPEN_STATES or ((as_int(p.get("resolved_ch")) or 0) >= seq)
+        if not unrevealed:
+            continue
+        line = infer_line(p)
+        if line not in ("暗线", "灰线"):
+            continue
+        created = as_int(p.get("created_ch")) or 0
+        if created >= seq:
+            continue
+        gap = seq - promise_last_touch(p, before_seq=seq)
+        if gap >= limit:
+            out.append((p, line, gap))
+    out.sort(key=lambda x: (-x[2], -(x[0].get("strength") or 0)))
+    return out
+
+
+def plight_lines(d: dict) -> list:
+    pl = d.get("plight") or {}
+    mapping = (("overhead", "头顶恶规／大山"), ("peers", "身边暗箭／同侪"),
+               ("shortfall", "兜里短板／软肋"), ("leverage", "唯一生门／支点"))
+    return [f"- {label}：{pl[k]}" for k, label in mapping if pl.get(k)]
+
+
+def reader_now_lines(book_dir: Path, d: dict, seq: int, top: int = 5, mask_truth: bool = False):
     items = ledger(book_dir, PROMISES)["items"]
     know = ledger(book_dir, KNOWLEDGE)["items"]
     events = read_json(book_dir / EVENTS, {"events": []}).get("events", [])
@@ -68,15 +118,24 @@ def reader_now_lines(book_dir: Path, d: dict, seq: int, top: int = 5):
     out += [f"- {k['id']} {k['fact']}——{'、'.join(k['unknown_to'])} 还不知道" for k in gaps[:top]] or ["- （无登记的信息差）"]
     out += ["", "**在等什么（强度最高的开放承诺）**"]
     waiting = [p for p in items if p.get("type") not in NON_READER_TYPES
-               and p.get("status") in OPEN_STATES and (p.get("created_ch") or 0) < seq]
-    waiting.sort(key=lambda p: (-(p.get("strength") or 0), p.get("created_ch") or 0))
+               and (p.get("status") in OPEN_STATES or ((as_int(p.get("resolved_ch")) or 0) >= seq))
+               and (as_int(p.get("created_ch")) or 0) < seq
+               and not (mask_truth and is_secret_foreshadow(p))]
+    waiting.sort(key=lambda p: (-(p.get("strength") or 0), as_int(p.get("created_ch")) or 0))
     lines = []
     for p in waiting[:top]:
-        age = seq - (p.get("created_ch") or seq)
+        age = seq - (as_int(p.get("created_ch")) or seq)
         w = p.get("window")
         tail = f"，计划第{w[0]}–{w[1]}章兑现" if w else ""
-        lines.append(f"- {p['id']} [{p['type']}] 强度{p.get('strength')}：{p['content']}（已等 {age} 章{tail}）")
+        tag = f"·{p['line']}" if (p.get("line") and not mask_truth) else ""
+        lines.append(f"- {p['id']} [{p['type']}{tag}] 强度{p.get('strength')}：{p['content']}（已等 {age} 章{tail}）")
     out += lines or ["- （没有开放承诺——本章至少要建立一条）"]
+    cool = dark_line_cooling(items, seq)
+    if cool and not mask_truth:
+        out += ["", "**暗线暗香提醒（超期未擦碰，建议本批顺手一石二鸟带出）**"]
+        for p, line, gap in cool[:3]:
+            cover = f"｜明面伪装：{p['surface_cover']}" if p.get("surface_cover") else ""
+            out.append(f"- {p['id']} [{line}·{p['type']}] 已沉底 {gap} 章：{p['content']}{cover}")
     out += ["", "**情绪在哪**"]
     moods = [(c["seq"], mood_of(c)) for c in before if c.get("mood")][-5:]
     if moods:
@@ -100,7 +159,8 @@ def reader_now_lines(book_dir: Path, d: dict, seq: int, top: int = 5):
     tired += [f"爽感谱系第 {x} 型近 10 章兑现了 {desires.count(x)} 次" for x in dict.fromkeys(desires) if desires.count(x) >= 3]
     out += [f"- {t}" for t in tired] or ["- （无明显重复）"]
     cur = current_chapter(d)
-    alerts = [p for p in items if promise_overdue(p, cur) or promise_due_soon(p, cur)]
+    alerts = [p for p in items if (promise_overdue(p, cur) or promise_due_soon(p, cur))
+              and not (mask_truth and is_secret_foreshadow(p))]
     if alerts:
         out += ["", "**到期提醒**"]
         out += [f"- {p['id']} [{p['type']}] {p['content']}" for p in alerts]
@@ -127,6 +187,17 @@ def focus_core(book_dir: Path, d: dict, seq: int) -> list:
         out.append(f"- 第{c['seq']}章：" + ("；".join(turns) or "（场景卡缺失）") + (f"｜章尾钩子：{hook['type']}" if hook.get("type") else ""))
     if not done:
         out.append("- （无）")
+    u = open_unit(d)
+    locks = []
+    if u and u.get("countdown"):
+        locks.append(f"悬顶倒计时：{u['countdown']}")
+    if u and u.get("milestone"):
+        locks.append(f"台阶跃迁目标：{u['milestone']}")
+    if locks:
+        out += ["", "**本单元推进锁**"] + [f"- {x}" for x in locks]
+    pl = plight_lines(d)
+    if pl:
+        out += ["", "**主角当下处境（四维高压挤压）**"] + pl
     return out
 
 
@@ -191,24 +262,39 @@ def cmd_promise(a):
                 continue
             if a.type and p.get("type") != a.type:
                 continue
+            if getattr(a, "line", None) and infer_line(p) != a.line:
+                continue
             flag = " 逾期" if promise_overdue(p, cur) else (" 将到期" if promise_due_soon(p, cur) else "")
             w = p.get("window")
             when = f" 窗口{w[0]}-{w[1]}" if w else (f" 最晚{p['deadline']}" if p.get("deadline") else "")
-            print(f"{p['id']} [{p['type']}] 强度{p.get('strength')} {p['status']} 第{p.get('created_ch')}章起{when}{flag}  {p['content']}")
+            ltag = f"·{p['line']}" if p.get("line") else ""
+            extra = f"｜伪装:{p['surface_cover']}" if p.get("surface_cover") else ""
+            if getattr(a, "show_truth", False) and p.get("true_meaning"):
+                extra += f"｜真相:{p['true_meaning']}"
+            print(f"{p['id']} [{p['type']}{ltag}] 强度{p.get('strength')} {p['status']} 第{p.get('created_ch')}章起{when}{flag}  {p['content']}{extra}")
         return
     if a.action == "add":
         if a.type not in PROMISE_TYPES:
             die(f"--type 只能是 {'/'.join(PROMISE_TYPES)}")
+        if getattr(a, "line", None) and a.line not in PROMISE_LINES:
+            die(f"--line 只能是 {'/'.join(PROMISE_LINES)}")
         if a.type == "暂定决策" and not a.deadline:
             die("暂定决策必须给 --deadline（章号或节点，如 22 或 第一卷卷复盘）")
         if not 1 <= a.strength <= 5:
             die("--strength 取 1–5")
         pid = next_id(items, PROMISE_PREFIX.get(a.type, PROMISE_PREFIX["*"]))
-        items.append({
+        rec = {
             "id": pid, "type": a.type, "content": a.content, "strength": a.strength,
             "created_ch": a.ch, "window": parse_window(a.window), "deadline": a.deadline,
-            "desire": a.desire, "status": "开放", "progress": [], "resolved_ch": None})
-        msg = f"OK {pid} [{a.type}] 第{a.ch}章建立"
+            "desire": a.desire, "status": "开放", "progress": [], "resolved_ch": None}
+        if getattr(a, "line", None):
+            rec["line"] = a.line
+        if getattr(a, "cover", None):
+            rec["surface_cover"] = a.cover
+        if getattr(a, "truth", None):
+            rec["true_meaning"] = a.truth
+        items.append(rec)
+        msg = f"OK {pid} [{a.type}{('·' + a.line) if getattr(a, 'line', None) else ''}] 第{a.ch}章建立"
     else:
         p = next((x for x in items if x["id"] == a.id), None)
         if not p:
@@ -216,6 +302,20 @@ def cmd_promise(a):
         if p.get("status") not in OPEN_STATES:
             die(f"{a.id} 状态为 {p.get('status')}，不能再 {a.action}")
         if a.action == "touch":
+            if getattr(a, "line", None):
+                if a.line not in PROMISE_LINES:
+                    die(f"--line 只能是 {'/'.join(PROMISE_LINES)}")
+                p["line"] = a.line
+            if getattr(a, "cover", None) is not None:
+                if a.cover:
+                    p["surface_cover"] = a.cover
+                else:
+                    p.pop("surface_cover", None)
+            if getattr(a, "truth", None) is not None:
+                if a.truth:
+                    p["true_meaning"] = a.truth
+                else:
+                    p.pop("true_meaning", None)
             p.setdefault("progress", []).append({"ch": a.ch, "note": a.note or ""})
             p["status"] = "推进中"
             msg = f"OK {a.id} 第{a.ch}章推进"
@@ -309,3 +409,30 @@ def cmd_reader_now(a):
     book_dir = Path(a.book_dir)
     d = load(book_dir)
     print("\n".join(reader_now_lines(book_dir, d, a.seq, a.top)))
+
+
+def cmd_plight(a):
+    """主角四维高压处境账（头顶恶规、身边暗箭、兜里短板、唯一生门）。"""
+    book_dir = Path(a.book_dir)
+    d = load(book_dir)
+    if a.clear:
+        d.pop("plight", None)
+        save(book_dir, d)
+        print("OK 已清空主角处境账")
+        return
+    updates = {k: getattr(a, k) for k in ("overhead", "peers", "shortfall", "leverage") if getattr(a, k) is not None}
+    if updates:
+        pl = d.setdefault("plight", {})
+        for k, v in updates.items():
+            if v.strip():
+                pl[k] = v.strip()
+            else:
+                pl.pop(k, None)
+        if not pl:
+            d.pop("plight", None)
+        save(book_dir, d)
+        lines = plight_lines(d)
+        print("OK 主角处境已更新：\n" + "\n".join(lines) if lines else "OK 主角处境为空")
+        return
+    lines = plight_lines(d)
+    print("\n".join(["## 主角当下处境（四维挤压）"] + (lines or ["- （未登记，用 plight --overhead/--peers/--shortfall/--leverage 设置）"])))
