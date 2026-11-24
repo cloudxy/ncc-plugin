@@ -1,6 +1,6 @@
 # 素材库治理接口
 
-所有命令使用 `python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py <命令> <准备目录>`。脚本负责确定性检查与记录，执行者负责阅读、实际编写和语义判断。prepare.json 的 library 保存规范、计划与批次状态，`.ncc-prepare/library/` 保存任务包、内容、报告和备份。可以接续已有准备工作区，无需书项目。
+所有命令使用 `python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py <命令> <准备目录>`。脚本负责确定性检查与记录，执行者负责阅读、实际编写和语义判断。prepare.json 的 library 保存规范、计划与批次状态，`.ncc-prepare/library/` 保存任务包、内容、报告和备份。可以接续已有准备工作区，无需书项目。
 
 全库治理的准备目录放在来源根之外，避免新写的草稿、规范和清单被当成下一批原始资料。来源范围和最终成果位置分别登记。
 
@@ -9,8 +9,8 @@
 先 init、source、scan。按实际内容制定 JSON 规范，再登记：
 
 ```bash
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py library-profile <准备目录> --file <规范.json> --reason "沿用已有分类并按作者目标整理"
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py library-audit <准备目录>
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py library-profile <准备目录> --file <规范.json> --reason "沿用已有分类并按作者目标整理"
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py library-audit <准备目录>
 ```
 
 下面只展示接口，目录、类型和字段由本库决定：
@@ -38,7 +38,7 @@ constraints 支持跨文件标量对账，例如 `{"name":"总量对账","left":
 ## 全库计划
 
 ```bash
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py library-plan <准备目录> --file <计划.json> --reason "作者授权按已定规范治理全库"
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py library-plan <准备目录> --file <计划.json> --reason "作者授权按已定规范治理全库"
 ```
 
 计划包含 goal、target（绝对路径）、mode（copy/in-place）、entries、batches、queries。entries 覆盖 scan 的全部当前来源，每项恰好一次。来源编号从 index.json 或 search/show 获取。每项有 source、disposition、reason、outputs，处置取值在注册表 preparation.library.dispositions。保留、转换、合并、拆分指向实际文件；排除说明依据；延期明确待办并阻塞全库通过。未读取格式先转换并登记。
@@ -61,9 +61,9 @@ copy 交付到与来源分开的新路径；in-place 对应唯一登记目录根
 ## 批次与任务包
 
 ```bash
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py library-packet <准备目录> --plan L-0001 --batch B-0001
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py library-batch <准备目录> --plan L-0001 --batch B-0001 --file <交付清单.json> --report <逐来源检查.md> --by "curator" --execution current
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py status <准备目录>
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py library-packet <准备目录> --plan L-0001 --batch B-0001
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py library-batch <准备目录> --plan L-0001 --batch B-0001 --file <交付清单.json> --report <逐来源检查.md> --by "curator" --execution current
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py status <准备目录>
 ```
 
 任务包给出目标、规范、操作方法、来源路径和版本、逐来源处置、输出与角色协议，执行者按定位读取全文再写草稿。脚本不调用模型或派代理。execution 为 current/native/fallback，属于执行者声明；状态保留协议哈希、报告及实际内容版本。
@@ -73,11 +73,11 @@ python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py status <准备目录>
 ## 全库验收与交付
 
 ```bash
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py library-find <准备目录> --plan L-0001 港口 税收
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py library-audit <准备目录> --target <计划的staging目录>
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py library-review <准备目录> --plan L-0001 --file <全库语义检查.md> --result pass --by "实际复核者"
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py library-check <准备目录> --plan L-0001
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py library-apply <准备目录> --plan L-0001 --authorization "作者已授权向该具体目标交付验收结果"
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py library-find <准备目录> --plan L-0001 港口 税收
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py library-audit <准备目录> --target <计划的staging目录>
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py library-review <准备目录> --plan L-0001 --file <全库语义检查.md> --result pass --by "实际复核者"
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py library-check <准备目录> --plan L-0001
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py library-apply <准备目录> --plan L-0001 --authorization "作者已授权向该具体目标交付验收结果"
 ```
 
 模型报告复核保真、权威、范围、完整性、结构、未定问题及真实取用结果。没完成全部批次、有延期、文件/来源/规范/报告变化、结构错误或用例未命中均不能通过。机械通过不证明语义正确，警告在报告中解释。

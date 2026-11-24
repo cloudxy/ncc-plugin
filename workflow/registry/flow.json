@@ -167,7 +167,7 @@
         "已设引导档位",
         "技艺库里有别的书的条目时，已读并写出技艺库摘录（M6-4）"
       ],
-      "source": "scripts/ncc_state.py gate <书目录> soul"
+      "source": "scripts/cli/ncc_state.py gate <书目录> soul"
     },
     "G1-settings-frozen": {
       "decider": "author",
@@ -179,7 +179,7 @@
         "至少一张完整人物卡（欲望、需要、恐惧、声音）",
         "主角弧光类型已选"
       ],
-      "source": "scripts/ncc_state.py gate <书目录> settings"
+      "source": "scripts/cli/ncc_state.py gate <书目录> settings"
     },
     "G2-outline-frozen": {
       "decider": "author",
@@ -188,7 +188,7 @@
         "建筑师：卷一卷纲＋黄金三章章纲；混合：当前单元；园丁：只要总纲",
         "承诺台账已登记（园丁模式可事后补记）"
       ],
-      "source": "scripts/ncc_state.py gate <书目录> outline"
+      "source": "scripts/cli/ncc_state.py gate <书目录> outline"
     },
     "G3-opening-accepted": {
       "decider": "author",
@@ -199,7 +199,7 @@
         "签约点五项在黄金三章内落地",
         "文风基准的本书校准段已填，文风指纹已生成（M6-1）"
       ],
-      "source": "scripts/ncc_state.py gate <书目录> opening"
+      "source": "scripts/cli/ncc_state.py gate <书目录> opening"
     },
     "G-chapter": {
       "decider": "script+editor",
@@ -212,7 +212,7 @@
         "关键章：作者已从 2–3 版中选定",
         "正文变更后已复审（SHA 一致）"
       ],
-      "source": "scripts/check_chapter.py；scripts/ncc_state.py complete"
+      "source": "scripts/cli/check_chapter.py；scripts/cli/ncc_state.py complete"
     },
     "G4-volume": {
       "decider": "author",
@@ -222,7 +222,7 @@
         "本卷单元都已关闭",
         "第一卷：书魂已确定（D7）"
       ],
-      "source": "scripts/ncc_state.py gate <书目录> volume"
+      "source": "scripts/cli/ncc_state.py gate <书目录> volume"
     },
     "G5-finale": {
       "decider": "author",
@@ -233,7 +233,7 @@
         "全书复盘已写",
         "技艺库有本书条目且条目表不为空"
       ],
-      "source": "scripts/ncc_state.py gate <书目录> finale"
+      "source": "scripts/cli/ncc_state.py gate <书目录> finale"
     }
   },
   "writing_modes": {

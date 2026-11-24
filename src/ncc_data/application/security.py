@@ -7,16 +7,79 @@ from sqlalchemy import select
 
 from ncc_data.persistence.models import Membership, Scope, Session, User, utcnow
 from ncc_shared.errors import DomainError, require
+from ncc_shared.http import extract_hostname, is_loopback_host
 from ncc_shared.serialization import digest
 
 ALL_ACTIONS = frozenset({"read", "edit", "adopt", "assess", "export", "secret", "admin", "operate"})
+DEFAULT_ADMIN_USERNAME = "admin"
+DEFAULT_ADMIN_PASSWORD = "123456"
+LOOPBACK_REMINDER = "首次使用默认管理员账号（admin），请及时修改账号名和密码。"
+ENFORCED_REMINDER = "当前通过真实地址访问且正在使用默认管理员账号（admin），第一次使用时必须先修改账号名和密码。"
+
+
+def _scrypt_encode(password: str) -> str:
+    salt = secrets.token_bytes(16)
+    key = hashlib.scrypt(password.encode(), salt=salt, n=16384, r=8, p=1, dklen=32)
+    return "scrypt$" + salt.hex() + "$" + key.hex()
 
 
 def password_hash(password):
     require(len(password) >= 12, "weak_password", "密码至少12个字符")
-    salt = secrets.token_bytes(16)
-    key = hashlib.scrypt(password.encode(), salt=salt, n=16384, r=8, p=1, dklen=32)
-    return "scrypt$" + salt.hex() + "$" + key.hex()
+    return _scrypt_encode(password)
+
+
+def default_bootstrap_password_hash() -> str:
+    return _scrypt_encode(DEFAULT_ADMIN_PASSWORD)
+
+
+async def ensure_default_admin(db) -> bool:
+    if await db.scalar(select(User.id).limit(1)) is not None:
+        return False
+    db.add(
+        User(
+            username=DEFAULT_ADMIN_USERNAME,
+            password_hash=default_bootstrap_password_hash(),
+            admin=True,
+            active=True,
+            must_change_credentials=True,
+        )
+    )
+    await db.flush()
+    return True
+
+
+def credential_change_policy(
+    request,
+    settings,
+    user,
+    bind_host: str | None = None,
+) -> tuple[bool, bool, str]:
+    must_change = bool(getattr(user, "must_change_credentials", False))
+    if not must_change:
+        return False, False, ""
+
+    enforced = False
+    if bind_host is not None and str(bind_host).strip():
+        if not is_loopback_host(str(bind_host)):
+            enforced = True
+
+    origin_raw = getattr(settings, "public_origin", "") if settings is not None else ""
+    origin_host = extract_hostname(origin_raw)
+    if origin_host and origin_host != "testserver" and not is_loopback_host(origin_host):
+        enforced = True
+
+    if request is not None:
+        headers = getattr(request, "headers", None)
+        raw_req_host = headers.get("host", "") if headers is not None else ""
+        if not raw_req_host:
+            req_url = getattr(request, "url", None)
+            raw_req_host = getattr(req_url, "hostname", "") or ""
+        req_host = extract_hostname(raw_req_host)
+        if req_host and req_host != "testserver" and not is_loopback_host(req_host):
+            enforced = True
+
+    reminder = ENFORCED_REMINDER if enforced else LOOPBACK_REMINDER
+    return True, enforced, reminder
 
 
 def password_matches(password, encoded):

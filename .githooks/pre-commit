@@ -45,14 +45,14 @@ DIR_MARKERS = (
     "02-大纲/", "03-文风/", "04-正文/", "05-审稿/", "06-台账/", "07-导出/",
 )
 FILE_MARKERS = ("book.json", "prepare.json")
-ROOT_PREFIXES = ("novels/", "books/")
+ROOT_PREFIXES = ("novels/", "books/", "docs/tasks/", "docs/evidence/")
 
 blocked = [p for p in staged
            if p.startswith(ROOT_PREFIXES)
            or any(m in p for m in DIR_MARKERS)
            or os.path.basename(p) in FILE_MARKERS]
 if blocked:
-    print("✘ 提交被私有内容守卫拦截：书稿与素材是调试数据，不能上传到仓库。", file=sys.stderr)
+    print("✘ 提交被私有内容守卫拦截：书稿素材及本地私有任务/证据记录不能上传到仓库。", file=sys.stderr)
     for p in blocked:
         print("   - " + p, file=sys.stderr)
     print("  如确属误拦，git commit --no-verify 跳过并修正 .githooks/pre-commit 标记。", file=sys.stderr)

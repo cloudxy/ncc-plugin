@@ -21,6 +21,7 @@ from ncc_data.api.routes.system import build_router as system_router
 from ncc_data.api.routes.workspace import build_router as workspace_router
 from ncc_data.application.security import (
     authenticate,
+    credential_change_policy,
     password_hash,
 )
 from ncc_data.application.service import Service
@@ -29,8 +30,19 @@ from ncc_data.runtime.settings import Settings
 from ncc_shared.errors import DomainError, require
 from ncc_shared.serialization import digest, jsonable
 
+CREDENTIAL_CHANGE_ALLOWED_PATHS = frozenset(
+    {
+        "/api/v1/me",
+        "/api/v1/auth/credentials",
+        "/api/v1/auth/logout",
+    }
+)
+CREDENTIAL_CHANGE_REQUIRED_DETAIL = (
+    "当前通过真实地址访问且正在使用默认管理员账号，请先修改账号和密码后再继续使用"
+)
 
-def create_app(settings=None, factory=None):
+
+def create_app(settings=None, factory=None, bind_host=None):
     settings = settings or Settings.from_env()
     engine = None
     if factory is None:
@@ -50,7 +62,7 @@ def create_app(settings=None, factory=None):
         redoc_url=None,
         openapi_url=None,
     )
-    app.state.factory, app.state.settings = factory, settings
+    app.state.factory, app.state.settings, app.state.bind_host = factory, settings, bind_host
     dummy_hash = password_hash(secrets.token_urlsafe(24))
 
     @app.exception_handler(DomainError)
@@ -124,15 +136,19 @@ def create_app(settings=None, factory=None):
                     403,
                 )
             request.state.session_id = session.id
+            request.state.session_kind = session.kind
+            _, enforced, _ = credential_change_policy(request, settings, actor, bind_host=bind_host)
+            if enforced and request.url.path not in CREDENTIAL_CHANGE_ALLOWED_PATHS:
+                raise DomainError("credential_change_required", CREDENTIAL_CHANGE_REQUIRED_DETAIL, 403)
             yield Service(db, actor)
 
-    app.include_router(session_router(service, settings, factory, dummy_hash))
+    app.include_router(session_router(service, settings, factory, dummy_hash, bind_host))
     app.include_router(knowledge_router(service))
     app.include_router(workspace_router(service))
     app.include_router(creation_router(service))
     app.include_router(studio_router(service))
     app.include_router(administration_router(service, settings))
     app.include_router(exchange_router(service, settings))
-    app.include_router(events_router(factory))
+    app.include_router(events_router(factory, settings, bind_host))
     app.include_router(system_router(app, service, settings, factory))
     return app

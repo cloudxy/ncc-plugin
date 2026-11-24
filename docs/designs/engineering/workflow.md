@@ -2,7 +2,7 @@
 
 日期：2026-10-12 ｜ 状态：已实施并发布，当前保留设计依据；目录路径已随 2026-10-16 文档整理更新 ｜ 核查基线：eee4297
 
-本稿替代原八阶段通行方案。问题、成因及溯源见 [方案审查记录](source-audit.md)；原稿保留在 Git 历史中。本稿保留设计依据；现行开发阶段与证据契约唯一见[开发工作流](../../engineering/workflow.md)，实施进度与结果见[升级任务](../../evidence/2026-10-12-ncc-dev/task.md)。
+本稿替代原八阶段通行方案。问题、成因及溯源见 [方案审查记录](source-audit.md)；原稿保留在 Git 历史中。本稿保留设计依据；现行开发阶段与证据契约唯一见[开发工作流](../../engineering/workflow.md)。
 
 ## 目的与不可变约束
 
@@ -103,7 +103,7 @@ D1 的目标和设计合并成一次可读评审，不再要求先批 spec、再
 | 验证与评审 | 命令、退出码、摘要、报告位置、覆盖范围、缺失项、对应候选指纹 |
 | 发布 | 本地验收、提交、远端发布、消费克隆同步、运行加载分别记录；回滚方式 |
 
-指纹由后续拟新增的 scripts/check_dev_workflow.py 计算并核查：按路径排序，包含相对路径、文件内容或软链目标、可执行属性与删除项；包含本任务新增文件，软链所指的仓内源文件也纳入候选；不读取被忽略的小说目录。实际 Git 差异与任务清单比对，未登记的产品改动先报告归属，不能静默排除；他人在途改动单独标记且不擅自纳入本次交付。仅记 HEAD 不能区分未提交改动。证据元数据及其日志不纳入自身指纹，避免自引用；待交付的代码、技能、流程文档与打包文件必须纳入。
+指纹由后续拟新增的 scripts/dev/checkers/check_dev_workflow.py 计算并核查：按路径排序，包含相对路径、文件内容或软链目标、可执行属性与删除项；包含本任务新增文件，软链所指的仓内源文件也纳入候选；不读取被忽略的小说目录。实际 Git 差异与任务清单比对，未登记的产品改动先报告归属，不能静默排除；他人在途改动单独标记且不擅自纳入本次交付。仅记 HEAD 不能区分未提交改动。证据元数据及其日志不纳入自身指纹，避免自引用；待交付的代码、技能、流程文档与打包文件必须纳入。
 
 同一检查器只验证记录结构、路径边界、文件指纹与缺失证据，不替模型判断设计质量、不把一行“通过”变成事实。用标准库读取任务中的结构化 JSON 证据块，说明性文字保持 Markdown；不新增后台任务引擎或第二份开发状态库。
 
@@ -121,8 +121,8 @@ D1 的目标和设计合并成一次可读评审，不再要求先批 spec、再
 | workflow/registry.json 的 commands.ncc-dev | 命令描述、技能名、参数提示等元数据，供既有生成器消费 |
 | .agents/skills、.claude/skills、.claude/commands | 三个仓内相对软链，引用已有唯一实现 |
 | docs/tasks/<任务号>.md | 当前任务的进度、决定与证据，不能反向成为全局规则副本 |
-| scripts/check_dev_workflow.py | 确定性证据与路径核验，不负责模型判断或通用工作流编排 |
-| scripts/check_plugin.py 与相应测试 | 命令登记反向一致性、接线及可定位性；不宣称验证了宿主运行 |
+| scripts/dev/checkers/check_dev_workflow.py | 确定性证据与路径核验，不负责模型判断或通用工作流编排 |
+| scripts/dev/checkers/check_plugin.py 与相应测试 | 命令登记反向一致性、接线及可定位性；不宣称验证了宿主运行 |
 | AGENTS.md、README.md、docs/guides/usage.md | 开发入口与必要说明，细节引用流程文档 |
 
 允许调整既有脚本与命令元数据；禁止在此建设阶段改创作阶段、闸门、角色职责或判据业务。向既有 commands 增一条开发命令是登记改动，不等于改变创作业务状态机；仍按工作区规定接受规则类检查和作者确认。
@@ -171,9 +171,9 @@ D1 的目标和设计合并成一次可读评审，不再要求先批 spec、再
 
 ```bash
 python3 -m unittest discover -s scripts -p 'test_*.py'
-python3 scripts/check_plugin.py -v
-python3 scripts/build_docs.py --check
-python3 scripts/ncc_eval.py mech
+python3 scripts/dev/checkers/check_plugin.py -v
+python3 scripts/dev/builders/build_docs.py --check
+python3 scripts/cli/ncc_eval.py mech
 ```
 
 代码行为修复先复现缺陷，再验证修复；纯文案、链接和打包声明用相应一致性检查，不强求伪造红绿测试。新增开发检查器的测试至少覆盖陈旧指纹、缺文件、未登记入口、断链和越界路径等真实失败，而非镜像实现。

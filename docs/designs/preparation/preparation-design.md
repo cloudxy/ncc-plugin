@@ -1,6 +1,6 @@
 # 通用创作前准备设计
 
-状态：六类工作流程、独立工作区与通用素材库治理已实现。执行入口为 `skills/ncc-prepare/SKILL.md`，脚本为 `scripts/ncc_prepare.py`。本过程不改变现有书项目的状态与目录契约。
+状态：六类工作流程、独立工作区与通用素材库治理已实现。执行入口为 `skills/ncc-prepare/SKILL.md`，脚本为 `scripts/cli/ncc_prepare.py`。本过程不改变现有书项目的状态与目录契约。
 
 ## 要解决的问题
 
@@ -15,12 +15,12 @@
 | 位置 | 当前行为 | 实际缺口 |
 |---|---|---|
 | `skills/ncc/SKILL.md` 的定位步骤 | 先定位 NCC 书目录、运行 status | 整理资料没有独立入口，无书时只能开书、拆书或评测 |
-| `scripts/ncclib/materials.py` | 必须 load 书项目；仅识别 M/MS 编号卡；内容按单行字段读取 | 既有 Markdown、长表格、分级名录、原始笔记不会成为可处理素材 |
-| `scripts/ncclib/settings.py` | 必须 load 书项目；检查固定目录的类目卡 | 不能识别现有设定树，也不能从散落资料建立设定体系 |
+| `scripts/ncclib/assets/materials.py` | 必须 load 书项目；仅识别 M/MS 编号卡；内容按单行字段读取 | 既有 Markdown、长表格、分级名录、原始笔记不会成为可处理素材 |
+| `scripts/ncclib/assets/settings.py` | 必须 load 书项目；检查固定目录的类目卡 | 不能识别现有设定树，也不能从散落资料建立设定体系 |
 | 设定卡与 G1 | 必填字段非空；允许写“待定” | 无法区别下一段剧情必须定的规则与可以后补的远期细节 |
-| `scripts/ncclib/memory.py` 的 recall | 检索 NCC 记忆、交接、场景、审稿与台账 | 不是外部资料目录的索引与检索入口 |
+| `scripts/ncclib/assets/memory.py` 的 recall | 检索 NCC 记忆、交接、场景、审稿与台账 | 不是外部资料目录的索引与检索入口 |
 | `skills/ncc-new/references/worldbuilding.md` | 告诉 worldbuilder 挑底料、改成适合本书的版本 | 来源登记、改编关系、冲突证据、采用决定与增量更新没有操作闭环 |
-| `scripts/ncclib/book.py` 的 migrate | 迁移旧版 NCC schema | 不能当作其他写作工程的导入器；直接 init 会产生另一套目录与状态 |
+| `scripts/ncclib/narrative/book.py` 的 migrate | 迁移旧版 NCC schema | 不能当作其他写作工程的导入器；直接 init 会产生另一套目录与状态 |
 
 ## 六类任务与三种使用方式
 
@@ -176,7 +176,7 @@ flowchart LR
 
 ## 脚本接口
 
-以下操作由 `scripts/ncc_prepare.py` 提供，具体参数见 [准备工作区与命令](../../../skills/ncc-prepare/references/workspace.md)。任务与状态词表只在注册表 preparation 中维护。
+以下操作由 `scripts/cli/ncc_prepare.py` 提供，具体参数见 [准备工作区与命令](../../../skills/ncc-prepare/references/workspace.md)。任务与状态词表只在注册表 preparation 中维护。
 
 | 操作 | 作用 |
 |---|---|

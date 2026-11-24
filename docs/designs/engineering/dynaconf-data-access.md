@@ -1,6 +1,6 @@
 # Dynaconf与双通道数据接入
 
-状态：源码已实现，真实PostgreSQL连接待验；进度与证据见[实施任务](../../tasks/2026-10-19-dynaconf-data-access.md)。作者2026-10-19明确要求使用Dynaconf、配置PostgreSQL读取MCP，并确保非MCP具有读写、编辑和更新能力。基线为`ac0fc44990a4f8c8e8d22a3a0a4a0540c4446393`，开始时工作树干净。继承既定PostgreSQL参数及正式库/-test唯一数据库对，不新建服务器、账号或额外数据库。
+状态：已实施留档。作者2026-10-19明确要求使用Dynaconf、配置PostgreSQL读取MCP，并确保非MCP具有读写、编辑和更新能力。基线为`ac0fc44990a4f8c8e8d22a3a0a4a0540c4446393`，开始时工作树干净。继承既定PostgreSQL参数及正式库/本地测试库唯一数据库对，不新建服务器、账号或额外数据库。
 
 ## 机制与边界
 

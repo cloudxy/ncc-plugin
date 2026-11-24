@@ -24,7 +24,21 @@ npm --prefix apps/management-web run build
 
 旧版本把私有配置放在项目根`.env`时，再执行一次`init`即可原字节迁入`config/.env`并移除旧位置；不需要重新填写。新旧文件同时存在时会停止，请先核对并仅保留配置目录中的文件，程序不自动合并。默认加载不会回退旧位置；高级自动化仍可用`--config`明确指定隔离配置。完成迁移后执行`mcp-config --host both`更新本机宿主接线。
 
-只使用两个库：线上正式库`ncc-pro`，以及同一服务器、端口、账号和连接选项的本地测试库`ncc-dev`。测试库名固定为`ncc-dev`，不维护第二套连接。默认`NCC_ENV="local"`时，以下本地命令全部自动选中`ncc-dev`，不会连接`ncc-pro`。数据库维护者只需在初始化时准备这两个库；所有作品用逻辑范围隔离，不按作品、验收、恢复操作创建库。
+只使用两个库：线上正式库`ncc-pro`，以及同一服务器、端口、账号和连接选项的本地测试库`ncc-dev`。测试库名固定为`ncc-dev`，不维护第二套连接。数据库维护者只需在初始化时准备这两个库；所有作品用逻辑范围隔离，不按作品、验收、恢复操作创建库。两个命令行入口的默认目标分工如下：
+
+- **统一启动器 `./start.py`**：面向作者日常创作，无模式参数时默认使用 `production` profile 连接正式库 `ncc-pro`（默认监听 `http://127.0.0.1:8761`）；需要本地隔离调试时显式传 `--database ncc-dev`（切换 `local` profile 与 `ncc-dev`，仍走常规端口 `8761`），自动化测试专用端口 `8788` 使用 `--test`。
+- **底层 CLI `.venv/bin/ncc-data`**：未显式传模式参数时读取 `config/.env` 的 `NCC_ENV`（缺省 `"local"`），本地命令默认自动选中 `ncc-dev`，不会默认连接 `ncc-pro`。
+
+```bash
+# 推荐：跨平台启动器（macOS 使用 ./start.py；Windows 使用 py -3 start.py 或 python start.py）
+# 默认连接正式库 ncc-pro（8761 端口）；若需操作测试库请显式加 --database ncc-dev
+./start.py --migrate
+./start.py --create-user '<账号名>'
+./start.py --check
+./start.py --open
+```
+
+也可以分别使用底层 `ncc-data` 命令（默认 `NCC_ENV="local"` 时选中 `ncc-dev`）：
 
 ```bash
 .venv/bin/ncc-data migrate
@@ -33,13 +47,13 @@ npm --prefix apps/management-web run build
 .venv/bin/ncc-data serve
 ```
 
-`doctor`输出实际选中的`profile`与`database`（本地默认为`local`与`ncc-dev`）。`create-user`通过终端两次输入密码，至少12字符；首个账号是系统管理员。没有内置默认密码或匿名管理入口。打开`http://127.0.0.1:8787`登录。另一个终端在项目中启动任务执行器，自动读取同一份`config/.env`并同样连接`ncc-dev`：
+`./start.py --check` 与 `.venv/bin/ncc-data doctor` 都会输出实际选中的 `profile`、`database`、`default_admin_active` 与 `origin`（`./start.py --check` 默认输出 `production` 与 `ncc-pro`，加 `--database ncc-dev` 输出 `local` 与 `ncc-dev`；`ncc-data doctor` 在默认 `NCC_ENV="local"` 下输出 `local` 与 `ncc-dev`）。没有匿名管理入口：当目标库 `ncc_user` 为空时，`migrate` 会自动建立初始默认系统管理员 `admin` / `123456`（标记 `must_change_credentials=true`，绝不覆盖已有账号），第一次使用时必须进入后台同时修改默认账号名和密码（新密码至少12字符）；也可随时通过 `create-user` 在终端两次输入至少12字符密码新建账号（空库下通过 `create-user` 建立的首个账号同样为系统管理员且无需强改）。主机差异化策略：通过回环地址（`127.0.0.1` / `localhost` / `::1`）监听和访问时，默认管理员账号仅在顶栏展示醒目安全提醒与快捷修改入口，不阻断日常操作；一旦监听或访问非回环真实地址（如局域网/公网 IP、`0.0.0.0` / `::`、或非回环 `NCC_PUBLIC_ORIGIN` / `Host` 头），后端将在默认管理员完成改名改密前强制拒绝全部业务接口与事件流（返回 `403 credential_change_required`），前端锁定在不可关闭的修改凭据对话框。打开`http://127.0.0.1:8761`登录。若使用 `ncc-data serve` 分离启动，可在另一个终端启动任务执行器，自动读取同一份`config/.env`并保持同一目标库（直接运行 `./start.py` 时已自动同启 Web 与 Worker）：
 
 ```bash
 .venv/bin/ncc-data worker
 ```
 
-正式部署线上环境时，在服务器`config/.env`设置`NCC_ENV="production"`（或在单次维护命令显式传`--production` / `--profile production`），同一组`migrate / create-user / doctor / serve / worker`即选中线上库`ncc-pro`。
+直接通过底层 `ncc-data` 维护或部署正式环境时，可在服务器`config/.env`设置`NCC_ENV="production"`，或在单次命令显式传`--production` / `--profile production`，同一组`migrate / create-user / doctor / serve / worker`即选中线上库`ncc-pro`（`./start.py` 无需额外参数即默认选中 `ncc-pro`）。
 
 API和前端同源运行，采用HttpOnly会话与CSRF令牌。远程部署需要HTTPS同源反向代理，并在`config/.env`中将`NCC_PUBLIC_ORIGIN`设为实际地址；代理需支持SSE、限制请求大小、关闭事件流缓冲。CLI与Worker不接收任意SQL或脚本。`serve`默认仅监听本机，不暴露数据库端口。
 
@@ -98,7 +112,7 @@ JSON导出固定版本，包含当前对象、可访问事实、定义以及有�
 ```bash
 .venv/bin/ncc-data workspace import '<私有工作副本目录>' --scope '<范围ID>'
 .venv/bin/ncc-data workspace bind '<私有工作副本目录>' --scope '<范围ID>'
-python3 scripts/ncc_state.py status '<私有工作副本目录>'
+python3 scripts/cli/ncc_state.py status '<私有工作副本目录>'
 .venv/bin/ncc-data workspace pull '<私有工作副本目录>' --scope '<范围ID>'
 ```
 
@@ -130,15 +144,15 @@ PostgreSQL只读MCP和不依赖API启动的直接CLI读写，见[数据接入指
 
 ```bash
 python3 -m unittest discover -s scripts/tests -t scripts -p 'test_*.py'
-python3 scripts/dev/check_plugin.py -v
+python3 scripts/dev/checkers/check_plugin.py -v
 .venv/bin/pytest tests/unit tests/backend -q
 npm --prefix apps/management-web run build
-.venv/bin/python tests/browser/run_browser.py --output '<仓外验收截图目录>'
-.venv/bin/python tests/backend/run_recovery.py --confirm-reset-test 'ncc-dev'
+.venv/bin/python tests/browser/console/run_browser.py --output '<仓外验收截图目录>'
+.venv/bin/python tests/backend/operations/run_recovery.py --confirm-reset-test 'ncc-dev'
 ```
 
 后台集成、浏览器、CLI往返和恢复演练共用`tests/support/`环境，串行使用`ncc-dev`；已占用时停止，不创建更多库。普通定向与集成测试仅操作当次新建的合成范围与合成账号，不执行整库TRUNCATE，保护`ncc-dev`中已有的日常作品、身份与历史记录；恢复演练与显式重置在检测到非空共用库或未知表、其他业务schema时拒绝清库。连接尚未配置时，数据库用例明确跳过，不视为联调通过。
 
-浏览器验收自动启动并关闭本机测试服务，默认`http://127.0.0.1:8788`，不复用已有端口服务。合成账号由公共环境在-test库准备。`ncc-data --test serve/worker/migrate/doctor`选择同一测试库和测试服务地址；`--test request/workspace`也选择测试地址，并在发送凭据前核对服务profile。普通正式服务默认8787；测试地址可在`config/.env`的`NCC_TEST_PUBLIC_ORIGIN`填写。高级自动化可显式使用`--config '<config/.env>'`，普通操作无需此参数。
+浏览器验收自动启动并关闭本机测试服务，默认`http://127.0.0.1:8788`，不复用已有端口服务。合成账号由公共环境在-test库准备。`ncc-data --test serve/worker/migrate/doctor`选择同一测试库和测试服务地址；`--test request/workspace`也选择测试地址，并在发送凭据前核对服务profile。普通正式与本地服务默认8761；测试地址可在`config/.env`的`NCC_TEST_PUBLIC_ORIGIN`填写。高级自动化可显式使用`--config '<config/.env>'`，普通操作无需此参数。
 
-代码目录、复用边界和测试归属见[代码归属规范](../engineering/code-layout.md)。当前Dynaconf及配置目录迁移的验证与限制见[任务记录](../tasks/2026-10-19-dynaconf-data-access.md)，此前v4功能验证保留在[实施证据](../evidence/2026-10-18-postgresql-design/implementation.md)。
+代码目录、复用边界和测试归属见[代码归属规范](../engineering/code-layout.md)。

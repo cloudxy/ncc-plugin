@@ -20,7 +20,7 @@ when_to_use: "User asks for library governance or creative preparation, material
 
 ## 铁律（来自 registry，冲突时以 registry 为准）
 
-<!-- ncc:gen iron-rules 开始（scripts/dev/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
+<!-- ncc:gen iron-rules 开始（scripts/dev/builders/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
 1. 写这章的帽不审这章；审稿帽只产带证据的 observation，不改稿。
 2. 每个范围只用一个状态权威：文件模式为 book.json 与 06-台账，数据库模式经统一应用服务；投影不绕过采用流程回写。
 3. 修订是显式独立动作；正文 SHA 一变，旧评审即作废，必须复评。
@@ -38,7 +38,7 @@ when_to_use: "User asks for library governance or creative preparation, material
 
 1. 解析书库根目录：优先读项目里的 `ncc.config.yaml`（`book_root`，默认 `./novels`）。
 2. 作者点名书名 → 定位 `{book_root}/{书名}/`；没点名且书库有多本书 → 一行列出（书名、阶段、最新章），推荐最近写过的那本，请作者选。
-3. 每次运行先跑 `python3 <PLUGIN_ROOT>/scripts/ncc_state.py status <书目录>`，把输出作为事实基础；不要凭目录猜状态。信息放在哪、谁能写、在哪看，按 [references/book-state.md](references/book-state.md) 的"信息地图"：源头只有一个，`author-intent.md`、`current-focus.md`、台账的 .md 都是生成的视图，不手改；`ncc_state.py check` 自查。
+3. 每次运行先跑 `python3 <PLUGIN_ROOT>/scripts/cli/ncc_state.py status <书目录>`，把输出作为事实基础；不要凭目录猜状态。信息放在哪、谁能写、在哪看，按 [references/book-state.md](references/book-state.md) 的"信息地图"：源头只有一个，`author-intent.md`、`current-focus.md`、台账的 .md 都是生成的视图，不手改；`ncc_state.py check` 自查。
 4. 脚本提示 schema 1（v0.1 的书）→ 推荐运行 `ncc_state.py migrate <书目录>`（原伏笔台账保留不删），说明会改什么，作者同意后执行。
 5. 无书且意图是开书 → 转 `ncc-new`。无书且意图是拆书 → 转 `ncc-deconstruct`。意图是评测 → 转 `ncc-eval`（不需要书）。
 

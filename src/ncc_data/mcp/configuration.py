@@ -56,7 +56,7 @@ def install(host="both", root=None, profile="local", config=None, explicit_flag=
     if profile not in {"local", "production", "test"}:
         raise ValueError("MCP只能选择本地、正式或测试模式")
     arguments = [
-        str(root / "scripts/ncc_data.py"),
+        str(root / "scripts/cli/ncc_data.py"),
         "--config",
         str(Path(config).resolve() if config else config_path(root)),
     ]
@@ -66,9 +66,13 @@ def install(host="both", root=None, profile="local", config=None, explicit_flag=
         arguments.append("--production")
     arguments.append("mcp")
     entry = {"command": str(python), "args": arguments}
-    legacy_arguments = [*arguments]
-    legacy_arguments[2] = str(legacy_config_path(root))
-    legacy_entry = {**entry, "args": legacy_arguments}
+    tail = arguments[3:]
+    legacy_argument_sets = [
+        [str(root / "scripts/ncc_data.py"), "--config", str(legacy_config_path(root)), *tail],
+        [str(root / "scripts/ncc_data.py"), "--config", str(config_path(root)), *tail],
+        [str(root / "scripts/cli/ncc_data.py"), "--config", str(legacy_config_path(root)), *tail],
+    ]
+    legacy_entries = [{**entry, "args": item} for item in legacy_argument_sets]
     result = []
     if host in {"claude", "both"}:
         path = root / ".mcp.json"
@@ -79,7 +83,7 @@ def install(host="both", root=None, profile="local", config=None, explicit_flag=
             raise ValueError("现有MCP配置结构无效，原文件保留")
         servers = data.setdefault("mcpServers", {})
         if SERVER_NAME in servers and servers[SERVER_NAME] != entry and not (
-            config is None and servers[SERVER_NAME] == legacy_entry
+            config is None and servers[SERVER_NAME] in legacy_entries
         ):
             raise ValueError("已有同名MCP配置不同，保留原文件；请先核查")
         servers[SERVER_NAME] = entry
@@ -98,7 +102,7 @@ def install(host="both", root=None, profile="local", config=None, explicit_flag=
             if not isinstance(current, dict) or current.get("command") != entry["command"]:
                 raise ValueError("已有同名Codex MCP配置不同，保留原文件；请先核查")
             if current.get("args") != arguments:
-                if config is not None or current.get("args") != legacy_arguments:
+                if config is not None or current.get("args") not in legacy_argument_sets:
                     raise ValueError("已有同名Codex MCP配置不同，保留原文件；请先核查")
                 original = _retarget_generated_arguments(original, arguments)
             result.append((path, original))

@@ -75,10 +75,10 @@
 ### 拆书喂库
 
 - `/ncc-deconstruct <原著路径>` 先确定目标：看结构走 L0/L1；研究写法默认关键章 L2（最多27个去重样本）；完整逐章须明确选择；已有产物转方法走 L3。场次另选范围，不默认全书剧本化。
-- 代码入口仍为 `python3 scripts/ncc_state.py decon …`：index 建索引，plan 定目标与范围，packet 组包，ingest 验收入库，coverage 分层核对，stats 按全书/连续范围/样本分别报告；恢复用 ingest --recover。总纲通过 packet --framework 指向作者实际文件。
+- 代码入口为 `python3 scripts/cli/ncc_state.py decon …`：index 建索引，plan 定目标与范围，packet 组包，ingest 验收入库，coverage 分层核对，stats 按全书/连续范围/样本分别报告；恢复用 ingest --recover。总纲通过 packet --framework 指向作者实际文件。
 - 原文、章文件、台账及报告留在私有拆书库。旧 done/skipped 仅算 legacy，新层通过入库才能完成；未选章不算跳过或已拆。缺来源的抽样章可明确采用 --independent，仅保留章内结论，不写全书事实台账。
 - 场次导出留拆书库 `报告/对标场景卡/`，L3 只读已验结论投影，方法须有两处独立证据、适用条件、代价和失效；不自动写作者大纲或正文。技法仍沿用 technique 接口与跨书技法库，作者采用后再走正常规划、故事审和写稿流程。
-- 本次分层升级为本地代码候选，测试与规则验收由作者另行进行，状态见[实施任务](../tasks/2026-10-18-deconstruction-upgrade.md)。操作细则见[拆书入口](../../skills/ncc-deconstruct/SKILL.md)。
+- 代码入口为 `python3 scripts/cli/ncc_state.py decon …`，操作细则见[拆书入口](../../skills/ncc-deconstruct/SKILL.md)。
 
 ## 常见问题
 
@@ -127,5 +127,7 @@
 **机械检查没过，但我就想这么写？** 闸门可以 `--force` 放行，脚本会记下你的原话和没满足的项。审稿问题可以标"有意为之"，但要登记补偿。
 
 **冻结后想改设定怎么办？** 写变更提议：改什么、为什么、影响哪些已发布章节、推荐怎么处置，由对应层的决定人拍板；受影响章节标待复评。不悄悄改。
+
+**在 DeepSeek Harness（DSH）里怎么用？** 两种方式并存：① 直接在 `ncc-workflow` 仓库目录内启动 DSH 时，DSH 会自动通过项目级 `.agents/skills` 发现全部技能（优先级高于安装包）；② 想在任意小说目录或 DSH Web UI 里随时调用，运行 `dsh plugin --profile web add <ncc-workflow本地路径或 github:cloudxy/ncc-plugin>` 安装为原生插件包，即可在 Web 端 Plugins 页查看说明、一键启停开关，并在对话框用 `/ncc`、`/ncc-write` 等调用全部 12 个技能。
 
 **和 oh-story / drama-skills 什么关系？** 互不替代。ncc-workflow 管「长篇网文从立书到收束」的完整流程与状态账本；oh-story 偏单章写作与文风工具；拆书字段口径与《小说拆分总纲 5.0》同源，产物互通。

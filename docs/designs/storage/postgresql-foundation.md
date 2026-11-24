@@ -1,9 +1,9 @@
 # PostgreSQL 小说知识与叙事底座设计
 
-> 2026-10-19已按作者授权进入实现。本文保留设计依据；其中“本轮仅设计/尚未实施”的叙述属于2026-10-18设计阶段，现行代码、能力与未验边界以[实施计划](implementation.md)、[使用指南](../../guides/data-console.md)和[实施证据](../../evidence/2026-10-18-postgresql-design/implementation.md)为准。
+> 2026-10-19已按作者授权进入实现。本文保留设计依据；其中“本轮仅设计/尚未实施”的叙述属于2026-10-18设计阶段，现行代码、能力与边界以[实施计划](implementation.md)和[使用指南](../../guides/data-console.md)为准。
 
 
-状态：设计候选，待作者审核，未实施。日期：2026-10-18。适用基线：ncc-workflow 3.2.0，提交 `de8d1ab` 及当前任务登记的工作树。关联[设计任务](../../tasks/2026-10-18-postgresql-design.md)。本稿讨论机制、领域清单、操作流程、迁移和验收；不包含数据库表结构、建表语句或实现代码。
+状态：已实施留档（原设计日期：2026-10-18，基线提交 `de8d1ab`）。本稿讨论机制、领域清单、操作流程、迁移和验收；不包含数据库表结构、建表语句或实现代码。
 
 配套的[基础数据管理后台设计](management-console.md)采用作者指定的 Python＋FastAPI，并选用 React＋TypeScript＋Ant Design，细化页面、动态表单、变更采用、关系/时间/叙事操作、权限、任务、部署与验收；后台纳入试点切换前的交付条件。
 
@@ -566,7 +566,7 @@ PostgreSQL 官方区分逻辑转储、文件级备份和连续归档；实施时
 
 ### 16.1 现状与改变边界
 
-当前项目的 `scripts/ncclib/core.py` 直接读写 book.json 和若干 JSON/JSONL 台账；`scripts/ncc_prepare.py` 管理 prepare.json 与准备文件；设定、素材、记忆、正文和视图由各模块及技能读写。拆书新模块以已验收章收据重建台账与进度，但尚不是 PostgreSQL 后端。
+当前项目的 `scripts/ncclib/foundation/core.py` 直接读写 book.json 和若干 JSON/JSONL 台账；`scripts/cli/ncc_prepare.py` 管理 prepare.json 与准备文件；设定、素材、记忆、正文和视图由各模块及技能读写。拆书新模块以已验收章收据重建台账与进度，但尚不是 PostgreSQL 后端。
 
 因此迁移不能只把 book.json 原样塞进一列，或者只改一个 load/save 函数。要逐项处理正文、角色产物、准备工作区、共享资料、拆书收据、台账、派单包、审核证据和所有读写入口。
 

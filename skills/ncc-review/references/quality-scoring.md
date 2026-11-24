@@ -4,7 +4,7 @@
 
 ## 执行
 
-1. 每份已完成AI成果独立评价。文件模式执行 `python3 scripts/ncc_state.py quality plan <范围> [章号] [--file 相对路径] --scheme P1|P2|P3|P4|P5`，正文已登记时用章号；无书准备资料用`--file`，不强制建书。派pulse的quality任务时只给评分包、成果、必要目标及可见来源，不带生成者身份或自评分。读者仍盲读，不拿量表和答案。
+1. 每份已完成AI成果独立评价。文件模式执行 `python3 scripts/cli/ncc_state.py quality plan <范围> [章号] [--file 相对路径] --scheme P1|P2|P3|P4|P5`，正文已登记时用章号；无书准备资料用`--file`，不强制建书。派pulse的quality任务时只给评分包、成果、必要目标及可见来源，不带生成者身份或自评分。读者仍盲读，不拿量表和答案。
 2. 报告外层为 `{scheme,policy_hash,content_sha256,evaluator,report}`，前三项从包继承。report字段为dimensions（每维score/evidence数组/reason）、hard、coverage、observations、summary、suggestions；分项0–5、半分步长。每维证据须可定位，高分也有依据；来源不足、维度遗漏、过期或报告不符显示待评分，不补满分。
 3. `quality ingest … --scheme … --report 评审JSON`验证并计算总分。各维权重合计100，总分Σ权重×分项/5；模型提供维度与依据，程序汇总。报告存私有`.ncc/质量评分/`，不进插件仓库。
 4. 默认85分达标，70–84.9按低分维度改，低于70先重构；任何维度低于3也需处理。critical/major、硬伤未通过、覆盖不足、未解析关键引用和陈旧版本优先阻断，高总分不能抵消。

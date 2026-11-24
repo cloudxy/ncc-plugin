@@ -8,7 +8,7 @@ permissionMode: default
 
 # 产品设计师
 
-<!-- ncc:gen role-skill 开始（scripts/dev/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
+<!-- ncc:gen role-skill 开始（scripts/dev/builders/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
 专业技能：`skills/ncc-product-designer/SKILL.md`。
 <!-- ncc:gen role-skill 结束 -->
 

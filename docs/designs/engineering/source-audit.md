@@ -12,7 +12,7 @@
 
 读取了目标方案、AGENTS.md、既有命令登记/生成器/检查器、Git 钩子、软链、ncc-eval 实现及本机外部技能文件。zcode 数据库只读查询，仅筛选当前项目会话中的相关作者指令；没有修改数据库、插件安装或用户配置，也没有复制完整会话到仓库。
 
-当前项目 zcode 会话：sess_502993c1-cb5d-48f0-b49e-aa0da31dbd43，标题“构建 ncc-plugin 本地仓库与多AI工作环境”。下文序号是该会话 message.sequence，便于本机复查；自动 TodoWrite 提醒不作为作者要求。
+当前项目本地开发会话（标题“构建 ncc-plugin 本地仓库与多AI工作环境”）：下文序号是该会话消息序号，便于设计回溯；自动 TodoWrite 提醒不作为作者要求。
 
 相关指令的意译：
 
@@ -84,9 +84,9 @@ zcode 会话又显示，早期接线先经历用户级安装、拆分开发仓�
 | 命令 | 实际结果 |
 |---|---|
 | python3 -m unittest discover -s scripts -p 'test_*.py' | 115 项通过，131.396 秒，退出码 0 |
-| python3 scripts/check_plugin.py -v | PLUGIN OK，原六项报错已消除 |
-| python3 scripts/build_docs.py --check | DOCS OK |
-| python3 scripts/ncc_eval.py mech | A01–A06 六章通过 |
+| python3 scripts/dev/checkers/check_plugin.py -v | PLUGIN OK，原六项报错已消除 |
+| python3 scripts/dev/builders/build_docs.py --check | DOCS OK |
+| python3 scripts/cli/ncc_eval.py mech | A01–A06 六章通过 |
 | git diff --check | 通过，无空白错误 |
 
 本次改动仅为原设计文档与本审查记录，未新增或修改 registry/skills/agents 规则，因此没有触发规则修改所需的完整模型回归与作者确认。机械层通过不代替完整模型回归。本次未实施 ncc-dev，也没有验证五端新入口运行或执行提交发布。

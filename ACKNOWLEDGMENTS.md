@@ -43,7 +43,7 @@ git clone https://github.com/mattpocock/skills.git /path/to/reference-projects/m
 
 ## 开发设计参考（2026-10-12）
 
-以下参考用于开发工作流的设计，已转化为 ncc-dev 开发入口、[本地流程规范](docs/engineering/workflow.md)与候选证据检查器；本次状态见[升级任务](docs/evidence/2026-10-12-ncc-dev/task.md)。参考范围与取舍见[开发工作流设计](docs/designs/engineering/workflow.md)；本机所读技能的内容指纹见[方案审查记录](docs/designs/engineering/source-audit.md)。后者只记录来源阅读，未调用这些外部技能执行任务。
+以下参考用于开发工作流的设计，已转化为 ncc-dev 开发入口、[本地流程规范](docs/engineering/workflow.md)与候选证据检查器。参考范围与取舍见[开发工作流设计](docs/designs/engineering/workflow.md)；本机所读技能的内容指纹见[方案审查记录](docs/designs/engineering/source-audit.md)。后者只记录来源阅读，未调用这些外部技能执行任务。
 
 | 项目与作者 | 具体参考 | NCC 的转化与取舍 | 来源依据 |
 |---|---|---|---|
@@ -110,12 +110,12 @@ NCC 按自己的执行方式补充了单章串行回写、偏好滚动裁剪和�
 
 | 资产 | 落点 |
 |---|---|
-| 《小说拆分总纲 5.0》（~/Documents/word_wx/ai-skills/） | ncc-deconstruct 的字段口径；事件溯源台账；量纲定义；设定词典与底卡分级 |
+| 《小说拆分总纲 5.0》（作者自有方法论稿） | ncc-deconstruct 的字段口径；事件溯源台账；量纲定义；设定词典与底卡分级 |
 | [sdlc-workflow](https://github.com/cloudxy/sdlc-plugins)（作者自有相关项目） | 目录骨架、经理窗口＋角色帽、registry 唯一事实源、闸门与铁律文体、G-fresh 思想（→ reader/continuity 的 fresh 上下文）；2026-10-12 进一步参照其来源声明、原件与本地实现分离的组织方式，不引入其 vendor 安装与依赖管理 |
 | [VSC / video_wk](https://github.com/cloudxy/vsc-plugin)（作者自有相关项目） | 项目级接线、扁平开发现场；2026-10-12 参照其区分阅读参考与实际依赖、记录来源及使用方式的思想；NCC 采用文档引用，不引入其本地组件、锁文件与更新器 |
 | 主流网文工业流（黄金三章/存稿/日更/爽点节奏的大众共识） | 阶段主线、golden-three.md、连载节奏 |
-| novel_guide（~/Documents/Obsidian_files/novel_guide/） | 爽点通用结构（压迫→误判→吃亏→破口→反打→善后→新责任）是欠·挣·超·证的来源；卡文五问进卡文协议；v0.6：「12 代入感」「13 规避点」整理成判据（review-domains.md 的"代入感与规避点"、check_chapter.py 规避点告警、故事审的主角在场与章尾落点、人物卡标志细节、新手档推荐偏稳） |
-| novel_sources/小说底盘（~/Documents/Obsidian_files/novel_sources/） | v0.6：玄幻、仙侠类力量体系与资源设定的底料（`setting_base_candidates`）；底盘自己的铁律（数值可回查、不跳境界上限、突破有代价、称号不冒充境界）与本插件的量纲、越级例外一致 |
+| novel_guide（作者自有创作笔记库） | 爽点通用结构（压迫→误判→吃亏→破口→反打→善后→新责任）是欠·挣·超·证的来源；卡文五问进卡文协议；v0.6：「12 代入感」「13 规避点」整理成判据（review-domains.md 的"代入感与规避点"、check_chapter.py 规避点告警、故事审的主角在场与章尾落点、人物卡标志细节、新手档推荐偏稳） |
+| novel_sources/小说底盘（作者自有设定底料库） | v0.6：玄幻、仙侠类力量体系与资源设定的底料（`setting_base_candidates`）；底盘自己的铁律（数值可回查、不跳境界上限、突破有代价、称号不冒充境界）与本插件的量纲、越级例外一致 |
 
 ### novel_guide 未采纳的条目（v0.6）
 
@@ -179,7 +179,7 @@ NCC 按自己的执行方式补充了单章串行回写、偏好滚动裁剪和�
 
 | 来源 | 许可 | 借用 | 落点 |
 |---|---|---|---|
-| [zenstory-ai/oh-story-claudecode](https://github.com/zenstory-ai/oh-story-claudecode) 的 story-deslop（`banned-words.md`） | MIT，Copyright (c) 2025-2026 oh-story-claudecode | 一级禁用词、二级密度词、高危句式与五星句式分级、作者白名单的做法 | `scripts/check_chapter.py`（清单为整理后的子集；正则与判定逻辑为本插件自写） |
+| [zenstory-ai/oh-story-claudecode](https://github.com/zenstory-ai/oh-story-claudecode) 的 story-deslop（`banned-words.md`） | MIT，Copyright (c) 2025-2026 oh-story-claudecode | 一级禁用词、二级密度词、高危句式与五星句式分级、作者白名单的做法 | `scripts/cli/check_chapter.py` 与 `scripts/ncclib/quality/chapter_check.py`（清单为整理后的子集；正则与判定逻辑为本插件自写） |
 
 
 ## 项目配置方式参考（2026-10-19）
@@ -201,8 +201,8 @@ MCP采用[官方Python SDK](https://github.com/modelcontextprotocol/python-sdk)�
 | 来源与作者 | 版本依据与参考内容 | NCC 的转化与取舍 | 落点 |
 |---|---|---|---|
 | [Creating Suspenseful Stories — Kaige Xie 等](https://arxiv.org/abs/2402.17119) | arXiv:2402.17119（EACL 2024）；基于 Gerrig & Bernardo 认知悬念理论的对抗式退路剪枝规划，2026-11-22 核对 | 转化为场景卡与故事审的**封路逼宫法**（交锋前显式划掉主角 1–2 条最顺手退路或金手指逃课法，逼出带代价险招）；舍弃逐段多轮树搜索生成，避免高昂调用成本与语态机械化 | [scene-card.md](skills/ncc-write/references/scene-card.md)、[story-editor.md](agents/story-editor.md)、[platinum-playbooks.md](skills/ncc-new/references/platinum-playbooks.md) |
-| Orson Scott Card、Mary Robinette Kowal 与 Brandon Sanderson 公开创作课 | *MICE Quotient*（Milieu/Idea/Character/Event 嵌套结构）、*Promises-Progress-Payoff* 与 *Sanderlanche* 多线收束法 | 转化为大纲与完本清算的**MICE 嵌套开合栈（先进后出，外框先开后关、内框后开先关）**与**多线雪崩合拢**（单元或卷末高潮单场引爆同时合拢 ≥2 条线索，拒绝排队点名报账） | [outline.md](skills/ncc-new/references/outline.md)、[finale.md](skills/ncc/references/finale.md)、[loops.py](scripts/ncclib/loops.py) |
-| Dan Wells *7-Point Story Structure* 与 Lester Dent *Master Plot Formula* | 七点结构之中点“被动转主动（Reactive → Proactive）”枢轴与通俗小说层层加码模型 | 转化为 **8–12 章单元五拍骨架与中点攻守易形锚**（受压入局→初试拿牌→中点摸清底牌转入主动设局反猎杀→至暗封路→掀桌收网＋开箱余波），并在 `sandbox` 战前沙盘自动标出单元中点锚章 | [platinum-playbooks.md](skills/ncc-new/references/platinum-playbooks.md)、[loops.py](scripts/ncclib/loops.py) |
+| Orson Scott Card、Mary Robinette Kowal 与 Brandon Sanderson 公开创作课 | *MICE Quotient*（Milieu/Idea/Character/Event 嵌套结构）、*Promises-Progress-Payoff* 与 *Sanderlanche* 多线收束法 | 转化为大纲与完本清算的**MICE 嵌套开合栈（先进后出，外框先开后关、内框后开先关）**与**多线雪崩合拢**（单元或卷末高潮单场引爆同时合拢 ≥2 条线索，拒绝排队点名报账） | [outline.md](skills/ncc-new/references/outline.md)、[finale.md](skills/ncc/references/finale.md)、[loops.py](scripts/ncclib/narrative/loops.py) |
+| Dan Wells *7-Point Story Structure* 与 Lester Dent *Master Plot Formula* | 七点结构之中点“被动转主动（Reactive → Proactive）”枢轴与通俗小说层层加码模型 | 转化为 **8–12 章单元五拍骨架与中点攻守易形锚**（受压入局→初试拿牌→中点摸清底牌转入主动设局反猎杀→至暗封路→掀桌收网＋开箱余波），并在 `sandbox` 战前沙盘自动标出单元中点锚章 | [platinum-playbooks.md](skills/ncc-new/references/platinum-playbooks.md)、[loops.py](scripts/ncclib/narrative/loops.py) |
 | [Agents' Room — Fantine Huot 等](https://arxiv.org/abs/2410.02603)、[StoryVerse — Yi Chen 等](https://arxiv.org/abs/2405.13042)、[StoryWriter](https://arxiv.org/abs/2506.16445) 及开源网文工作流实践 | ICLR 2025 等多代理叙事分工、世界状态防吃书与社区对大模型“防御性写作（和稀泥降级冲突）”的总结，2026-11-22 核对 | 转化为故事审**反防御性掀桌检视**（拦截冲突半途各退一步和稀泥）与写手**关键筹码流转记账约定**（复用 `event add --attr 持有\|消耗\|损毁` 防忘底牌或重复用消耗品）；舍弃每章十余代理重管线、外部向量库及向写手暴露审稿清单的做法 | [scene-card.md](skills/ncc-write/references/scene-card.md)、[chapter-loop.md](skills/ncc-write/references/chapter-loop.md)、[story-editor.md](agents/story-editor.md) |
 | 起点白金连载公开方法论（爱潜水的乌贼卷末创作总结等） | 长篇连载换地图留存复盘、明暗线遮眼草蛇灰线、3·10·30 三级爽点密度与五类追读钩共识 | 转化为七大白金叙事机关、五大王牌母本、**换地图不断根定律**（30–40 章升维换图保留 1–2 个旧图残余回响锚点防断层弃书）与**章内微爽机锋保底**（蓄压章亦留 1 处局部占优或机锋锚点） | [platinum-upgrade.md](docs/designs/writing/platinum-upgrade.md)、[platinum-playbooks.md](skills/ncc-new/references/platinum-playbooks.md)、[outline.md](skills/ncc-new/references/outline.md) |
 

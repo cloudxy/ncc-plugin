@@ -47,7 +47,7 @@
 
 ### 低
 
-**L1 任务-证据关联键日期错位**：`docs/tasks/2026-10-12-readme-refresh.md` 链向 `docs/evidence/2026-10-13-readme-refresh/`，链接通但关联键不稳定。
+**L1 任务-证据关联键日期错位**：早期本地任务记录与证据目录曾出现日期键不一致，后续统一按同一任务号关联。
 **L2 registry 键名易混对**：`principle`/`principles`；`layout_legacy` 无退役条件标记。
 **L3 同名异义文档对**：`designs/engineering/workflow.md`（设计依据）与 `engineering/workflow.md`（现行规范）符合自订规则且互链，仅检索与口头指称易混。
 

@@ -13,11 +13,11 @@ when_to_use: "User says /ncc-eval, 测一下审稿准不准, 改了判据之后�
 | 锚定章回归 | 审稿抓不抓得住错、会不会冤枉好稿、同一章审几次结论稳不稳 | 一组故意埋了错的锚定章（`eval/anchors/`，含一章干净的对照），对着答案打分 |
 | 模型横评 | 同一个写手包，换不同模型写，谁写得好 | 冻结写手包 SHA，盲稿成对比较＋记忆测试，揭盲算胜率 |
 
-脚本（`scripts/ncc_eval.py`）不调用任何模型：它生成派单包、读回报告、打分。派单由本窗口的经理按常规方式完成（continuity、pulse、reader 都是 fresh 上下文）。
+脚本（`scripts/cli/ncc_eval.py`）不调用任何模型：它生成派单包、读回报告、打分。派单由本窗口的经理按常规方式完成（continuity、pulse、reader 都是 fresh 上下文）。
 
 ## 一、锚定章回归
 
-1. **机械层**（不花模型调用，先跑）：`python3 <PLUGIN_ROOT>/scripts/ncc_eval.py mech`——`check_chapter.py` 的提醒是否命中埋的错（时代错置、称谓、月相），干净章是否零误报。退出码非 0 就先修脚本。
+1. **机械层**（不花模型调用，先跑）：`python3 <PLUGIN_ROOT>/scripts/cli/ncc_eval.py mech`——`check_chapter.py` 的提醒是否命中埋的错（时代错置、称谓、月相），干净章是否零误报。退出码非 0 就先修脚本。
 2. **生成派单包**：`ncc_eval.py prepare <评测目录> [--suite 底蕴|连贯|承诺|对照] [--runs 3]`。每章每次一个包，包里只有台账摘录、场景卡、知识点清单、机械提醒和正文，**没有答案**。`--runs` 是同一章审几次（量稳定性），默认 3。
 3. **派单**：每个包派一次 continuity（task: audit），一次一个、互不看别的报告；报告按包里的 deliverable 路径存到 `<评测目录>/reports/`。报告格式按包里的要求：第一行"硬伤层: 通过/不通过"，再一张 observation 表。
 4. **打分**：`ncc_eval.py score <评测目录>`，写 `score.md`：
@@ -44,7 +44,7 @@ when_to_use: "User says /ncc-eval, 测一下审稿准不准, 改了判据之后�
 
 ## 边界
 
-P1–P5评分升级另做类型量表回归：运行`tests/data/test_scoring.py`与自动化边界用例，检查分项证据、确定性汇总、维度底线、严重硬伤、二评分歧、预算、接管和旧分失效。角色变更用fresh pulse按[评分契约](../ncc-review/references/quality-scoring.md)审冻结合成输入，再由`quality ingest`验证；覆盖不足必须拒绝放行。测试替身验证控制流程，真实网关、作者留出集、重复稳定性和读者偏好分别记证据，不能相互替代。
+P1–P5评分升级另做类型量表回归：运行`tests/backend/automation/test_scoring.py`与自动化边界用例，检查分项证据、确定性汇总、维度底线、严重硬伤、二评分歧、预算、接管和旧分失效。角色变更用fresh pulse按[评分契约](../ncc-review/references/quality-scoring.md)审冻结合成输入，再由`quality ingest`验证；覆盖不足必须拒绝放行。测试替身验证控制流程，真实网关、作者留出集、重复稳定性和读者偏好分别记证据，不能相互替代。
 
 - 评测不改书：锚定章回归不碰任何书项目；横评只在 `.ncc/横评/` 里存草稿与结果，不改正文、不改台账。
 - 评测结果是给作者做决定的依据（改不改判据、换不换模型），不自动生效。

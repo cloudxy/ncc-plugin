@@ -5,7 +5,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
-from ..core import DECON_CFG, REGISTRY, CONFIDENCE, V
+from ..foundation.core import DECON_CFG, REGISTRY, CONFIDENCE, V
 
 
 class DeconError(ValueError):

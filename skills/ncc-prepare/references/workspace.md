@@ -1,6 +1,6 @@
 # 准备工作区与命令
 
-唯一入口脚本为 `scripts/ncc_prepare.py`，以下命令的 `<准备目录>` 是独立工作区，不要求 book.json。使用 `--help` 查看完整参数。任务代码、状态与格式支持只在 `workflow/registry.json` 的 preparation 中定义。
+唯一入口脚本为 `scripts/cli/ncc_prepare.py`，以下命令的 `<准备目录>` 是独立工作区，不要求 book.json。使用 `--help` 查看完整参数。任务代码、状态与格式支持只在 `workflow/registry.json` 的 preparation 中定义。
 
 ## 保存位置
 
@@ -23,12 +23,12 @@ prepare.json 由脚本写；成果 Markdown 是内容源，允许作者编辑，
 ## 建立与读取
 
 ```bash
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py init <准备目录> --title "港城创作准备" --purpose "建立可复用的港口资料与城市设定" --scope "港口体系"
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py source <准备目录> <资料目录或单文件> --kind material
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py scan <准备目录>
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py search <准备目录> 港口 税收
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py show <准备目录> <来源编号> --start 12 --end 40
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py status <准备目录>
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py init <准备目录> --title "港城创作准备" --purpose "建立可复用的港口资料与城市设定" --scope "港口体系"
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py source <准备目录> <资料目录或单文件> --kind material
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py scan <准备目录>
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py search <准备目录> 港口 税收
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py show <准备目录> <来源编号> --start 12 --end 40
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py status <准备目录>
 ```
 
 init 可用重复的 `--task` 选本轮任务；不指定时六类都可用。没有资料时直接创建成果，source 与 scan 可跳过。来源角色只是初步分类，不替代条目级采用。
@@ -51,8 +51,8 @@ scan 支持 UTF-8 Markdown/文本。其他格式、编码错误、超大文件�
 | 设定创建 | setting-create |
 
 ```bash
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py item <准备目录> --file <成果稿.md> --title "港口运作资料" --task material-organize --nature fact --basis "整合已登记资料中关于港口的内容" --ref <来源编号>:12-40
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py item <准备目录> --file <新设定.md> --title "潮汐城港务会" --task setting-create --nature fiction --basis "作者要求：商会与市民共同治理，海潮影响运输" --depends P-0001
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py item <准备目录> --file <成果稿.md> --title "港口运作资料" --task material-organize --nature fact --basis "整合已登记资料中关于港口的内容" --ref <来源编号>:12-40
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py item <准备目录> --file <新设定.md> --title "潮汐城港务会" --task setting-create --nature fiction --basis "作者要求：商会与市民共同治理，海潮影响运输" --depends P-0001
 ```
 
 - `--nature fact` 是有来源的现实资料，必须给 `--ref` 或 `--citation`。外部出处用重复的 `--citation "标题｜作者/机构｜URL或书目｜定位｜查询日期"` 登记；脚本不联网验证，模型须实际查证。
@@ -65,9 +65,9 @@ python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py item <准备目录> --file <新设�
 ## 采用与问题处理
 
 ```bash
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py decide <准备目录> P-0001 --state accepted --reason "作者要求创建这份专题资料；已核实来源，作为本轮资料成果收下"
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py issue <准备目录> --kind gap --text "港务会缺税收分配规则" --evidence "P-0002 的议事规则未说明资金来源" --next "补充收入来源、分配及监督关系" --item P-0002 --blocking
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py resolve <准备目录> Q-0001 --state resolved --reason "已补全并检查税收流向，见 P-0002"
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py decide <准备目录> P-0001 --state accepted --reason "作者要求创建这份专题资料；已核实来源，作为本轮资料成果收下"
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py issue <准备目录> --kind gap --text "港务会缺税收分配规则" --evidence "P-0002 的议事规则未说明资金来源" --next "补充收入来源、分配及监督关系" --item P-0002 --blocking
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py resolve <准备目录> Q-0001 --state resolved --reason "已补全并检查税收流向，见 P-0002"
 ```
 
 decide 的 accepted 表示在指定范围里收下当前成果；资料被收下不等于它已成为某书设定。候选可以 shelved 或 rejected，说明理由。设定采用依据应引用作者授权或已有裁定；命令不会替作者做创作选择。
@@ -81,9 +81,9 @@ decide 的 accepted 表示在指定范围里收下当前成果；资料被收下
 模型先写有实质内容的语义检查报告，检查范围与尚未读到的部分须说清楚。登记和交接：
 
 ```bash
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py review <准备目录> --scope "港口体系" --file <检查报告.md> --result pass --by "执行本轮语义核对的角色"
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py check <准备目录> --scope "港口体系"
-python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py export <准备目录> --scope "港口体系"
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py review <准备目录> --scope "港口体系" --file <检查报告.md> --result pass --by "执行本轮语义核对的角色"
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py check <准备目录> --scope "港口体系"
+python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py export <准备目录> --scope "港口体系"
 ```
 
 没有成果、未定候选、未解决阻塞、失效来源、缺少有效检查报告都会拒绝交接。无法通过语义检查时登记 needs_work，继续处理具体问题。检查和交接按范围计算，不证明未纳入范围的资料已完成。

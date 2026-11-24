@@ -12,6 +12,7 @@ import {
   HistoryOutlined,
   ImportOutlined,
   InboxOutlined,
+  KeyOutlined,
   LogoutOutlined,
   PartitionOutlined,
   PlusOutlined,
@@ -23,6 +24,7 @@ import {
 } from "@ant-design/icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Alert,
   App as AntApp,
   Button,
   Form,
@@ -128,6 +130,7 @@ const MarketPage = lazy(() =>
   })),
 );
 
+import { CredentialChangeModal } from "../features/session/CredentialChangeModal";
 import { LoginPage } from "../features/session/LoginPage";
 
 const DAILY: [string, string, ReactNode][] = [
@@ -167,6 +170,7 @@ export function Shell() {
     [dirty, setDirty] = useState(false),
     [newScope, setNewScope] = useState(false),
     [renameOpen, setRenameOpen] = useState(false),
+    [credentialModalOpen, setCredentialModalOpen] = useState(false),
     [renaming, setRenaming] = useState(false),
     [creating, setCreating] = useState(false),
     [accessEpoch, setAccessEpoch] = useState(0),
@@ -189,10 +193,20 @@ export function Shell() {
     enabled: authenticated,
     retry: false,
   });
+  const mustChangeCredentials = Boolean(me.data?.must_change_credentials);
+  const credentialChangeEnforced =
+    mustChangeCredentials && Boolean(me.data?.credential_change_enforced);
+  const credentialChangeReminder =
+    typeof me.data?.credential_change_reminder === "string" &&
+    me.data.credential_change_reminder.trim()
+      ? me.data.credential_change_reminder
+      : credentialChangeEnforced
+        ? "当前通过真实地址访问且正在使用默认管理员账号，请先修改账号和密码后再继续使用。"
+        : "首次使用默认管理员账号（admin），请及时修改账号名和密码。";
   const scopes = useQuery({
     queryKey: ["scopes", me.data?.id],
     queryFn: () => api<Scope[]>("/scopes"),
-    enabled: !!me.data && authenticated,
+    enabled: !!me.data && authenticated && !credentialChangeEnforced,
   });
   const scope = scopeId
     ? scopes.data?.find((x) => x.id === scopeId)
@@ -203,7 +217,11 @@ export function Shell() {
       : "";
   bindStudioSessionOwner(sessionKey || null);
   const shellReady =
-    authenticated && !me.error && !me.isPending && !scopes.isPending;
+    authenticated &&
+    !me.error &&
+    !me.isPending &&
+    !credentialChangeEnforced &&
+    !scopes.isPending;
   const accessStamp = useRef(""),
     activeScope = useRef("");
   activeScope.current = scope?.id || "";
@@ -310,6 +328,7 @@ export function Shell() {
     const expire = () => {
       clearAllStudioSessionDrafts();
       setDirty(false);
+      setCredentialModalOpen(false);
       setLoginEpoch((x) => x + 1);
       setAuthenticated(false);
       setCSRF("");
@@ -329,7 +348,7 @@ export function Shell() {
     return () => window.removeEventListener("beforeunload", before);
   }, [dirty]);
   useEffect(() => {
-    if (!scope) return;
+    if (!scope || credentialChangeEnforced) return;
     const events = new EventSource(`/api/v1/scopes/${scope.id}/events`);
     events.addEventListener("invalidate", () => refresh());
     events.addEventListener("permissions", (event) => {
@@ -363,7 +382,30 @@ export function Shell() {
         });
     };
     return () => events.close();
-  }, [scope?.id]);
+  }, [scope?.id, credentialChangeEnforced]);
+  async function handleLogout() {
+    try {
+      await api("/auth/logout", "POST");
+    } finally {
+      clearAllStudioSessionDrafts();
+      setCSRF("");
+      setDirty(false);
+      setCredentialModalOpen(false);
+      setLoginEpoch((x) => x + 1);
+      setAuthenticated(false);
+      cache.clear();
+    }
+  }
+  function handleCredentialChanged(updatedMe: Json) {
+    if (typeof updatedMe?.csrf === "string") {
+      setCSRF(updatedMe.csrf);
+    }
+    setCredentialModalOpen(false);
+    cache.setQueryData(["me"], updatedMe);
+    cache.invalidateQueries({ queryKey: ["me"] });
+    cache.invalidateQueries({ queryKey: ["scopes"] });
+    message.success("账号与密码已更新");
+  }
   function navigate(key: string) {
     const shot = shotScroll();
     if (dirty) {
@@ -409,6 +451,7 @@ export function Shell() {
         done={() => {
           clearAllStudioSessionDrafts();
           setDirty(false);
+          setCredentialModalOpen(false);
           setLoginEpoch((x) => x + 1);
           setAuthenticated(true);
           cache.clear();
@@ -416,7 +459,35 @@ export function Shell() {
         }}
       />
     );
-  if (me.isPending || scopes.isPending)
+  if (me.isPending)
+    return (
+      <div className="fullscreen">
+        <Spin description="正在打开私有工作台" />
+      </div>
+    );
+  if (credentialChangeEnforced)
+    return (
+      <div className="fullscreen">
+        <div className="brand-mark">N</div>
+        <Typography.Title level={3} style={{ margin: 0 }}>
+          首次登录安全要求
+        </Typography.Title>
+        <Typography.Text type="secondary">
+          {credentialChangeReminder}
+        </Typography.Text>
+        <CredentialChangeModal
+          open
+          enforced
+          currentUsername={
+            typeof me.data?.username === "string" ? me.data.username : "admin"
+          }
+          mustChangeDefault
+          onSuccess={handleCredentialChanged}
+          onLogout={handleLogout}
+        />
+      </div>
+    );
+  if (scopes.isPending)
     return (
       <div className="fullscreen">
         <Spin description="正在打开私有工作台" />
@@ -546,6 +617,15 @@ export function Shell() {
               {me.data?.username}
             </Typography.Text>
             <Button
+              type="text"
+              size="small"
+              icon={<KeyOutlined />}
+              aria-label="修改账号密码"
+              onClick={() => setCredentialModalOpen(true)}
+            >
+              <span className="topbar-logout-label">修改账号密码</span>
+            </Button>
+            <Button
               className="topbar-ai"
               icon={<RobotOutlined />}
               aria-label="AI 配置"
@@ -557,23 +637,30 @@ export function Shell() {
               type="text"
               icon={<LogoutOutlined />}
               aria-label="退出"
-              onClick={async () => {
-                try {
-                  await api("/auth/logout", "POST");
-                } finally {
-                  clearAllStudioSessionDrafts();
-                  setCSRF("");
-                  setDirty(false);
-                  setLoginEpoch((x) => x + 1);
-                  setAuthenticated(false);
-                  cache.clear();
-                }
-              }}
+              onClick={handleLogout}
             >
               <span className="topbar-logout-label">退出</span>
             </Button>
           </Space>
         </header>
+        {mustChangeCredentials && !credentialChangeEnforced ? (
+          <Alert
+            type="warning"
+            banner
+            showIcon
+            style={{ marginBottom: 0 }}
+            title={`${credentialChangeReminder}（第一次使用时必须修改默认账号与密码）`}
+            action={
+              <Button
+                size="small"
+                type="primary"
+                onClick={() => setCredentialModalOpen(true)}
+              >
+                立即修改账号密码
+              </Button>
+            }
+          />
+        ) : null}
         <div className="content">
           {scopeFailed ? (
             <div className="scope-failure" role="alert">
@@ -768,6 +855,17 @@ export function Shell() {
           </Form.Item>
         </Form>
       </Modal>
+      <CredentialChangeModal
+        open={credentialModalOpen}
+        enforced={false}
+        currentUsername={
+          typeof me.data?.username === "string" ? me.data.username : ""
+        }
+        mustChangeDefault={mustChangeCredentials}
+        onClose={() => setCredentialModalOpen(false)}
+        onSuccess={handleCredentialChanged}
+        onLogout={handleLogout}
+      />
     </Layout>
   );
 }

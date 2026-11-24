@@ -61,7 +61,7 @@ task: draft，派单包只给写手包路径。写手按 [references/chapter-loo
 
 ## Step 5 — 机械检查
 
-`python3 <PLUGIN_ROOT>/scripts/check_chapter.py <书目录> <章号>`：钩子登记、AI 味、水章、退化与元信息（复读、截断、占位与拒绝语、工程词漏进叙述）、字数。按结果走：
+`python3 <PLUGIN_ROOT>/scripts/cli/check_chapter.py <书目录> <章号>`：钩子登记、AI 味、水章、退化与元信息（复读、截断、占位与拒绝语、工程词漏进叙述）、字数。按结果走：
 
 | 结果（退出码） | 意思 | 怎么办 |
 |---|---|---|

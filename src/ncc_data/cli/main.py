@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 from pydantic import ValidationError
 from sqlalchemy import select, text
 
-from ncc_data.application.security import password_hash
+from ncc_data.application.security import ensure_default_admin, password_hash
 from ncc_data.cli.backup import pg_tool
 from ncc_data.persistence.database import connection_parameters, database
 from ncc_data.persistence.models import User
@@ -20,7 +20,7 @@ from ncc_data.persistence.seeds import seed
 from ncc_data.runtime.settings import Settings, resolve_profile
 from ncc_shared.configuration import configuration, initialize, template
 from ncc_shared.errors import DomainError
-from ncc_shared.http import APIClient
+from ncc_shared.http import APIClient, is_loopback_host
 from ncc_shared.paths import config_path
 
 
@@ -177,28 +177,37 @@ def main(argv=None):
 
             async def install():
                 engine, factory = database(settings.database_url)
-                async with factory() as db, db.begin():
-                    await seed(db)
-                await engine.dispose()
+                try:
+                    async with factory() as db, db.begin():
+                        await seed(db)
+                        created = await ensure_default_admin(db)
+                    return created
+                finally:
+                    await engine.dispose()
 
-            asyncio.run(install())
+            created_admin = asyncio.run(install())
             print("迁移与系统定义安装完成。真实书库未迁移。")
+            if created_admin:
+                print(
+                    "安全提醒：已初始化默认管理员账号 admin（初始密码：123456）。"
+                    "第一次使用时必须进入后台修改账号与密码（本机 127.0.0.1 仅作提醒，真实 IP 访问将强制修改）。"
+                )
         elif args.command == "create-user":
             password = getpass.getpass("新密码（至少12字符）：")
             if password != getpass.getpass("再次输入："):
                 raise ValueError("两次密码不一致")
             asyncio.run(create_user(settings, args.username, password))
         elif args.command == "serve":
-            if args.host not in {"127.0.0.1", "localhost", "::1"} and not settings.secure_cookie:
+            if not is_loopback_host(args.host) and not settings.secure_cookie:
                 raise ValueError("远端监听需要HTTPS同源部署配置")
             import uvicorn
 
             from ncc_data.api import create_app
 
             uvicorn.run(
-                create_app(settings),
+                create_app(settings, bind_host=args.host),
                 host=args.host,
-                port=args.port or urlsplit(settings.public_origin).port or 8787,
+                port=args.port or urlsplit(settings.public_origin).port or 8761,
                 log_level="warning",
                 access_log=False,
             )
@@ -220,10 +229,34 @@ def main(argv=None):
 
             async def doctor():
                 engine, factory = database(settings.database_url)
-                async with factory() as db:
-                    version = await db.scalar(text("SHOW server_version"))
-                    migration = await db.scalar(text("SELECT version_num FROM alembic_version"))
-                await engine.dispose()
+                try:
+                    async with factory() as db:
+                        version = await db.scalar(text("SHOW server_version"))
+                        migration = await db.scalar(text("SELECT version_num FROM alembic_version"))
+                        has_col = await db.scalar(
+                            text(
+                                "SELECT 1 FROM information_schema.columns "
+                                "WHERE table_schema = current_schema() "
+                                "AND table_name = 'ncc_user' "
+                                "AND column_name = 'must_change_credentials'"
+                            )
+                        )
+                        default_admin_active = (
+                            bool(
+                                await db.scalar(
+                                    select(User.id)
+                                    .where(
+                                        User.active.is_(True),
+                                        User.must_change_credentials.is_(True),
+                                    )
+                                    .limit(1)
+                                )
+                            )
+                            if has_col
+                            else False
+                        )
+                finally:
+                    await engine.dispose()
                 print(
                     json.dumps(
                         {
@@ -234,6 +267,7 @@ def main(argv=None):
                             "migration": migration,
                             "frontend_built": (settings.web_dist / "index.html").is_file(),
                             "model_configured": bool(settings.model_url and settings.writer_model),
+                            "default_admin_active": default_admin_active,
                             "origin": settings.public_origin,
                         },
                         ensure_ascii=False,

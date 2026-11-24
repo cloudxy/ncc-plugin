@@ -10,12 +10,17 @@ from sqlalchemy import func, select
 from ncc_data.application.security import (
     authenticate,
     authorize,
+    credential_change_policy,
 )
 from ncc_data.persistence.models import Job
-from ncc_shared.errors import DomainError
+from ncc_shared.errors import DomainError, require
+
+CREDENTIAL_CHANGE_REQUIRED_DETAIL = (
+    "当前通过真实地址访问且正在使用默认管理员账号，请先修改账号和密码后再继续使用"
+)
 
 
-def build_router(factory):
+def build_router(factory, settings=None, bind_host=None):
     router = APIRouter()
 
     @router.get("/api/v1/scopes/{sid}/events")
@@ -23,6 +28,8 @@ def build_router(factory):
         raw_token = request.cookies.get("ncc_session")
         async with factory() as db:
             user, _ = await authenticate(db, raw_token)
+            _, enforced, _ = credential_change_policy(request, settings, user, bind_host=bind_host)
+            require(not enforced, "credential_change_required", CREDENTIAL_CHANGE_REQUIRED_DETAIL, 403)
             await authorize(db, user, sid)
 
         async def stream():
@@ -34,6 +41,15 @@ def build_router(factory):
                 async with factory() as db:
                     try:
                         user, _ = await authenticate(db, raw_token)
+                        _, enforced, _ = credential_change_policy(
+                            request, settings, user, bind_host=bind_host
+                        )
+                        require(
+                            not enforced,
+                            "credential_change_required",
+                            CREDENTIAL_CHANGE_REQUIRED_DETAIL,
+                            403,
+                        )
                         scope, actions = await authorize(db, user, sid)
                     except DomainError:
                         yield "event: access_revoked\ndata: {}\n\n"

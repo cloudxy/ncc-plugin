@@ -1,6 +1,6 @@
 # 拆书统一升级方案
 
-状态：作者已授权实施，P1–P5 代码、技能接线及 P6 合成用例已交付本地候选；功能回归、规则行为、独立评审和五端新会话由作者另行验证，尚未验收或发布。唯一进度与测试交接见[实施任务](../../tasks/2026-10-18-deconstruction-upgrade.md)。P0 文档整合见[整合记录](../../tasks/2026-10-16-deconstruction-docs.md)。基线为插件 v3.2.0、提交 `0e3faa0` 加已完成的架构候选。本文保留设计契约、实施计划、验收和回滚依据，不另维护第二份执行进度。
+状态：已实施留档（P1–P5 代码、技能接线及 P6 合成用例已交付）。基线为插件 v3.2.0、提交 `0e3faa0` 加已完成的架构候选。本文保留设计契约、实施计划、验收和回滚依据。
 
 现有 index/mark/coverage/stats/link 入口保留，新增 plan/packet/ingest 与按层参数；规范化实现位于 scripts/ncclib/deconstruction。真实拆书项目仍在私有书库，插件升级不自动重新切章、迁移或重派正在执行的批次。机器字段表见[有限结构契约](contracts.md)；落点依据见[架构成长方案](../engineering/architecture-growth.md)。代码已合入本地工作树与功能验收完成分别记录。
 
@@ -137,13 +137,13 @@ L3 输入清单只允许已落盘报告、技法与场次产物及其指纹；�
 
 | 位置 | 改动 |
 |---|---|
-| `scripts/ncclib/decon.py` 与必要的内部校验模块 | 保留 cmd_decon 等对外接口；当职责展开时在 ncclib 下建立 deconstruction 子包，分别承载契约校验、索引、入库与存储，不预建空壳。向下依赖 core，不把调度塞进通用状态模块 |
-| `scripts/ncclib/cli.py` | 按实际 CLI 定义补子命令与参数，入口仍通过 `ncc_state.py decon`；若架构 G5 已完成，改其拆书 parser 构建器，不重新把注册代码堆回主入口 |
+| `scripts/ncclib/deconstruction/facade.py` 与必要的内部校验模块 | 保留 cmd_decon 等对外接口；当职责展开时在 ncclib 下建立 deconstruction 子包，分别承载契约校验、索引、入库与存储，不预建空壳。向下依赖 core，不把调度塞进通用状态模块 |
+| `scripts/ncclib/cli/dispatch.py` | 按实际 CLI 定义补子命令与参数，入口仍通过 `ncc_state.py decon`；若架构 G5 已完成，改其拆书 parser 构建器，不重新把注册代码堆回主入口 |
 | `skills/ncc-deconstruct/SKILL.md` 及拟建 references 目录 | SKILL 留目标路由、阶段顺序、参考链接及授权边界；layers.md 管层与抽样，packet.md 管三件套与上下文，ingest.md 管入库恢复，screenplay.md 管场次，transfer.md 管转化。每条规则只维护一处正文 |
 | `agents/deconstructor.md` | 按派单层执行；章内独立与跨章事实区分；不越界写新书 |
 | `workflow/registry.json` 及未来受管分片 | 相关路径、词表/元数据同源增补；G3b 前编辑单文件，完成分片后编辑对应源片并生成聚合视图。不新增顶层创作命令，不修改 `scene_required`；同步 load_budget 的参考读取清单 |
 | 拟建 workflow/contracts/deconstruction 机器契约与 designs/deconstruction 字段说明 | P1 冻结章、场次、进度的 JSON 契约，必要时增加索引/派单包契约；字段表从机器契约生成，设计说明只手写语义/迁移。运行验证读取同一契约，词表引用 registry，禁止代码再手抄一份枚举 |
-| `scripts/dev/build_docs.py` 生成目标与使用指南 | 改源后生成；G2 已迁移开发实现，旧入口兼容。technique-roles 生成段若从 SKILL 搬到 transfer.md，同批修改生成目标；机器契约字段表纳入生成及 --check，不手工修改生成段 |
+| `scripts/dev/builders/build_docs.py` 生成目标与使用指南 | 改源后生成；G2 已迁移开发实现，旧入口兼容。technique-roles 生成段若从 SKILL 搬到 transfer.md，同批修改生成目标；机器契约字段表纳入生成及 --check，不手工修改生成段 |
 | 拆书库 | 保留原目录，新增书级计划、校验/丢弃报告与 `剧本/`；产物继续私有，不提交本仓库 |
 | 公开测试与评测 | G2 前落 scripts/fixtures/deconstruction，G2 后随测试迁入 scripts/tests/fixtures/deconstruction。每个合成样例带输入、预期和用途，覆盖多卷/跳号/分章、无效 JSON、条目失败、稀疏上下文和中断恢复；不用真实书稿，不占 eval/anchors 的审稿锚定目录 |
 

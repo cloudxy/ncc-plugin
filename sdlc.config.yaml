@@ -4,11 +4,11 @@ gates:
   lint: "npm --prefix apps/management-web run format:check"
   build: "npm --prefix apps/management-web run build"
   migration: null
-  e2e: ".venv/bin/python tests/browser/run_browser.py --output /tmp/ncc-console-ui-e2e"
+  e2e: ".venv/bin/python tests/browser/console/run_browser.py --output /tmp/ncc-console-ui-e2e"
   e2e_reason: ""
 app:
   start: ".venv/bin/ncc-data serve"
-  base_url: "http://127.0.0.1:8787"
+  base_url: "http://127.0.0.1:8761"
   urls:
     management-web: "http://127.0.0.1:5173"
   widths: [768, 1280, 1440]

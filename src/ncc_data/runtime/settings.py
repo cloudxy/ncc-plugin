@@ -26,7 +26,7 @@ def resolve_profile(values, profile=None) -> str:
 @dataclass(frozen=True)
 class Settings:
     database_url: str = field(repr=False)
-    public_origin: str = "http://127.0.0.1:8787"
+    public_origin: str = "http://127.0.0.1:8761"
     secure_cookie: bool = False
     session_hours: int = 8
     upload_limit: int = 20 * 1024 * 1024

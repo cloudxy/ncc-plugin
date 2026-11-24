@@ -48,11 +48,11 @@
 工程状态直接放在原任务的engineering字段，不另建状态库。脚本只做确定性计划、派单和报告验证，不调用模型：
 
 ```bash
-python3 scripts/dev/development.py --repo "$REPO_ROOT" --task "$TASK" plan --effects architecture --input docs/engineering/code-layout.md
-python3 scripts/dev/development.py --repo "$REPO_ROOT" --task "$TASK" packet --role project-architect --output docs/evidence/任务号/architect-packet.json
+python3 scripts/dev/routing/development.py --repo "$REPO_ROOT" --task "$TASK" plan --effects architecture --input docs/engineering/code-layout.md
+python3 scripts/dev/routing/development.py --repo "$REPO_ROOT" --task "$TASK" packet --role project-architect --output docs/evidence/任务号/architect-packet.json
 # 按派单实际执行角色，产生约定JSON报告；报告由代理或当前会话写入指定证据路径。
-python3 scripts/dev/development.py --repo "$REPO_ROOT" --task "$TASK" record --packet docs/evidence/任务号/architect-packet.json --report docs/evidence/任务号/architect-report.json
-python3 scripts/dev/development.py --repo "$REPO_ROOT" --task "$TASK" check --delivery
+python3 scripts/dev/routing/development.py --repo "$REPO_ROOT" --task "$TASK" record --packet docs/evidence/任务号/architect-packet.json --report docs/evidence/任务号/architect-report.json
+python3 scripts/dev/routing/development.py --repo "$REPO_ROOT" --task "$TASK" check --delivery
 ```
 
 REPO_ROOT/TASK使用当前已定位值；影响类型可以组合，具体职责由注册表决定。输入限定已授权源码/设计/合成案例，真实私有.env、书稿和忽略文件不能进入派单。派单绑定目标、决定、角色定义、协议、入口及输入字节；变更后旧报告不能通过，需重新执行角色。计划改变会清空当前登记但保留旧报告文件。
@@ -97,9 +97,9 @@ record检查职责字段、来源、问题证据、执行方式与结论。major
 在活动仓库运行（PLUGIN_ROOT、REPO_ROOT、TASK 为调用者已定位的值）：
 
 ```bash
-python3 "$PLUGIN_ROOT/scripts/dev/check_dev_workflow.py" snapshot "$TASK" --repo "$REPO_ROOT"
-python3 "$PLUGIN_ROOT/scripts/dev/check_dev_workflow.py" check "$TASK" --repo "$REPO_ROOT"
-python3 "$PLUGIN_ROOT/scripts/dev/check_dev_workflow.py" check "$TASK" --repo "$REPO_ROOT" --delivery
+python3 "$PLUGIN_ROOT/scripts/dev/checkers/check_dev_workflow.py" snapshot "$TASK" --repo "$REPO_ROOT"
+python3 "$PLUGIN_ROOT/scripts/dev/checkers/check_dev_workflow.py" check "$TASK" --repo "$REPO_ROOT"
+python3 "$PLUGIN_ROOT/scripts/dev/checkers/check_dev_workflow.py" check "$TASK" --repo "$REPO_ROOT" --delivery
 ```
 
 snapshot 只更新该 JSON 块内的 candidate；不自动添加通过证据，不覆盖旧证据，不扫描私有小说目录。按路径排序计算 SHA-256，纳入相对路径、文件内容或软链目标、执行位、删除项与 base commit；仓内软链所指源文件同样纳入。拒绝绝对/上跳/私有/忽略/越界路径、断链和未归属 Git 差异。实际差异同时核查工作树、暂存区与未跟踪文件，暂存后从工作树删除的新文件也须报告归属。缺文件只有在基线确有该文件且现已删除时才可作为删除项。切换基线或分支必须显式更新任务并重验。
@@ -130,10 +130,10 @@ check 核验记录、候选与已登记证据；--delivery 再检查 required �
 
 ```bash
 python3 -m unittest discover -s scripts/tests -t scripts -p 'test_*.py'
-python3 scripts/dev/build_registry.py --check
-python3 scripts/dev/check_plugin.py -v
-python3 scripts/dev/build_docs.py --check
-python3 scripts/ncc_eval.py mech
+python3 scripts/dev/builders/build_registry.py --check
+python3 scripts/dev/checkers/check_plugin.py -v
+python3 scripts/dev/builders/build_docs.py --check
+python3 scripts/cli/ncc_eval.py mech
 ```
 
 任务记录先说明影响范围和检查选择，再记录实际测试数、退出码、环境与候选指纹；无功能影响时可不设功能测试项。改变开发路由、恢复或交付行为时，用真实代理执行的场景验证受影响行为，不能用词句扫描代替；不改变这些行为的文档编辑无需重跑全部场景。开发流程大改的代表场景包括：探索不保留生产实现；局部有短计划且继承授权；跨端入口走结构路径；D3 后换会话恢复；验证后改规则使证据失效；失败/缺报告/CLI 不可用分别表达；同步改变候选重验且脏克隆不覆盖；“接着写第十章”回创作入口。
@@ -149,18 +149,18 @@ check_plugin 只核查命令登记、三个项目级相对软链与可定位的�
 
 ## 注册表构建与兼容入口
 
-现行规则值只编辑 workflow/registry 下对应分片；顶层归属与兼容顺序见 `scripts/ncclib/registry.py` 的 SHARD_KEYS 与 KEY_ORDER。新增顶层键时同批更新归属、顺序和用例；不在多个片里复制同一业务值。`workflow/registry.json` 为只读生成视图，保留给原始文件读者使用。core 与准备工具、开发检查器和生成器都调用同一纯标准库 loader；视图陈旧、缺片或契约错误会在运行命令前失败。
+现行规则值只编辑 workflow/registry 下对应分片；顶层归属与兼容顺序见 `scripts/ncclib/foundation/registry.py` 的 SHARD_KEYS 与 KEY_ORDER。新增顶层键时同批更新归属、顺序和用例；不在多个片里复制同一业务值。`workflow/registry.json` 为只读生成视图，保留给原始文件读者使用。core 与准备工具、开发检查器和生成器都调用同一纯标准库 loader；视图陈旧、缺片或契约错误会在运行命令前失败。
 
 修改后按序执行：
 
 ```bash
-python3 scripts/dev/build_registry.py
-python3 scripts/dev/build_docs.py
-python3 scripts/dev/build_registry.py --check
-python3 scripts/dev/check_plugin.py -v
-python3 scripts/dev/build_docs.py --check
+python3 scripts/dev/builders/build_registry.py
+python3 scripts/dev/builders/build_docs.py
+python3 scripts/dev/builders/build_registry.py --check
+python3 scripts/dev/checkers/check_plugin.py -v
+python3 scripts/dev/builders/build_docs.py --check
 ```
 
 build_registry 从分片合并后以临时文件原子替换视图，构建阶段无需旧视图有效；--check 不写文件，陈旧退出 1。只修视图不改变书数据，也不运行书项目 migrate。生成物与源片一起进入候选指纹，必须一起分发。
 
-scripts/dev 是开发实现，scripts/tests 是测试与合成样例；运行入口与 ncclib 保持独立。旧顶层开发脚本仅转发，原 `unittest discover -s scripts` 仍支持；当前任务与新文档使用上面的新路径。冻结证据和历史设计中的旧命令不重写。五端新会话完成兼容验证之前保留薄入口，删除入口另立明确的兼容变更。
+`scripts/cli/` 存放命令行薄入口，`scripts/ncclib/` 存放按领域细分的业务实现，`scripts/dev/` 按 `builders/`、`checkers/`、`routing/` 归类工程研发工具，`scripts/tests/` 按用途归类测试与合成样例；本地 `docs/tasks/` 与 `docs/evidence/` 在忽略规则中仅留本机核验，不随公开提交分发。

@@ -39,7 +39,7 @@ AI交付成果按[统一评分与有限返修](../ncc-review/references/quality-
 
 ## 工作区与工具
 
-使用 `python3 <PLUGIN_ROOT>/scripts/ncc_prepare.py`，命令与记录方式见 [references/workspace.md](references/workspace.md)。它不依赖 ncc_state 或 book.json，也不创建书项目。
+使用 `python3 <PLUGIN_ROOT>/scripts/cli/ncc_prepare.py`，命令与记录方式见 [references/workspace.md](references/workspace.md)。它不依赖 ncc_state 或 book.json，也不创建书项目。
 
 准备目录放在用户指定的成果位置，或当前任务工作区里语义明确的子目录。源资料仅登记读取；在准备目录里产出整理结果。若用户要求原地整理，先形成具体内容与改动清单，在已有授权范围内更新，保留来源与必要版本，不擅自删除原稿。外部路径仍遵守宿主的文件写入权限。
 

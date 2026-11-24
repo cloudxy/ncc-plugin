@@ -1,6 +1,6 @@
 # 数据底座、后台与创作自动化实施计划
 
-2026-10-19作者已明确授权“按照升级方案全面升级”。继承[底座](postgresql-foundation.md)、[后台](management-console.md)与[自动化评分](creation-automation.md)的目标、参数和分期，不重复请求设计批准。任务沿用[唯一记录](../../tasks/2026-10-18-postgresql-design.md)。当前工作树main/de8d1ab，原README差异保留。
+2026-10-19作者已明确授权“按照升级方案全面升级”。继承[底座](postgresql-foundation.md)、[后台](management-console.md)与[自动化评分](creation-automation.md)的目标、参数和分期，不重复请求设计批准。基线提交 `de8d1ab`。
 
 ## 实施顺序
 

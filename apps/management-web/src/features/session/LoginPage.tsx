@@ -61,7 +61,9 @@ export function LoginPage({ done }: { done: () => void }) {
           </Button>
         </Form>
         <p className="muted">
-          首次使用请在终端执行 ncc-data create-user。服务没有默认密码。
+          首次使用可用默认管理员账号 <code>admin</code> / <code>123456</code>{" "}
+          登录，第一次使用时必须进入后台修改账号与密码（<code>127.0.0.1</code>{" "}
+          仅提醒，真实 IP 将强制修改）。
         </p>
       </div>
     </div>

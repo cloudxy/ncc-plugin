@@ -1,6 +1,6 @@
 # 仓库架构成长方案
 
-状态：已实施的设计依据（2026-10-18，本地候选，未发布）；适用基线为 v3.2.0、`0e3faa0` 及任务记录登记的工作树差异。原[方案复核记录](../../tasks/2026-10-18-architecture-plan.md)、[审查及复核](architecture-audit.md)保留取舍依据；作者随后授权按本方案实施，结果与待验项统一见[升级实施任务](../../tasks/2026-10-18-architecture-upgrade.md)。下文保留采用的设计、步骤及验收标准，不作为第二份执行进度表。
+状态：已实施的设计依据（2026-10-18）；适用基线为 v3.2.0、`0e3faa0`。[审查及复核](architecture-audit.md)保留取舍依据；下文保留采用的设计、步骤及验收标准。
 
 本方案解决清单漂移、开发工具归属、拆书扩展落点和配置耦合。保留原阶段编号以便追踪，执行顺序改为 **G0 基线 → G1 清单校验 → G2 工具与测试迁移 → G5 CLI 内聚 → G3 配置接入与分片**；G4 拆书落点已补入[拆书方案](../deconstruction/upgrade.md)，其实现随拆书 P1–P6 执行，不要求等完整架构升级结束。方案评审通过不等于已执行；后续获得整段实施授权后可连续推进，只在新关键取舍、实质规则确认或发布授权边界停下，不逐阶段重复索要许可。
 
@@ -48,7 +48,7 @@
 
 ## G1：按真实结构校验打包清单
 
-前置：G0 完成该批基线；无 G2/G3 依赖。改动范围：现有 `scripts/check_plugin.py`、检查器测试、`workflow/architecture.md` 的版本来源说明及检查器说明。新增测试模块名拟为 test_plugin_manifests.py，G2 后随测试目录迁移。
+前置：G0 完成该批基线；无 G2/G3 依赖。改动范围：现有 `scripts/dev/checkers/check_plugin.py`、检查器测试、`workflow/architecture.md` 的版本来源说明及检查器说明。新增测试模块名拟为 test_plugin_manifests.py，G2 后随测试目录迁移。
 
 ### 字段契约
 
@@ -71,7 +71,7 @@
 
 验收：正常五份清单通过；任意一个副本改 version/name 失败；缺文件、坏 JSON、plugins 类型错、重复/缺失目标、source 越界失败；修改市场顶层 name 为既有合法市场名不误报；Codex 市场无 version 通过。所有反例在临时合成目录构造，不篡改实际安装配置。
 
-验证入口（G2 前）：`python3 -m unittest discover -s scripts -p 'test_plugin_manifests.py'`，再运行 `python3 scripts/check_plugin.py -v` 与 `python3 scripts/build_docs.py --check`；新增测试文件存在后执行。交付字段矩阵、测试结果和真实清单只读检查结果。失败留在 G1 修复；回退仅撤销本批检查器、测试和说明，不更改真实清单身份。
+验证入口（G2 前）：`python3 -m unittest discover -s scripts -p 'test_plugin_manifests.py'`，再运行 `python3 scripts/dev/checkers/check_plugin.py -v` 与 `python3 scripts/dev/builders/build_docs.py --check`；新增测试文件存在后执行。交付字段矩阵、测试结果和真实清单只读检查结果。失败留在 G1 修复；回退仅撤销本批检查器、测试和说明，不更改真实清单身份。
 
 ## G4：把拆书扩展落点接入 P1
 
@@ -137,13 +137,13 @@ scripts/
 
 ## G5：收拢 CLI 参数注册，约束依赖方向
 
-前置：G2 完成；不与 G2 同一提交，先验收路径迁移再拆逻辑。当前 `scripts/ncclib/cli.py` 的 main 同时创建 parser、解析、派发、记录操作和生成视图；保留最后四项顺序，优先抽出可单独检验的 parser 构建。
+前置：G2 完成；不与 G2 同一提交，先验收路径迁移再拆逻辑。当前 `scripts/ncclib/cli/dispatch.py` 的 main 同时创建 parser、解析、派发、记录操作和生成视图；保留最后四项顺序，优先抽出可单独检验的 parser 构建。
 
 1. 先在原文件提取 build_parser()，main 仍执行 parse_args → handler → log_op → auto_render；不改变异常、退出和失败后的副作用。冻结此时完整 CLI 契约，按“命令路径”区分同名子命令，不把去重命令单词数当接口覆盖数。
 2. 将参数注册函数放入拟建的 ncclib/cli_parsers 子包：book（书/闸门/章）、loops（单元/卷/反馈）、ledgers（账本/事件）、scenes（场景/审稿/简报）、learning（材料/偏好/记忆/设置）、deconstruction（拆书/技法）、delivery（进化/导出/全局工具）。各模块提供“顶层命令名 → register_<command>(sub)”映射，主入口按旧命令顺序逐项注册，避免按领域成批注册改变 help 顺序；完整归属表从旧 parser 提取，每条命令恰好注册一次。注册函数仅定义参数并绑定 handler。
 3. cli 保留 READ_ONLY、RENDER_SKIP、日志和自动视图策略。book.py 明确负责书生命周期与闸门，loops.py 负责单元/卷/完本业务；本批不迁移其中的 gate_check、cmd_unit 等规则函数。
 4. 通过 AST 的 Import/ImportFrom 收集依赖，加入测试禁止 core/领域实现导入 cli 或 cli_parsers，禁止 parser 反向导入 cli，禁止 ncclib 依赖 scripts/dev；parser 只能依赖其绑定的领域函数与 core 常量。发现新循环先移除反向调用，不通过扩大允许表掩盖。
-5. 保持 `scripts/ncc_state.py` 的命令入口及对其他脚本的导出接口；不顺手清理星号导入、重命名 handler 或更改业务默认值。
+5. 保持 `scripts/cli/ncc_state.py` 的命令入口及对其他脚本的导出接口；不顺手清理星号导入、重命名 handler 或更改业务默认值。
 
 验收分三层：
 
@@ -165,8 +165,8 @@ scripts/
 
 | 当前消费者 | 改造与验收 |
 |---|---|
-| `scripts/ncclib/core.py` | 使用统一 loader；REGISTRY 以及从中导出的 V/LAYOUT/GATES 等值不变 |
-| `scripts/ncc_prepare.py` | 用同一 loader 取 preparation；ncc_library 的间接依赖一起验证 |
+| `scripts/ncclib/foundation/core.py` | 使用统一 loader；REGISTRY 以及从中导出的 V/LAYOUT/GATES 等值不变 |
+| `scripts/cli/ncc_prepare.py` | 用同一 loader 取 preparation；ncc_library 的间接依赖一起验证 |
 | check_plugin、build_docs（G2 后在 dev） | 用同一 loader；仍以工具所在插件根读规则，--repo 的任务工作树语义不被改写 |
 | test_ncc_state 的直接 JSON 对比 | 保留至少一个原始兼容视图检查，另加 loader/生成视图对比；不能把期望和实际全换成同一函数而丢掉独立预期 |
 | 文档/外部脚本读取 registry.json | G3a 无变动；G3b 由生成视图保留旧路径，并标明只读与生成办法 |
@@ -221,7 +221,7 @@ scripts/
 | G3a | G5 | 消费者清单、统一读取对照、全量 | 任一消费者读旧规则/接口失效，回读取接入 |
 | G3b | G3a；冻结 D4 | 全键映射、顺序与值等价、失败注入、生成/打包检查、全量与适用宿主证据 | 丢键、双源、生成陈旧或业务差异，回映射/兼容设计 |
 
-本次[实施任务](../../tasks/2026-10-18-architecture-upgrade.md)按 [开发工作流](../../engineering/workflow.md) 走 architectural 路径，可将上表作为阶段验收点。每批在任务记录写入：实际 scope、前置候选、执行命令、测试数/退出码、差异解释、报告 hash、候选指纹、未验宿主和回滚依赖。不能沿用前一候选的 passed，也不能以本轮文档检查代替未来功能证据。
+实施过程按 [开发工作流](../../engineering/workflow.md) 走 architectural 路径，将上表作为阶段验收点。每批在本地任务记录写入：实际 scope、前置候选、执行命令、测试数/退出码、差异解释、报告 hash、候选指纹、未验宿主和回滚依赖。不能沿用前一候选的 passed，也不能以文档检查代替功能证据。
 
 独立评审核查实际实现与反例；当次没有独立能力时如实写自查和待办，不调用小说角色冒充代码评审。发布按已有授权处理；未授权时交付本地候选。获得发布授权后按先拉取/合并、复验候选、精确暂存、检查私有内容、提交/推送、核对远端和新会话加载执行。当前 zcode 直注册本目录，其他机器的消费克隆分别记录；不把本地改完等同于已加载。
 

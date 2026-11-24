@@ -11,13 +11,13 @@ description: "维护和升级 ncc-workflow 插件本身：开发方案、实现�
 
 读取 plugin_root 下 [开发工作流](../../docs/engineering/workflow.md)：先读“定位与授权”“任务路径”；恢复任务再读“任务记录与检查接口”“恢复与证据失效”；实现、验证和交付按当前阶段读取对应标题。该文档是唯一阶段与证据规范，此入口不另定义阶段表。
 
-查找 repo_root 下 docs/tasks/ 的相关任务记录；continue/status 带任务号时读取指定记录，多任务无法消歧才询问。首次任务按规范写唯一记录和书面计划；已有决定直接继承。使用 plugin_root 下 scripts/dev/check_dev_workflow.py，显式传 --repo 指定 repo_root，核对候选再恢复。检查器只验证确定性证据，不能代替行为评测、独立评审和作者规则确认。
+查找 repo_root 下 docs/tasks/ 的相关任务记录；continue/status 带任务号时读取指定记录，多任务无法消歧才询问。首次任务按规范写唯一记录和书面计划；已有决定直接继承。使用 plugin_root 下 scripts/dev/checkers/check_dev_workflow.py，显式传 --repo 指定 repo_root，核对候选再恢复。检查器只验证确定性证据，不能代替行为评测、独立评审和作者规则确认。
 
 只执行已授权范围；以候选、发布、克隆同步、实际加载分别汇报。外部参考无需安装；子代理遵守当次授权与可用能力。
 
 ## 工程职责执行
 
-新开发任务及实质范围变更在D1先按实际影响运行 `scripts/dev/development.py` 的plan，记录需调用角色与不适用理由。触发条件及必交付字段来自注册表development，共用执行/返回协议见 [工程角色协议](references/roles.md)。纯文字任务按documentation处理；小说创作意图回原入口。
+新开发任务及实质范围变更在D1先按实际影响运行 `scripts/dev/routing/development.py` 的plan，记录需调用角色与不适用理由。触发条件及必交付字段来自注册表development，共用执行/返回协议见 [工程角色协议](references/roles.md)。纯文字任务按documentation处理；小说创作意图回原入口。
 
 使用packet生成选中角色的有限输入包，按包中的角色文件和协议实际执行。宿主支持且已有代理授权时派给对应工程角色；否则当前会话逐职责执行并记录current_session，不伪称独立。角色返回具体交付后用record登记；major问题先修正或回到受影响设计阶段，缺输入保留blocked，不能只写“已评审”。工程check及原开发检查器的交付检查会拒绝缺报告、失败结论和过期来源。
 

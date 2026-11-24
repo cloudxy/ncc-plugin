@@ -7,6 +7,29 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from .configuration import configuration
 
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+def extract_hostname(raw: str) -> str:
+    value = (raw or "").strip()
+    if not value:
+        return ""
+    if "://" in value:
+        return (urlsplit(value).hostname or "").strip().lower()
+    authority = value.split("/", 1)[0].split("?", 1)[0].split("#", 1)[0].strip()
+    if not authority:
+        return ""
+    if authority.startswith("["):
+        end = authority.find("]")
+        return authority[1:end].strip().lower() if end != -1 else ""
+    if authority.count(":") >= 2:
+        return authority.lower()
+    return (urlsplit("//" + authority).hostname or "").strip().lower()
+
+
+def is_loopback_host(host: str) -> bool:
+    return extract_hostname(host) in LOOPBACK_HOSTS
+
 
 def validate_origin(origin):
     origin = origin.rstrip("/")
@@ -21,7 +44,7 @@ def validate_origin(origin):
         or parsed.fragment
     ):
         raise ValueError("API地址必须是完整HTTP(S)源地址，不得携带凭据或路径")
-    if parsed.scheme != "https" and parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
+    if parsed.scheme != "https" and not is_loopback_host(parsed.hostname):
         raise ValueError("远端API必须使用HTTPS")
     return origin
 
@@ -49,7 +72,7 @@ class APIClient:
     def __init__(self, values=None, timeout=120, profile=None):
         values = configuration() if values is None else values
         self.origin = validate_origin(
-            values.get("NCC_API_URL") or values.get("NCC_PUBLIC_ORIGIN") or "http://127.0.0.1:8787"
+            values.get("NCC_API_URL") or values.get("NCC_PUBLIC_ORIGIN") or "http://127.0.0.1:8761"
         )
         self.token = values.get("NCC_API_TOKEN", "")
         if not self.token:

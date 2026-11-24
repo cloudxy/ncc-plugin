@@ -2,6 +2,7 @@ import secrets
 
 import pytest
 import pytest_asyncio
+from sqlalchemy import update
 from support.runtime import TestRuntime
 
 from ncc_data.application.security import password_hash
@@ -9,7 +10,6 @@ from ncc_data.persistence.database import database
 from ncc_data.persistence.models import Delegation, Job, Session, User, uid
 from ncc_data.persistence.seeds import seed
 from ncc_shared.database import DatabaseNotConfigured
-from sqlalchemy import update
 
 
 class _ScopedSessionFactory:

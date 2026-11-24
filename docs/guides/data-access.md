@@ -49,4 +49,4 @@ MCP提供9个只读工具：连接状态、范围列表、范围详情、定义�
 
 完整变更包沿用ChangeInput的title/base_version/operations，另加request_id。写操作经现有创建变更、预检、批准和采用链，在同一事务保留修订、审计与幂等回执；旧版本及同ID不同内容拒绝，重复请求返回原回执。需要另一位批准者的范围仍执行原规则，CLI不绕过批准。新修订不会覆盖历史。
 
-`search/get/facts --query '<查询条件JSON文件>'`从文件读取与HTTP相同的条件和分页，单页最多200项。`definitions`读取类型/属性/关系定义，`revision`读取指定历史内容；所有命令可加顶层`--test`选择唯一测试库。真实数据库和完整浏览器、恢复测试状态以[本轮任务](../tasks/2026-10-19-dynaconf-data-access.md)记录为准。
+`search/get/facts --query '<查询条件JSON文件>'`从文件读取与HTTP相同的条件和分页，单页最多200项。`definitions`读取类型/属性/关系定义，`revision`读取指定历史内容；所有命令可加顶层`--test`选择唯一测试库`ncc-dev`。

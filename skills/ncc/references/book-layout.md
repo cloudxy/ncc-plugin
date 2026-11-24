@@ -1,6 +1,6 @@
 # 书项目的目录契约与词表
 
-<!-- 整份由 scripts/dev/build_docs.py 从 workflow/registry/ 的 layout 与 vocab 生成，勿手改；要改就改分片，再依次运行 build_registry.py 与 build_docs.py。 -->
+<!-- 整份由 scripts/dev/builders/build_docs.py 从 workflow/registry/ 的 layout 与 vocab 生成，勿手改；要改就改分片，再依次运行 build_registry.py 与 build_docs.py。 -->
 
 信息的源头、写者与视图见 [book-state.md](book-state.md) 的"信息地图"。
 

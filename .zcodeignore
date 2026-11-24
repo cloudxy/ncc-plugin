@@ -16,6 +16,10 @@ books/
 _作者/
 _拆书库/
 
+# ===== 本地开发任务记录与验证证据 =====
+docs/tasks/
+docs/evidence/
+
 # ===== ↑ 以上同步自 .gitignore（「从 .gitignore 同步」只重写以上部分）=====
 .git/
 .hg/

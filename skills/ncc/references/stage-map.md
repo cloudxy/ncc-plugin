@@ -1,6 +1,6 @@
 # 阶段图（registry 的人类可读视图）
 
-唯一规则源：`workflow/registry/`，`workflow/registry.json` 是兼容生成视图。本文件是派单速览；表格由 `scripts/dev/build_docs.py` 生成，勿手改。阶段编号按决定 D10。
+唯一规则源：`workflow/registry/`，`workflow/registry.json` 是兼容生成视图。本文件是派单速览；表格由 `scripts/dev/builders/build_docs.py` 生成，勿手改。阶段编号按决定 D10。
 
 ## 主线
 
@@ -9,7 +9,7 @@ S0 立书 ─G0书魂闸─▶ S1 立骨(设定 ─G1─▶ 大纲 ─G2─) ─
                                     └─ ncc-deconstruct 随时喂设定库 ─┘
 ```
 
-<!-- ncc:gen stages 开始（scripts/dev/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
+<!-- ncc:gen stages 开始（scripts/dev/builders/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
 | 阶段 | 层 | 主责角色 | 参与角色 | 产物 | 闸门 |
 |---|---|---|---|---|---|
 | P 创作前准备（可独立、可重入） | 通用资产 / 世界或作品设定 | ncc-prepare | curator（素材库治理）、worldbuilder（设定与虚构素材）、scholar（事实资料），按宿主授权执行 | 资料与设定的整理、完善、创建成果；来源、关系、采用决定、缺项与范围检查；独立 prepare.json；本库规范、全库处置与批次、实际整理库和取用验证 | 范围内准备检查；不替代 G0–G5 |
@@ -37,7 +37,7 @@ book.json 的 `stage`：`founding → settings → outline → opening → seria
   → ncc_state.py complete --hard pass
 ```
 
-<!-- ncc:gen batch 开始（scripts/dev/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
+<!-- ncc:gen batch 开始（scripts/dev/builders/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
 每批场景卡的章数：建筑师 5 章、混合 3 章、园丁 2 章。
 <!-- ncc:gen batch 结束 -->
 
@@ -45,7 +45,7 @@ book.json 的 `stage`：`founding → settings → outline → opening → seria
 
 ## 角色分工速查
 
-<!-- ncc:gen roles 开始（scripts/dev/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
+<!-- ncc:gen roles 开始（scripts/dev/builders/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
 | 角色 | 一句话职责 | 绝不做 |
 |---|---|---|
 | scout | 扫榜、对标、briefing、从作者种子出 2–3 套整本方向候选 | 写设定 |

@@ -22,7 +22,7 @@ ready仅指当前角色在本次设计/评审范围内无阻止推进的问题�
 
 ## 工程角色清单
 
-<!-- ncc:gen engineering-roles 开始（scripts/dev/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
+<!-- ncc:gen engineering-roles 开始（scripts/dev/builders/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
 | 角色 | 专业技能 | 按影响触发 | 必交付字段 |
 |---|---|---|---|
 | product-manager（产品经理） | [ncc-product-manager](../../ncc-product-manager/SKILL.md) | product、interaction、architecture、data | author_task、value、scope、priority、acceptance、experience_application |

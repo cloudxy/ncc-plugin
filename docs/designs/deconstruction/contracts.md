@@ -8,9 +8,9 @@
 
 兼容策略：旧 done/skipped 仅作 legacy 覆盖；新层必须由 ingest 验收。原文/规则变更先生成重建影响，--accept-reindex 显式重建并备份索引与进度，不猜 seq 映射。--force 不绕过结构 blocker。原始章文件替换前保留备份，不自动迁移真实书库。
 
-公开最小对象和反例由 `scripts/tests/fixtures/deconstruction/README.md` 与 `scripts/tests/test_deconstruction.py` 提供；测试由作者另行执行，未运行不称通过。索引配置和上下文来源示例见技能 references/layers.md 与 packet.md。
+公开最小对象和反例由 `scripts/tests/fixtures/deconstruction/README.md` 与 `scripts/tests/deconstruction/test_deconstruction.py` 提供；测试由作者另行执行，未运行不称通过。索引配置和上下文来源示例见技能 references/layers.md 与 packet.md。
 
-<!-- ncc:gen decon-contracts 开始（scripts/dev/build_docs.py 由 workflow/contracts/deconstruction/ 生成，勿手改） -->
+<!-- ncc:gen decon-contracts 开始（scripts/dev/builders/build_docs.py 由 workflow/contracts/deconstruction/ 生成，勿手改） -->
 ## chapter
 
 | 字段 | 类型 | 必填 | 可空 | 默认/缺省 | 枚举/约束 | 说明 |

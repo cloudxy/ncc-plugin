@@ -8,7 +8,7 @@ L3 只读取 `decon packet <拆书库> --layer L3` 给出的已验报告/事实/
 
 对标场景只作为参考留在拆书库；作者决定采用后仍由 outliner 规划、story-editor 审故事、writer 按本书派单包写作。不能把对标书场次直接复制进作者场景卡。
 
-<!-- ncc:gen technique-roles 开始（scripts/dev/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
+<!-- ncc:gen technique-roles 开始（scripts/dev/builders/build_docs.py 由 workflow/registry/ 生成，勿手改） -->
 | 角色 | 拿哪些类别 | 最多几张 | 最多几字 |
 |---|---|---|---|
 | scout | 大局设计 | 3 | 900 |

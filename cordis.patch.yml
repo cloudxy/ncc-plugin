@@ -1,0 +1,12 @@
+# DeepSeek Harness (DSH) bundle overlay for ncc-workflow.
+# Registers the packaged skills/ directory as an isolated host-plane skill
+# provider so all 12 ncc* skills are available across TUI, Web presets, and
+# headless profiles, and disappear cleanly when the bundle is disabled.
+
+- insert:
+    - id: ncc-workflow-skills
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      config:
+        providerName: ncc-workflow
+        includeDefaultRoots: false
+        bundledSkillDir: !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('ncc-workflow/package.json')), 'skills')"
