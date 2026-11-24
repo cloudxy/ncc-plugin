@@ -4,6 +4,20 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 
 from ncc_data.api.schemas import TokenInput
+from ncc_data.application.model_settings import (
+    bind_default,
+    check_configuration,
+    delete_configuration,
+    load_model_settings,
+    save_configuration,
+    set_configuration_enabled,
+)
+from ncc_data.application.subscription_settings import (
+    load_subscriptions,
+    save_subscription_model,
+    start_subscription_login,
+    verify_subscription,
+)
 from ncc_data.application.security import (
     authorize,
     create_session,
@@ -11,6 +25,10 @@ from ncc_data.application.security import (
 from ncc_data.application.service import Service
 from ncc_data.domain.contracts import (
     MemberInput,
+    ModelConfigurationInput,
+    ModelDefaultInput,
+    ModelEnabledInput,
+    SubscriptionModelInput,
     UserInput,
 )
 from ncc_data.persistence.models import Session
@@ -18,8 +36,52 @@ from ncc_shared.errors import require
 from ncc_shared.serialization import jsonable
 
 
-def build_router(service):
+def build_router(service, settings):
     router = APIRouter()
+
+    @router.get("/api/v1/model-settings")
+    async def model_settings(svc: Service = Depends(service, scope="function")):
+        return await load_model_settings(svc, settings)
+
+    @router.post("/api/v1/model-settings/configurations")
+    async def post_configuration(value: ModelConfigurationInput, svc: Service = Depends(service, scope="function")):
+        return await save_configuration(svc, settings, value)
+
+    @router.post("/api/v1/model-settings/configurations/{cid}/enabled")
+    async def post_configuration_enabled(
+        cid: str, value: ModelEnabledInput, svc: Service = Depends(service, scope="function")
+    ):
+        return await set_configuration_enabled(svc, settings, cid, value.enabled)
+
+    @router.post("/api/v1/model-settings/configurations/{cid}/check")
+    async def post_configuration_check(cid: str, svc: Service = Depends(service, scope="function")):
+        return await check_configuration(svc, settings, cid)
+
+    @router.post("/api/v1/model-settings/defaults")
+    async def post_default(value: ModelDefaultInput, svc: Service = Depends(service, scope="function")):
+        return await bind_default(svc, settings, value)
+
+    @router.delete("/api/v1/model-settings/configurations/{cid}")
+    async def remove_configuration(cid: str, svc: Service = Depends(service, scope="function")):
+        return await delete_configuration(svc, settings, cid)
+
+    @router.get("/api/v1/model-settings/subscriptions")
+    async def subscriptions(svc: Service = Depends(service, scope="function")):
+        return await load_subscriptions(svc)
+
+    @router.post("/api/v1/model-settings/subscriptions/{provider}/verify")
+    async def subscription_verify(provider: str, svc: Service = Depends(service, scope="function")):
+        return await verify_subscription(svc, provider)
+
+    @router.post("/api/v1/model-settings/subscriptions/{provider}/login")
+    async def subscription_login(provider: str, svc: Service = Depends(service, scope="function")):
+        return await start_subscription_login(svc, provider)
+
+    @router.post("/api/v1/model-settings/subscriptions/{provider}/model")
+    async def subscription_model(
+        provider: str, value: SubscriptionModelInput, svc: Service = Depends(service, scope="function")
+    ):
+        return await save_subscription_model(svc, provider, value.model)
 
     @router.get("/api/v1/scopes/{sid}/tokens")
     async def tokens(sid: str, svc: Service = Depends(service, scope="function")):

@@ -10,6 +10,7 @@
 | 如何维护、验证与交付插件 | [开发工作流](engineering/workflow.md) |
 | 后台代码、前端与测试放哪里 | [代码归属与复用](engineering/code-layout.md) |
 | 数据后台安装、配置与操作 | [数据服务与创作后台](guides/data-console.md) |
+| 创作后台产品策略、功能地图与设计系统 | [产品层说明](product/README.md) |
 | MCP读取与非MCP直接读写 | [数据接入指南](guides/data-access.md) |
 | 文档怎么分类、命名和维护 | [文档组织规范](engineering/documentation.md) |
 | 项目问题如何转成四角色能力 | [工程经验与能力](../skills/ncc-dev/references/experience.md)、[实施验证](tasks/2026-10-19-engineering-experience.md) |
@@ -24,7 +25,7 @@
 | 工程架构 | [架构审查及复核](designs/engineering/architecture-audit.md)、[架构成长方案](designs/engineering/architecture-growth.md) | G1/G2/G5/G3a/G3b 已实施本地候选；设计依据留档，验证见实施任务 |
 | 记忆与进化 | [记忆与自进化设计](designs/memory/memory-evolution-design.md) | 已实施（v3.0），留档设计依据 |
 | 创作前准备 | [准备设计](designs/preparation/preparation-design.md) | 已实施，留档设计依据 |
-| 小说数据底座与管理后台 | [PostgreSQL底座](designs/storage/postgresql-foundation.md)、[基础管理后台](designs/storage/management-console.md)、[创作自动化与AI评分](designs/storage/creation-automation.md) | v4已实现并发布；保留设计依据，现行行为和未验范围见使用指南与实施任务 |
+| 小说数据底座与管理后台 | [PostgreSQL底座](designs/storage/postgresql-foundation.md)、[基础管理后台](designs/storage/management-console.md)、[创作自动化与AI评分](designs/storage/creation-automation.md)、[小说创作工作台重构](designs/storage/novel-studio-overhaul.md) | v4底座已发布；小说创作工作台（六大创作空间+可拆合五工序AI协同）已完成本地重构候选 |
 | 写章与白金连载引擎 | [起点白金连载引擎与出品人工作流升级方案](designs/writing/platinum-upgrade.md) | 本地候选实施中；待作者 grill-me 深度打磨与规则确认 |
 
 ## 未执行的计划与待办

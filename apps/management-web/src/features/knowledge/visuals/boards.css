@@ -1,0 +1,65 @@
+.map-split,
+.rel-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.map-split > *,
+.rel-split > * {
+  min-width: 0;
+}
+.place-row,
+.hit-44 {
+  min-height: 44px;
+}
+.place-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 0;
+}
+.place-row h3,
+.rel-caption,
+.perm-note,
+.scope-note {
+  margin: 0;
+}
+.scope-note {
+  margin-bottom: 12px;
+}
+.perm-note,
+.rel-caption {
+  margin-top: 8px;
+}
+.map-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.plain-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.plain-table th,
+.plain-table td {
+  text-align: left;
+  padding: 8px 8px 8px 0;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.marker-ledger {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+@media (min-width: 1280px) {
+  .map-split,
+  .rel-split {
+    grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+  }
+}

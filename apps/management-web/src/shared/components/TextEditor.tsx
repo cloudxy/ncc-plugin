@@ -2,21 +2,31 @@ import { markdown } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { basicSetup } from "codemirror";
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 
-export function TextEditor({
-  value,
-  onChange,
-  onSelection,
-  readOnly = false,
-  height = 420,
-}: {
-  value: string;
-  onChange?: (value: string) => void;
-  onSelection?: (from: number, to: number) => void;
-  readOnly?: boolean;
-  height?: number;
-}) {
+export type TextEditorHandle = { focus: () => void };
+
+export const TextEditor = forwardRef<
+  TextEditorHandle,
+  {
+    value: string;
+    onChange?: (value: string) => void;
+    onSelection?: (from: number, to: number) => void;
+    readOnly?: boolean;
+    height?: number;
+    fitContent?: boolean;
+  }
+>(function TextEditor(
+  {
+    value,
+    onChange,
+    onSelection,
+    readOnly = false,
+    height = 420,
+    fitContent = false,
+  },
+  ref,
+) {
   const element = useRef<HTMLDivElement>(null),
     editor = useRef<EditorView | null>(null),
     handler = useRef(onChange);
@@ -24,6 +34,11 @@ export function TextEditor({
   const selecting = useRef(onSelection),
     programmatic = useRef(false);
   selecting.current = onSelection;
+  useImperativeHandle(ref, () => ({
+    focus() {
+      editor.current?.focus();
+    },
+  }));
   useEffect(() => {
     if (!element.current) return;
     const view = new EditorView({
@@ -36,15 +51,20 @@ export function TextEditor({
           EditorView.lineWrapping,
           EditorState.readOnly.of(readOnly),
           EditorView.editable.of(!readOnly),
+          EditorView.contentAttributes.of({ "aria-label": "正文" }),
           EditorView.theme({
-            "&": { height: `${height}px`, fontSize: "16px" },
+            "&": fitContent
+              ? { height: "auto", maxHeight: "none", fontSize: "16px" }
+              : { height: `${height}px`, fontSize: "16px" },
             ".cm-content": {
               fontFamily: 'Georgia,"Songti SC",serif',
               padding: "24px",
               lineHeight: "1.95",
             },
-            ".cm-scroller": { overflow: "auto" },
-            ".cm-gutters": { background: "#fafbf9", border: "none" },
+            ".cm-scroller": fitContent
+              ? { overflow: "visible", height: "auto", maxHeight: "none" }
+              : { overflow: "auto" },
+            ".cm-gutters": { border: "none" },
           }),
           EditorView.updateListener.of((update) => {
             if (update.docChanged && !programmatic.current)
@@ -62,7 +82,7 @@ export function TextEditor({
       view.destroy();
       editor.current = null;
     };
-  }, [readOnly, height]);
+  }, [readOnly, height, fitContent]);
   useEffect(() => {
     const view = editor.current;
     if (view && value !== view.state.doc.toString()) {
@@ -74,4 +94,4 @@ export function TextEditor({
     }
   }, [value]);
   return <div ref={element} className="text-editor" />;
-}
+});

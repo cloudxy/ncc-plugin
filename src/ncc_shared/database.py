@@ -1,4 +1,4 @@
-"""Stable production connection and its sole -test sibling, without database drivers."""
+"""Stable production connection ``ncc-pro`` and its sole local/test sibling ``ncc-dev``."""
 
 from dataclasses import dataclass, field
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
@@ -6,6 +6,10 @@ from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 class DatabaseNotConfigured(ValueError):
     """The initial project configuration does not contain a production connection yet."""
+
+
+PRODUCTION_DATABASE = "ncc-pro"
+TEST_DATABASE = "ncc-dev"
 
 
 def postgres_url(value):
@@ -20,7 +24,7 @@ def postgres_url(value):
     if any(
         key.lower() in {"dbname", "database"} for key, _ in parse_qsl(parsed.query, keep_blank_values=True)
     ):
-        raise ValueError("连接串查询参数不得再次指定数据库名，避免覆盖-test目标")
+        raise ValueError("连接串查询参数不得再次指定数据库名，避免覆盖ncc-dev")
     if parsed.fragment or not parsed.path.strip("/"):
         raise ValueError("PostgreSQL连接须包含数据库名且不得带片段")
     try:
@@ -59,8 +63,10 @@ class DatabasePair:
 
     def __post_init__(self):
         postgres_url(self.production_url)
+        if self.production_name != PRODUCTION_DATABASE:
+            raise ValueError("线上数据库名必须是ncc-pro；本地与测试数据只进入ncc-dev")
         if len(self.test_name.encode("utf-8")) > 63:
-            raise ValueError("正式库名加-test后超过PostgreSQL标识符长度；原配置保持原状")
+            raise ValueError("测试库名超过PostgreSQL标识符长度；原配置保持原状")
 
     @property
     def production_name(self):
@@ -70,19 +76,19 @@ class DatabasePair:
 
     @property
     def test_name(self):
-        return self.production_name + "-test"
+        return TEST_DATABASE
 
     @property
     def test_url(self):
         parsed = urlsplit(self.production_url)
         return urlunsplit(parsed._replace(path="/" + quote(self.test_name, safe="")))
 
-    def select(self, profile="production"):
-        if profile not in {"production", "test"}:
-            raise ValueError("数据库profile只支持production或test")
-        return self.test_url if profile == "test" else self.production_url
+    def select(self, profile="local"):
+        if profile not in {"local", "production", "test"}:
+            raise ValueError("数据库profile只支持local、production或test")
+        return self.production_url if profile == "production" else self.test_url
 
     def require_test(self, url):
         if postgres_url(url) != postgres_url(self.test_url):
-            raise ValueError("测试只允许项目正式连接派生的唯一-test库；正式库及其他连接均拒绝重置")
+            raise ValueError("测试只允许同连接的ncc-dev；ncc-pro及其他连接均拒绝重置")
         return url

@@ -7,12 +7,15 @@ from decimal import Decimal
 
 from sqlalchemy import and_, or_, select
 
+from ncc_data.application.model_settings import snapshot_model_route
 from ncc_data.application.security import authorize
 from ncc_data.application.service import Service
 from ncc_data.creation.gateway import ChatProvider
+from ncc_data.creation.model_route import ensure_job_route, materialize_one, purpose_slot
 from ncc_data.creation.scoring import disagreement, evaluate
 from ncc_data.domain.contracts import ChangeInput, CreationInput, Query
 from ncc_data.domain.creation import creation_scheme
+from ncc_data.domain.studio_catalog import ordered_book_chapters, producer_guidance
 from ncc_data.persistence.models import (
     Assessment,
     Audit,
@@ -20,6 +23,7 @@ from ncc_data.persistence.models import (
     Delegation,
     ImportRun,
     Job,
+    Revision,
     User,
     uid,
     utcnow,
@@ -63,6 +67,220 @@ async def checked_delegation(service, scope, delegation_id, entity_id, schemes):
     return row, mode
 
 
+def validate_stage_order(stages, *, has_outline, has_current):
+    """Reject an explicit pipeline that cannot be executed in the given order."""
+    require(isinstance(stages, list) and stages, "stages", "创作工序不能为空")
+    require(len(stages) == len(set(stages)), "stages", "创作工序不能重复")
+    allowed = {"plan", "judge_plan", "write", "judge", "revise"}
+    require(set(stages) <= allowed, "stages", "存在未知创作工序")
+    index = {name: pos for pos, name in enumerate(stages)}
+    if "plan" in index and "judge_plan" in index:
+        require(index["plan"] < index["judge_plan"], "stages", "结构审校必须排在细纲推演之后")
+    if "plan" in index and "write" in index:
+        require(index["plan"] < index["write"], "stages", "正文起草必须排在细纲推演之后")
+    if "plan" in index and "revise" in index:
+        require(index["plan"] < index["revise"], "stages", "定向返修必须排在细纲推演之后")
+    if "judge_plan" in index and "write" in index:
+        require(index["judge_plan"] < index["write"], "stages", "正文起草必须排在结构审校之后")
+    if "judge_plan" in index and "revise" in index:
+        require(index["judge_plan"] < index["revise"], "stages", "定向返修必须排在结构审校之后")
+    if "write" in index and "judge" in index:
+        require(index["write"] < index["judge"], "stages", "品质审评必须排在正文起草之后")
+    if "write" in index and "revise" in index:
+        require(index["write"] < index["revise"], "stages", "定向返修必须排在正文起草之后")
+        require("judge" in index, "stages", "起草后自动返修需要先勾选质量审评，以依据审评意见返修")
+    if "judge" in index and "revise" in index:
+        if "write" in index:
+            require(index["judge"] < index["revise"], "stages", "自动返修必须排在品质审评之后")
+        else:
+            require(index["revise"] < index["judge"], "stages", "复评必须排在定向返修之后")
+    if "judge" in index and stages != ["judge"]:
+        require("write" in stages or "revise" in stages, "stages", "品质审评需要排在起草或返修之后")
+    if "judge_plan" in index and "plan" not in index:
+        require(has_outline or has_current, "stages", "结构审校需要已有细纲或当前文本")
+    if stages == ["judge"]:
+        require(has_current, "assessment_target", "单独评分需要已有内容对象")
+    if "revise" in index and "write" not in index:
+        require(has_current, "revision_target", "不经过正文起草的定向返修需要已有正文对象")
+
+
+def explicit_transition(stages, stage, *, qualified, revisions, max_revisions):
+    """Next step for an explicit pipeline. Default jobs never call this."""
+    position = stages.index(stage)
+    nxt = stages[position + 1] if position + 1 < len(stages) else None
+    if stage == "plan":
+        if nxt == "judge_plan":
+            return {"next_stage": "judge_plan"}
+        if "write" in stages:
+            return {"next_stage": "write"}
+        if "revise" in stages:
+            return {"next_stage": "revise", "prepare_revise_from_plan": True}
+        return {"terminal": "waiting", "attach_plan": True}
+    if stage == "judge_plan":
+        if not qualified and "plan" in stages and revisions < max_revisions:
+            return {"next_stage": "plan", "retry_plan": True}
+        if "write" in stages:
+            if qualified:
+                return {"next_stage": "write"}
+            return {"terminal": "waiting", "attach_plan": True}
+        if "revise" in stages:
+            if qualified:
+                return {"next_stage": "revise", "prepare_revise_from_plan": True}
+            return {"terminal": "waiting", "attach_plan": True}
+        return {"terminal": "qualified" if qualified else "waiting", "attach_plan": True}
+    if stage in {"write", "revise"}:
+        if nxt == "judge" or (stage == "revise" and "judge" in stages):
+            return {"next_stage": "judge"}
+        if nxt == "revise":
+            return {"next_stage": "revise", "attach_draft": True}
+        return {"terminal": "waiting", "attach_draft": True}
+    if stage == "judge":
+        if stages == ["judge"]:
+            return {"terminal": "succeeded", "attach_judged": True}
+        later = stages[position + 1 :]
+        if not qualified and "revise" in later and revisions < max_revisions:
+            return {"next_stage": "revise", "attach_judged": True, "count_revision": True}
+        return {"terminal": "qualified" if qualified else "waiting", "attach_judged": True}
+    return {"terminal": "waiting"}
+
+
+def begin_explicit_stage(payload, result, packet):
+    """Enter the first requested stage. Plan-only and write-only do not invent the other half."""
+    first = payload["stages"][0]
+    outline = (payload.get("beat_outline") or "").strip() or str(
+        (packet.get("current_data") or {}).get("beat_outline") or ""
+    )
+    if first == "write":
+        if outline:
+            packet["scene_plan"] = outline
+            result["packet"] = {**result["packet"], "scene_plan": outline}
+        return "write"
+    if first == "judge":
+        result["draft"] = {"text": packet.get("current") or "", "data": {}, "claims": []}
+        return "judge"
+    if first == "judge_plan":
+        result["plan"] = {"text": outline or packet.get("current") or "", "data": {}, "claims": []}
+        return "judge_plan"
+    if first == "revise":
+        notes = [item for item in (payload.get("guidance"), payload.get("objective")) if item]
+        packet["revision_notes"] = notes
+        result["packet"] = {**result["packet"], "revision_notes": notes}
+        return "revise"
+    return "plan"
+
+
+def _append_plan_candidate(result, assessment_id=None):
+    plan = result.get("plan") or {}
+    text = plan.get("text") or ""
+    candidate = {
+        "text": text,
+        "data": plan.get("data") or {},
+        "claims": plan.get("claims") or [],
+        "artifact": "plan",
+        "hash": digest(text),
+    }
+    if result.get("plan_evaluation"):
+        candidate["evaluation"] = result["plan_evaluation"]
+        pinned = assessment_id or result.get("plan_assessment_id")
+        if pinned:
+            candidate["assessment_id"] = pinned
+    result.setdefault("candidates", []).append(candidate)
+    result["selected"] = len(result["candidates"]) - 1
+
+
+def _append_draft_candidate(result):
+    draft = result.get("draft") or {}
+    text = draft.get("text") or ""
+    result.setdefault("candidates", []).append({**draft, "artifact": "draft", "hash": digest(text)})
+    result["selected"] = len(result["candidates"]) - 1
+
+
+def _append_judged_candidate(result, assessment_id, evaluation, scheme, content):
+    result.setdefault("candidates", []).append(
+        {
+            **result.get("draft", {}),
+            "assessment_id": assessment_id,
+            "evaluation": evaluation,
+            "hash": digest(content),
+            "scheme": scheme,
+        }
+    )
+    result["selected"] = len(result["candidates"]) - 1
+
+
+def _apply_explicit(row, progress, result, decision, *, assessment_id=None, evaluation=None, scheme=None, content=""):
+    if decision.get("retry_plan"):
+        progress["revisions"] = progress.get("revisions", 0) + 1
+        progress["stage"] = "plan"
+        feedback = (result.get("plan_evaluation") or {}).get("report", {}).get("suggestions", [])
+        result["packet"] = {**result["packet"], "plan_feedback": feedback}
+        return
+    if decision.get("prepare_revise_from_plan"):
+        notes = [item for item in (row.payload.get("guidance"), row.payload.get("objective")) if item]
+        plan_text = (result.get("plan") or {}).get("text") or ""
+        result["packet"] = {
+            **result["packet"],
+            "scene_plan": plan_text,
+            "revision_notes": result["packet"].get("revision_notes") or notes,
+        }
+    if decision.get("attach_plan"):
+        _append_plan_candidate(result, assessment_id)
+    elif decision.get("attach_draft"):
+        _append_draft_candidate(result)
+    elif decision.get("attach_judged") and assessment_id is not None:
+        _append_judged_candidate(result, assessment_id, evaluation, scheme, content)
+    if decision.get("count_revision"):
+        progress["revisions"] = progress.get("revisions", 0) + 1
+    if decision.get("next_stage"):
+        progress["stage"] = decision["next_stage"]
+        return
+    row.state = decision.get("terminal") or "waiting"
+
+
+async def _scope_volumes_and_chapters(service, scope):
+    stmt = (await service.revision_query(scope)).where(
+        Revision.body["deleted"].as_boolean().is_(False),
+        Revision.body["kind"].astext.in_(["volume", "卷", "chapter", "章节"]),
+    )
+    rows = (await service.db.scalars(stmt.order_by(Revision.entity_id))).all()
+    volumes, chapters = [], []
+    for r in rows:
+        body = r.body or {}
+        entry = {
+            "id": r.entity_id,
+            "revision": r.id,
+            "version": f"{r.scope_id}:{r.version}",
+            "kind": body.get("kind") or "",
+            "name": body.get("name") or "",
+            "text": body.get("text") or "",
+            "data": body.get("data") or {},
+            "secret": bool(body.get("secret")),
+        }
+        if entry["kind"] in {"volume", "卷"}:
+            volumes.append(entry)
+        else:
+            chapters.append(entry)
+    return volumes, ordered_book_chapters(volumes, chapters)
+
+
+def _needs_revision_judge(row, progress):
+    stages = row.payload.get("stages") or []
+    if row.payload.get("mode") == "assess" or stages == ["judge"]:
+        return False
+    return bool(row.payload.get("scheme") == "P5" or progress.get("revised_prose") or progress.get("revisions", 0) > 0)
+
+
+def _studio_inputs(payload):
+    return bool(
+        payload.get("stages")
+        or payload.get("commons_refs")
+        or payload.get("builtin_commons_ids")
+        or payload.get("market_playbook_id")
+        or (payload.get("guidance") or "").strip()
+        or (payload.get("beat_outline") or "").strip()
+    )
+
+
 async def create_task(service, scope_id, value: CreationInput):
     scope, actions = await authorize(service.db, service.actor, scope_id, "assess", lock=True)
     if value.mode != "assess":
@@ -74,6 +292,11 @@ async def create_task(service, scope_id, value: CreationInput):
         payload["content_scheme"] = creation_scheme(payload)
     require(value.mode != "assess" or target, "assessment_target", "单独评分需要已有内容对象")
     if value.delegation_id:
+        require(
+            not value.stages,
+            "delegation_stages",
+            "自动定稿托管须执行完整标准审评流程，不能与显式拆分工序同时传入",
+        )
         await authorize(service.db, service.actor, scope_id, "adopt")
         require(
             value.mode == "create" and target,
@@ -91,10 +314,26 @@ async def create_task(service, scope_id, value: CreationInput):
             "selection",
             "选段边界超出当前正文",
         )
+    if value.stages:
+        stored_outline = ""
+        if target:
+            stored_outline = str((target.get("data") or {}).get("beat_outline") or "")
+        has_outline = bool(
+            value.beat_outline.strip()
+            or stored_outline.strip()
+            or (target and str(target.get("text") or "").strip())
+        )
+        validate_stage_order(value.stages, has_outline=has_outline, has_current=target is not None)
+    if value.stages or value.builtin_commons_ids or value.market_playbook_id:
+        producer_guidance(payload, scope.config)
     requires_secret = "secret" in actions
     for source in value.source_ids:
         source_entity = await service.entity(scope_id, source)
         requires_secret |= bool(source_entity.get("secret"))
+    for ref in value.commons_refs:
+        # Read permission, including secret, is enforced by the same entity gate as this book.
+        commons_entity = await service.entity(ref.scope_id, ref.entity_id)
+        requires_secret |= bool(commons_entity.get("secret"))
     payload.update(
         base_version=scope.version,
         policy_hash=POLICY_HASH,
@@ -112,7 +351,7 @@ async def create_task(service, scope_id, value: CreationInput):
     )
     service.db.add(row)
     await service.db.flush()
-    return service.job_json(row)
+    return await service.serialize_job(row)
 
 
 async def accept_task(service, scope_id, job_id, key, automatic=False):
@@ -132,7 +371,9 @@ async def accept_task(service, scope_id, job_id, key, automatic=False):
         "附加评价存在严重问题或缺证据，不能采用",
         409,
     )
-    assessment = await service.db.get(Assessment, candidate["assessment_id"])
+    assessment = (
+        await service.db.get(Assessment, candidate["assessment_id"]) if candidate.get("assessment_id") else None
+    )
     scope, actions = await authorize(service.db, service.actor, scope_id, "adopt")
     require(
         scope.version == row.payload["base_version"],
@@ -140,27 +381,94 @@ async def accept_task(service, scope_id, job_id, key, automatic=False):
         "作者或其他任务已修改资料，需重新比较/复评",
         409,
     )
-    require(
-        assessment
-        and assessment.policy_hash == POLICY_HASH
-        and assessment.verdict not in {"blocked", "incomplete"}
-        and not candidate.get("disputed")
-        and candidate.get("revision_evaluation", {}).get("verdict") not in {"blocked", "incomplete"},
-        "hard_gate",
-        "硬伤未通过或评分不完整，不能采用",
-        409,
+    stages = row.payload.get("stages") or []
+    route_snap = ensure_job_route(row.result.get("model_route"))
+    requires_second = bool(
+        candidate.get("artifact") != "plan"
+        and purpose_slot(route_snap, "judge_secondary").get("model_key")
     )
-    require(
-        assessment.content_hash == digest(candidate["text"]), "stale_assessment", "候选与评分版本不一致", 409
+    requires_revision_p5 = bool(
+        candidate.get("artifact") != "plan"
+        and (
+            row.payload.get("scheme") == "P5"
+            or candidate.get("revised_prose")
+            or ("revise" in stages and "judge" in stages and "write" not in stages)
+        )
     )
+    if assessment is None:
+        # An explicit plan or unjudged draft can be accepted manually by the author, never when judge was requested or auto-adopting.
+        require(
+            not automatic
+            and (
+                candidate.get("artifact") == "plan"
+                or (bool(stages) and "judge" not in stages)
+            ),
+            "hard_gate",
+            "硬伤未通过或评分不完整，不能采用",
+            409,
+        )
+    else:
+        require(
+            assessment.policy_hash == POLICY_HASH
+            and assessment.verdict not in {"blocked", "incomplete"}
+            and not candidate.get("disputed")
+            and candidate.get("revision_evaluation", {}).get("verdict") not in {"blocked", "incomplete"},
+            "hard_gate",
+            "硬伤未通过或评分不完整，不能采用",
+            409,
+        )
+        require(
+            assessment.content_hash == digest(candidate["text"]), "stale_assessment", "候选与评分版本不一致", 409
+        )
+        if candidate.get("artifact") != "plan":
+            if requires_second:
+                second_row = (
+                    await service.db.get(Assessment, candidate["second_assessment_id"])
+                    if candidate.get("second_assessment_id")
+                    else None
+                )
+                require(
+                    second_row is not None
+                    and second_row.policy_hash == POLICY_HASH
+                    and second_row.content_hash == digest(candidate["text"])
+                    and second_row.verdict not in {"blocked", "incomplete"}
+                    and not candidate.get("disputed"),
+                    "hard_gate",
+                    "缺少必需的第二评价或存在评价分歧，不能采用",
+                    409,
+                )
+            if requires_revision_p5:
+                rev_row = (
+                    await service.db.get(Assessment, candidate["revision_assessment_id"])
+                    if candidate.get("revision_assessment_id")
+                    else None
+                )
+                require(
+                    rev_row is not None
+                    and rev_row.scheme == "P5"
+                    and rev_row.policy_hash == POLICY_HASH
+                    and rev_row.content_hash == digest(candidate["text"])
+                    and rev_row.verdict not in {"blocked", "incomplete"},
+                    "hard_gate",
+                    "缺少必需的 P5 修订质量评价或存在硬伤，不能采用",
+                    409,
+                )
     require(
         not row.payload.get("requires_secret") or "secret" in actions, "forbidden", "秘密内容权限已变化", 403
     )
-    if row.payload["scheme"] == "P1":
+    if row.payload["scheme"] == "P1" and not stages:
+        require(row.result.get("plan_valid"), "story_gate", "场景计划尚未通过故事审", 409)
+    elif row.payload["scheme"] == "P1" and "judge_plan" in stages and assessment is not None:
         require(row.result.get("plan_valid"), "story_gate", "场景计划尚未通过故事审", 409)
     auto_decision = None
     if automatic:
-        require(assessment.verdict == "qualified", "quality", "未达自动采用质量线")
+        require(
+            not stages and candidate.get("artifact") != "plan",
+            "delegation_stages",
+            "显式拆分工序或纯细纲候选不能自动采用",
+            409,
+        )
+        require(assessment is not None and assessment.verdict == "qualified", "quality", "未达自动采用质量线")
         delegation, mode = await checked_delegation(
             service,
             scope,
@@ -169,20 +477,36 @@ async def accept_task(service, scope_id, job_id, key, automatic=False):
             {assessment.scheme, row.payload["scheme"]},
         )
         extra_reports = []
-        if candidate.get("second_evaluation"):
+        if requires_second or candidate.get("second_evaluation") or candidate.get("second_assessment_id"):
             # Secondary identity is recorded on its immutable assessment, not inferred from UI configuration.
-            second = await service.db.get(Assessment, candidate.get("second_assessment_id"))
+            second = (
+                await service.db.get(Assessment, candidate.get("second_assessment_id"))
+                if candidate.get("second_assessment_id")
+                else None
+            )
             require(
-                second is not None and second.verdict == "qualified",
+                second is not None
+                and second.policy_hash == POLICY_HASH
+                and second.content_hash == digest(candidate["text"])
+                and second.verdict == "qualified"
+                and not candidate.get("disputed"),
                 "quality",
                 "第二评价尚未达到自动采用质量线",
                 409,
             )
             extra_reports.append((second.scheme, second.evaluator))
-        if candidate.get("revision_assessment_id"):
-            revision_report = await service.db.get(Assessment, candidate["revision_assessment_id"])
+        if requires_revision_p5 or candidate.get("revision_assessment_id"):
+            revision_report = (
+                await service.db.get(Assessment, candidate["revision_assessment_id"])
+                if candidate.get("revision_assessment_id")
+                else None
+            )
             require(
-                revision_report and revision_report.verdict == "qualified",
+                revision_report is not None
+                and revision_report.scheme == "P5"
+                and revision_report.policy_hash == POLICY_HASH
+                and revision_report.content_hash == digest(candidate["text"])
+                and revision_report.verdict == "qualified",
                 "calibration",
                 "修订执行质量尚未达标",
                 409,
@@ -201,8 +525,13 @@ async def accept_task(service, scope_id, job_id, key, automatic=False):
                 )
                 require(trusted, "calibration", "当前方案或附加评价器尚未校准，保留作者审核", 409)
         target = await service.entity(scope_id, row.payload["entity_id"])
+        chapter_book_order = 99
+        if target.get("kind") in {"chapter", "章节"}:
+            _, ordered_chapters = await _scope_volumes_and_chapters(service, scope)
+            matched = next((c for c in ordered_chapters if c["id"] == target["id"]), None)
+            chapter_book_order = matched["book_order"] if matched else 99
         require(
-            not target.get("data", {}).get("key_chapter") and target.get("data", {}).get("position", 99) > 3,
+            not target.get("data", {}).get("key_chapter") and chapter_book_order > 3,
             "key_chapter",
             "关键章保留作者版本选择",
             409,
@@ -217,17 +546,72 @@ async def accept_task(service, scope_id, job_id, key, automatic=False):
         }
     operations = []
     entity_id = row.payload.get("entity_id") or row.result.setdefault("new_entity_id", uid())
-    if row.payload.get("entity_id"):
+    target_body = (
+        await service.entity(scope_id, row.payload["entity_id"]) if row.payload.get("entity_id") else None
+    )
+    effective_kind = (target_body or {}).get("kind") or row.payload.get("kind")
+    plan_into_chapter = candidate.get("artifact") == "plan" and effective_kind in {"chapter", "章节"}
+    plan_into_outline = candidate.get("artifact") == "plan" and effective_kind in {
+        "outline",
+        "大纲",
+        "细纲",
+        "主线",
+        "支线",
+        "剧情",
+    }
+    if plan_into_chapter:
+        if row.payload.get("entity_id"):
+            # Keep the chapter prose. The adopted outline lives in beat_outline.
+            operations.append(
+                {
+                    "op": "update",
+                    "entity_id": entity_id,
+                    "expected": row.payload["expected"],
+                    "data": {"beat_outline": candidate["text"]},
+                }
+            )
+        else:
+            _, ordered_chapters = await _scope_volumes_and_chapters(service, scope)
+            loose_positions = [
+                int((c.get("data") or {}).get("position", 0))
+                for c in ordered_chapters
+                if not (c.get("data") or {}).get("parent_id")
+                and isinstance((c.get("data") or {}).get("position", 0), int)
+                and not isinstance((c.get("data") or {}).get("position", 0), bool)
+            ]
+            next_pos = (max(loose_positions) + 1) if loose_positions else 0
+            operations.append(
+                {
+                    "op": "create",
+                    "entity_id": entity_id,
+                    "kind": row.payload["kind"],
+                    "name": row.payload["name"],
+                    "text": "",
+                    "data": {
+                        **candidate.get("data", {}),
+                        "status": (candidate.get("data") or {}).get("status") or "draft",
+                        "position": next_pos,
+                        "beat_outline": candidate["text"],
+                    },
+                }
+            )
+    elif row.payload.get("entity_id"):
+        extra_data = dict(candidate.get("data", {}))
+        if plan_into_outline:
+            extra_data.setdefault("beat_outline", candidate["text"])
         operations.append(
             {
                 "op": "update",
                 "entity_id": entity_id,
                 "expected": row.payload["expected"],
                 "text": candidate["text"],
-                "data": candidate.get("data", {}),
+                "data": extra_data,
             }
         )
     else:
+        extra_data = dict(candidate.get("data", {}))
+        if plan_into_outline:
+            extra_data.setdefault("beat_outline", candidate["text"])
         operations.append(
             {
                 "op": "create",
@@ -235,18 +619,19 @@ async def accept_task(service, scope_id, job_id, key, automatic=False):
                 "kind": row.payload["kind"],
                 "name": row.payload["name"],
                 "text": candidate["text"],
-                "data": candidate.get("data", {}),
+                "data": extra_data,
             }
         )
     allowed = set(row.result.get("packet", {}).get("entity_ids", [])) | {entity_id}
     pending = []
-    for claim in candidate.get("claims", [])[:100]:
+    claim_rows = [] if plan_into_chapter else candidate.get("claims", [])[:100]
+    for claim in claim_rows:
         quote = claim.get("quote", "")
         if not quote or quote not in candidate["text"] or claim.get("object_id") not in allowed | {None}:
             pending.append({"claim": claim, "reason": "证据不足或身份尚未解析"})
             continue
         category = claim.get("category", "fact")
-        if row.payload["scheme"] == "P2":
+        if row.payload["scheme"] == "P2" or candidate.get("artifact") == "plan":
             category = "plan"
         if category not in {"fact", "relation", "belief", "plan", "reveal"}:
             pending.append({"claim": claim, "reason": "类别需要确认"})
@@ -271,28 +656,36 @@ async def accept_task(service, scope_id, job_id, key, automatic=False):
             title="采用创作成果：" + row.payload["name"], base_version=scope.version, operations=operations
         ),
     )
-    result = await service.adopt(scope_id, change["id"], key)
-    adopted_assessment = Assessment(
-        scope_id=scope_id,
-        actor_id=service.actor.id,
-        entity_id=entity_id,
-        content_hash=assessment.content_hash,
-        dependency_version=result["version"],
-        scheme=assessment.scheme,
-        policy_hash=assessment.policy_hash,
-        evaluator=assessment.evaluator,
-        report={**assessment.report, "applied_from": assessment.id},
-        score=assessment.score,
-        verdict=assessment.verdict,
+    result = await service.adopt(
+        scope_id,
+        change["id"],
+        key,
+        receipt_extra={"entity_id": entity_id},
     )
-    service.db.add(adopted_assessment)
+    if assessment is not None:
+        service.db.add(
+            Assessment(
+                scope_id=scope_id,
+                actor_id=service.actor.id,
+                entity_id=entity_id,
+                content_hash=assessment.content_hash,
+                dependency_version=result["version"],
+                scheme=assessment.scheme,
+                policy_hash=assessment.policy_hash,
+                evaluator=assessment.evaluator,
+                report={**assessment.report, "applied_from": assessment.id},
+                score=assessment.score,
+                verdict=assessment.verdict,
+            )
+        )
     row.state = "applied"
     row.result = {
         **row.result,
         "new_entity_id": entity_id,
         "receipt": result,
         "pending_claims": pending,
-        "author_quality_override": assessment.verdict != "qualified",
+        "author_plan_adopted": candidate.get("artifact") == "plan" and assessment is None,
+        "author_quality_override": False if assessment is None else assessment.verdict != "qualified",
         "automatic_adoption": auto_decision,
     }
     if auto_decision:
@@ -309,24 +702,37 @@ async def accept_task(service, scope_id, job_id, key, automatic=False):
 
 
 class Worker:
-    def __init__(self, factory, settings, provider=None):
+    def __init__(
+        self, factory, settings, provider=None, *, actor_ids=None, scope_ids=None, job_ids=None
+    ):
         self.factory, self.settings = factory, settings
         self.provider = provider or ChatProvider(settings)
+        self.actor_ids = set(actor_ids) if actor_ids is not None else None
+        self.scope_ids = set(scope_ids) if scope_ids is not None else None
+        self.job_ids = set(job_ids) if job_ids is not None else None
 
-    async def claim(self):
+    async def claim(self, *, job_id=None):
         async with self.factory() as db, db.begin():
             now = utcnow()
-            row = await db.scalar(
-                select(Job)
-                .where(
-                    Job.cancel_requested.is_(False),
-                    Job.attempts < 3,
-                    or_(Job.state == "queued", and_(Job.state == "running", Job.lease_until < now)),
-                )
-                .order_by(Job.created_at)
-                .with_for_update(skip_locked=True)
-                .limit(1)
+            allowed_actors = (
+                self.actor_ids
+                if self.actor_ids is not None
+                else getattr(self.factory, "_test_actor_ids", None)
             )
+            stmt = select(Job).where(
+                Job.cancel_requested.is_(False),
+                Job.attempts < 3,
+                or_(Job.state == "queued", and_(Job.state == "running", Job.lease_until < now)),
+            )
+            if job_id is not None:
+                stmt = stmt.where(Job.id == job_id)
+            elif self.job_ids is not None:
+                stmt = stmt.where(Job.id.in_(self.job_ids))
+            if allowed_actors is not None:
+                stmt = stmt.where(Job.actor_id.in_(allowed_actors))
+            if self.scope_ids is not None:
+                stmt = stmt.where(Job.scope_id.in_(self.scope_ids))
+            row = await db.scalar(stmt.order_by(Job.created_at).with_for_update(skip_locked=True).limit(1))
             if not row:
                 return None
             row.state, row.lease_token, row.lease_until = "running", uid(), now + timedelta(minutes=10)
@@ -381,8 +787,8 @@ class Worker:
         row.lease_until, row.updated_at = utcnow() + timedelta(minutes=10), utcnow()
         return row, Service(db, actor)
 
-    async def run_once(self):
-        claimed = await self.claim()
+    async def run_once(self, *, job_id=None):
+        claimed = await self.claim(job_id=job_id)
         if not claimed:
             return False
         job_id, token = claimed
@@ -440,6 +846,9 @@ class Worker:
                     }
                     row.lease_token, row.lease_until = None, None
         return True
+
+    async def run_job(self, job_id: str) -> bool:
+        return await self.run_once(job_id=job_id)
 
     def account_usage(self, row):
         entry = getattr(self, "last_usage", None)
@@ -501,39 +910,60 @@ class Worker:
                 {"id": eid, "revision": obj["revision"], "name": obj["name"], "text": obj["text"][:16000]}
             )
             ids.append(eid)
-        # Only previous chapters enter the default writing packet; never send the whole database.
-        position = target["data"].get("position") if target else None
-        chapters = (
-            await service.entities(
-                row.scope_id, Query(kind="chapter", limit=1, sort="position", descending=True)
+        for ref in payload.get("commons_refs") or []:
+            # Cross-scope rows are read-only context. Persist only auditable reference & version;
+            # live permissions and field redaction are re-evaluated on every model call and job view.
+            obj = await self._read_cross_scope_source(
+                service, payload, ref["scope_id"], ref["entity_id"], revision_id=None
             )
-        )["items"]
-        next_position = position or max([x["data"].get("position", 0) for x in chapters] + [0]) + 1
-        previous = (
-            await service.entities(
-                row.scope_id,
-                Query(
-                    kind="chapter",
-                    limit=3,
-                    sort="position",
-                    descending=True,
-                    filters=[{"field": "position", "op": "lte", "value": next_position - 1}],
-                ),
-            )
-        )["items"][::-1]
-        for obj in previous:
-            full = await service.entity(row.scope_id, obj["id"])
             sources.append(
                 {
-                    "id": obj["id"],
+                    "id": ref["entity_id"],
+                    "scope_id": ref["scope_id"],
+                    "revision": obj["revision"],
+                    "version": obj["version"],
+                    "content_hash": obj.get("content_hash") or digest(obj.get("text") or ""),
+                    "readonly": True,
+                }
+            )
+        # Only strictly preceding chapters in canonical book-wide order enter the default writing packet.
+        _, ordered_chapters = await _scope_volumes_and_chapters(service, scope)
+        if target and target.get("kind") in {"chapter", "章节"}:
+            target_index = next((idx for idx, c in enumerate(ordered_chapters) if c["id"] == target["id"]), None)
+            prior_candidates = ordered_chapters[:target_index] if target_index is not None else []
+            next_position = target.get("data", {}).get("position", 0)
+        else:
+            prior_candidates = ordered_chapters
+            loose_positions = [
+                int((c.get("data") or {}).get("position", 0))
+                for c in ordered_chapters
+                if not (c.get("data") or {}).get("parent_id")
+                and isinstance((c.get("data") or {}).get("position", 0), int)
+                and not isinstance((c.get("data") or {}).get("position", 0), bool)
+            ]
+            next_position = (max(loose_positions) + 1) if loose_positions else (0 if ordered_chapters else 1)
+        previous = []
+        for cand in reversed(prior_candidates):
+            try:
+                full = await service.entity(row.scope_id, cand["id"])
+            except DomainError:
+                continue
+            previous.append(full)
+            if len(previous) >= 3:
+                break
+        previous.reverse()
+        for full in previous:
+            sources.append(
+                {
+                    "id": full["id"],
                     "revision": full["revision"],
                     "name": full["name"],
                     "text": full["text"][-8000:],
                 }
             )
-            ids.append(obj["id"])
+            ids.append(full["id"])
         definition = await service.definition(scope, payload["kind"])
-        return {
+        built = {
             "objective": payload["objective"],
             "kind": payload["kind"],
             "name": payload["name"],
@@ -544,6 +974,57 @@ class Worker:
             "properties": definition.spec.get("properties", {}),
             "next_position": next_position,
         }
+        if _studio_inputs(payload):
+            built["producer_guidance"] = producer_guidance(payload, scope.config)
+        return built
+
+    async def _read_cross_scope_source(self, service, payload, scope_id, entity_id, revision_id=None):
+        if payload.get("credential_id"):
+            reader_svc = service
+        else:
+            reader = copy.copy(service.actor)
+            for attr in ("_access_scope", "_access_actions"):
+                if hasattr(reader, attr):
+                    delattr(reader, attr)
+            reader_svc = Service(service.db, reader)
+        live = await reader_svc.entity(scope_id, entity_id)
+        if revision_id:
+            pinned = await reader_svc.revision(scope_id, entity_id, revision_id)
+            require(not pinned.get("deleted"), "not_found", "引用对象已停用", 404)
+            return pinned
+        return live
+
+    async def _materialize_packet_sources(self, service, row, raw_sources):
+        model_sources, clipped = [], []
+        for entry in raw_sources or []:
+            if not (isinstance(entry, dict) and entry.get("scope_id") and entry.get("scope_id") != row.scope_id):
+                model_sources.append(copy.deepcopy(entry))
+                continue
+            try:
+                obj = await self._read_cross_scope_source(
+                    service,
+                    row.payload,
+                    entry["scope_id"],
+                    entry["id"],
+                    revision_id=entry.get("revision"),
+                )
+                model_sources.append(
+                    {
+                        "id": entry["id"],
+                        "scope_id": entry["scope_id"],
+                        "revision": obj["revision"],
+                        "version": obj["version"],
+                        "content_hash": entry.get("content_hash") or obj.get("content_hash"),
+                        "name": obj["name"],
+                        "kind": obj["kind"],
+                        "data": obj.get("data") or {},
+                        "text": (obj.get("text") or "")[:16000],
+                        "readonly": True,
+                    }
+                )
+            except DomainError:
+                clipped.append(entry["id"])
+        return model_sources, clipped
 
     async def creation(self, job_id, token):
         while True:
@@ -574,15 +1055,30 @@ class Worker:
                     403,
                 )
                 progress, result = dict(row.progress), copy.deepcopy(row.result)
+                if "model_route" not in result:
+                    result["model_route"] = await snapshot_model_route(db, self.settings)
+                result["model_route"] = ensure_job_route(result["model_route"])
                 if "packet" not in result:
                     result["packet"] = await self.packet(service, row)
                 stage = progress.get("stage", "prepare")
                 packet = copy.deepcopy(result["packet"])
-                sources = [s["text"] for s in packet["sources"]]
+                model_sources, clipped_ids = await self._materialize_packet_sources(
+                    service, row, packet.get("sources")
+                )
+                packet["sources"] = model_sources
+                if clipped_ids:
+                    result["clipped_source_ids"] = sorted(set([*(result.get("clipped_source_ids") or []), *clipped_ids]))
+                sources = [s["text"] for s in model_sources]
                 scheme = row.payload["scheme"]
                 budget = row.payload["token_budget"] - progress.get("tokens", 0)
                 if stage == "prepare":
-                    if row.payload.get("mode") == "assess":
+                    if row.payload.get("stages"):
+                        stored_sources = result["packet"].get("sources")
+                        stage = begin_explicit_stage(row.payload, result, packet)
+                        if "packet" in result and stored_sources is not None:
+                            result["packet"] = {**result["packet"], "sources": stored_sources}
+                        packet["sources"] = model_sources
+                    elif row.payload.get("mode") == "assess":
                         result["draft"] = {"text": packet["current"], "data": {}, "claims": []}
                         stage = "judge"
                     else:
@@ -594,10 +1090,19 @@ class Worker:
                     if result.get("plan") and purpose != "plan":
                         packet["scene_plan"] = result["plan"]["text"]
                     if purpose == "revise":
-                        packet["current"] = result["candidates"][-1]["text"]
-                        packet["revision_notes"] = (
-                            result["candidates"][-1]["evaluation"].get("report", {}).get("suggestions", [])
-                        )
+                        if result.get("candidates") and result["candidates"][-1].get("artifact") != "plan":
+                            prev_cand = result["candidates"][-1]
+                            packet["current"] = prev_cand["text"]
+                            packet["revision_notes"] = (
+                                prev_cand.get("evaluation", {}).get("report", {}).get("suggestions", [])
+                                or packet.get("revision_notes")
+                                or []
+                            )
+                            result["revision_before"] = prev_cand["text"]
+                            result["revision_prior_evaluation"] = prev_cand.get("evaluation")
+                        else:
+                            result["revision_before"] = result["packet"].get("current") or ""
+                            result["revision_prior_evaluation"] = None
                     if row.payload.get("selection_start") is not None:
                         start, end = row.payload["selection_start"], row.payload["selection_end"]
                         packet["current"] = result["packet"]["current"][start:end]
@@ -624,15 +1129,24 @@ class Worker:
                     }
                     if stage == "judge_revision":
                         packet.update(
-                            before=result["packet"]["current"],
+                            before=result.get("revision_before", result["packet"]["current"]),
                             requested_scope=row.payload.get("selection_start"),
-                            prior_issues=result.get("candidates", [{}])[-1].get("evaluation"),
+                            prior_issues=result.get("revision_prior_evaluation"),
                         )
+                resolved = materialize_one(purpose_slot(result["model_route"], purpose), self.settings)
                 row.result = result
                 row.progress = {**progress, "stage": stage}
             # No database session/lock is kept across model I/O.
             require(budget >= 256, "token_budget", "任务预算不足，已有用量和成果保留，请明确新任务预算", 409)
-            response, usage = await self.provider.call(purpose, packet, budget)
+            self.provider.route = resolved
+            if isinstance(self.provider, ChatProvider):
+                judge_key = purpose_slot(result["model_route"], "judge").get("model_key") or ""
+                write_key = purpose_slot(result["model_route"], "write").get("model_key") or ""
+                self.provider.identity = "chat:" + (judge_key or write_key)
+            try:
+                response, usage = await self.provider.call(purpose, packet, budget)
+            finally:
+                self.provider.route = None
             self.last_usage = (job_id, uid(), usage)
             async with self.factory() as db, db.begin():
                 row, service = await self.fenced(db, job_id, token)
@@ -667,7 +1181,21 @@ class Worker:
                         return
                     if stage == "plan":
                         result["plan"] = response
-                        progress["stage"] = "judge_plan"
+                        if row.payload.get("stages"):
+                            _apply_explicit(
+                                row,
+                                progress,
+                                result,
+                                explicit_transition(
+                                    row.payload["stages"],
+                                    stage,
+                                    qualified=True,
+                                    revisions=progress.get("revisions", 0),
+                                    max_revisions=row.payload["max_revisions"],
+                                ),
+                            )
+                        else:
+                            progress["stage"] = "judge_plan"
                     else:
                         if row.payload.get("selection_start") is not None:
                             original = result["packet"]["current"]
@@ -681,8 +1209,26 @@ class Worker:
                                 **response.get("data", {}),
                                 "position": result["packet"]["next_position"],
                             }
+                        if stage == "revise":
+                            progress["revised_prose"] = True
+                        else:
+                            progress["revised_prose"] = False
                         result["draft"] = response
-                        progress["stage"] = "judge"
+                        if row.payload.get("stages"):
+                            _apply_explicit(
+                                row,
+                                progress,
+                                result,
+                                explicit_transition(
+                                    row.payload["stages"],
+                                    stage,
+                                    qualified=True,
+                                    revisions=progress.get("revisions", 0),
+                                    max_revisions=row.payload["max_revisions"],
+                                ),
+                            )
+                        else:
+                            progress["stage"] = "judge"
                 else:
                     content = result["plan"]["text"] if stage == "judge_plan" else result["draft"]["text"]
                     evaluation = evaluate(scheme, content, response, sources)
@@ -694,7 +1240,7 @@ class Worker:
                         dependency_version=row.payload["base_version"],
                         scheme=scheme,
                         policy_hash=POLICY_HASH,
-                        evaluator=("chat:" + self.settings.second_judge_model)
+                        evaluator=("chat:" + purpose_slot(result["model_route"], "judge_secondary").get("model_key", ""))
                         if stage == "judge_second"
                         else self.provider.identity,
                         report={**evaluation, "requires_secret": row.payload.get("requires_secret", False)},
@@ -704,7 +1250,27 @@ class Worker:
                     db.add(assessment)
                     await db.flush()
                     qualified = evaluation["verdict"] == "qualified"
-                    if stage == "judge_plan":
+                    if row.payload.get("stages") and stage == "judge_plan":
+                        result["plan_evaluation"] = evaluation
+                        result["plan_valid"] = qualified
+                        result["plan_assessment_id"] = assessment.id
+                        _apply_explicit(
+                            row,
+                            progress,
+                            result,
+                            explicit_transition(
+                                row.payload["stages"],
+                                stage,
+                                qualified=qualified,
+                                revisions=progress.get("revisions", 0),
+                                max_revisions=row.payload["max_revisions"],
+                            ),
+                            assessment_id=assessment.id,
+                            evaluation=evaluation,
+                            scheme=scheme,
+                            content=content,
+                        )
+                    elif stage == "judge_plan":
                         result["plan_evaluation"] = evaluation
                         result["plan_valid"] = qualified
                         if qualified:
@@ -729,7 +1295,7 @@ class Worker:
                                 "code": "assessment_disagreement",
                                 "detail": "评价分歧超阈值，需争议复核；没有平均放行",
                             }
-                        elif row.payload.get("scheme") == "P5" or progress.get("revisions", 0):
+                        elif _needs_revision_judge(row, progress):
                             progress["stage"] = "judge_revision"
                         else:
                             self.route_candidate(row, progress, result)
@@ -749,14 +1315,15 @@ class Worker:
                             "evaluation": evaluation,
                             "hash": digest(content),
                             "scheme": scheme,
+                            "revised_prose": bool(progress.get("revised_prose")),
                         }
                         result.setdefault("candidates", []).append(candidate)
                         result["selected"] = len(result["candidates"]) - 1
                         if row.payload.get("mode") == "assess":
                             row.state = "succeeded"
-                        elif self.settings.second_judge_model:
+                        elif purpose_slot(result["model_route"], "judge_secondary").get("model_key"):
                             progress["stage"] = "judge_second"
-                        elif qualified and (row.payload["scheme"] == "P5" or progress.get("revisions", 0)):
+                        elif _needs_revision_judge(row, progress):
                             progress["stage"] = "judge_revision"
                         else:
                             self.route_candidate(row, progress, result)
@@ -777,7 +1344,27 @@ class Worker:
 
     def route_candidate(self, row, progress, result):
         candidate = result["candidates"][-1]
-        if candidate["evaluation"]["verdict"] == "qualified" and not candidate.get("revision_hold"):
+        qualified = bool(
+            candidate["evaluation"]["verdict"] == "qualified"
+            and not candidate.get("revision_hold")
+            and not candidate.get("disputed")
+            and (
+                not candidate.get("second_evaluation")
+                or candidate["second_evaluation"].get("verdict") == "qualified"
+            )
+        )
+        if row.payload.get("stages"):
+            decision = explicit_transition(
+                row.payload["stages"],
+                "judge",
+                qualified=qualified,
+                revisions=progress.get("revisions", 0),
+                max_revisions=row.payload["max_revisions"],
+            )
+            decision = {k: v for k, v in decision.items() if k != "attach_judged"}
+            _apply_explicit(row, progress, result, decision)
+            return
+        if qualified:
             row.state = "qualified"
         elif progress.get("revisions", 0) < row.payload["max_revisions"]:
             progress["revisions"] = progress.get("revisions", 0) + 1

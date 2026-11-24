@@ -1,6 +1,24 @@
 """Ontology seed definitions, independent of persistence and interface code."""
 
+import copy
+
 SYSTEM_SCOPE = "00000000-0000-0000-0000-000000000001"
+
+# Kinds the studio registers in addition to the frozen policy domains.
+# Tuple is (key, label, domain). Keys stay inside the existing definition table.
+STUDIO_EXTRA_KINDS = [
+    ("特效", "特效", "力量修炼"),
+    ("魔兽", "魔兽", "生命种族"),
+    ("异世界生物", "异世界生物", "生命种族"),
+    ("都市", "都市", "地点建筑"),
+    ("现代武器", "现代武器", "器物造物"),
+    ("法师", "法师", "人物身份"),
+    ("魔", "魔", "生命种族"),
+    ("异族人", "异族人", "生命种族"),
+    ("拍卖会", "拍卖会", "叙事生产"),
+    ("公共母本", "公共母本", "创作过程"),
+    ("市场风向", "市场风向", "创作过程"),
+]
 
 CORE_KINDS = {
     "character": "人物",
@@ -47,6 +65,17 @@ PROPERTIES = {
             "truth": "世界真假",
             "publication_status": "发布状态",
             "note": "备注",
+            "beat_outline": "细纲与节拍",
+            "hook": "章尾追读钩",
+            "pov": "视角人物",
+            "plotline": "所属剧情线",
+            "line_type": "线索层级",
+            "arc_type": "人物弧光",
+            "psychology": "心理与伤口分析",
+            "factions": "阵营与关系定位",
+            "commons_category": "公共陈列板块",
+            "market_track": "赛道风向标签",
+            "usage_guide": "套路用法与禁忌",
         }.items()
     },
     **{
@@ -74,9 +103,12 @@ PROPERTIES = {
     },
     "tags": {"type": "tags", "label": "标签"},
     "aliases": {"type": "tags", "label": "别名"},
+    "key_chapter": {"type": "boolean", "label": "关键章"},
     "position": {"type": "integer", "label": "排序", "minimum": 0},
     "strength": {"type": "integer", "label": "强度", "minimum": 0, "maximum": 5},
     "expected_chapter": {"type": "integer", "label": "期望章节", "minimum": 0},
+    "target_words": {"type": "integer", "label": "目标字数", "minimum": 0},
+    "planted_chapter": {"type": "integer", "label": "埋设章节序号", "minimum": 0},
     "amount": {"type": "decimal", "label": "精确数量"},
     "rate": {"type": "ratio", "label": "精确比率"},
     "cost": {"type": "quantity", "label": "数量与单位"},
@@ -100,3 +132,19 @@ RELATIONS = {
     "derived_from": {"label": "来源"},
     "payoff": {"label": "兑现"},
 }
+
+
+def merge_system_properties(spec):
+    """Copy a system entity spec and fill property keys the stored row does not have.
+
+    Stored keys win, including a narrower label or constraint. Relation specs are returned
+    unchanged. The result is a new dict; PROPERTIES itself is never mutated.
+    """
+    if not isinstance(spec, dict) or spec.get("relation"):
+        return spec
+    merged = copy.deepcopy(spec)
+    props = dict(merged.get("properties") or {})
+    for key, rule in PROPERTIES.items():
+        props.setdefault(key, copy.deepcopy(rule))
+    merged["properties"] = props
+    return merged

@@ -1,0 +1,295 @@
+{
+  "anchors": [
+    "A01-古代时代错置与称谓",
+    "A02-月相与行程",
+    "A03-待核项写了数字",
+    "A04-视角越权与超前泄密",
+    "A05-场景卡翻转没发生",
+    "A06-干净对照",
+    "P01",
+    "P02",
+    "P03"
+  ],
+  "anchor_dirs": [
+    "eval/anchors",
+    "docs/evidence/2026-11-23-agy-upgrade-audit/platinum-anchors"
+  ],
+  "runs": 3,
+  "suite": "全部",
+  "packets_dir": "docs/evidence/2026-11-23-agy-upgrade-audit/blind-eval/packets",
+  "blind": {
+    "M01": {
+      "anchor": "P02",
+      "run": 1
+    },
+    "M02": {
+      "anchor": "A03-待核项写了数字",
+      "run": 3
+    },
+    "M03": {
+      "anchor": "A02-月相与行程",
+      "run": 2
+    },
+    "M04": {
+      "anchor": "P03",
+      "run": 1
+    },
+    "M05": {
+      "anchor": "A03-待核项写了数字",
+      "run": 1
+    },
+    "M06": {
+      "anchor": "P01",
+      "run": 3
+    },
+    "M07": {
+      "anchor": "A04-视角越权与超前泄密",
+      "run": 2
+    },
+    "M08": {
+      "anchor": "A06-干净对照",
+      "run": 3
+    },
+    "M09": {
+      "anchor": "A04-视角越权与超前泄密",
+      "run": 3
+    },
+    "M10": {
+      "anchor": "A05-场景卡翻转没发生",
+      "run": 1
+    },
+    "M11": {
+      "anchor": "A01-古代时代错置与称谓",
+      "run": 3
+    },
+    "M12": {
+      "anchor": "A02-月相与行程",
+      "run": 1
+    },
+    "M13": {
+      "anchor": "A06-干净对照",
+      "run": 1
+    },
+    "M14": {
+      "anchor": "A04-视角越权与超前泄密",
+      "run": 1
+    },
+    "M15": {
+      "anchor": "P03",
+      "run": 3
+    },
+    "M16": {
+      "anchor": "A05-场景卡翻转没发生",
+      "run": 3
+    },
+    "M17": {
+      "anchor": "P01",
+      "run": 2
+    },
+    "M18": {
+      "anchor": "A01-古代时代错置与称谓",
+      "run": 1
+    },
+    "M19": {
+      "anchor": "P02",
+      "run": 3
+    },
+    "M20": {
+      "anchor": "A05-场景卡翻转没发生",
+      "run": 2
+    },
+    "M21": {
+      "anchor": "P02",
+      "run": 2
+    },
+    "M22": {
+      "anchor": "A01-古代时代错置与称谓",
+      "run": 2
+    },
+    "M23": {
+      "anchor": "A06-干净对照",
+      "run": 2
+    },
+    "M24": {
+      "anchor": "P01",
+      "run": 1
+    },
+    "M25": {
+      "anchor": "A02-月相与行程",
+      "run": 3
+    },
+    "M26": {
+      "anchor": "P03",
+      "run": 2
+    },
+    "M27": {
+      "anchor": "A03-待核项写了数字",
+      "run": 2
+    }
+  },
+  "created": "2026-11-24T09:04:17",
+  "sessions": {
+    "M01": {
+      "conversation_id": "690f9f9b-bb53-4532-8ead-28b427fb9395",
+      "transcript": "<APP_DATA_DIR>/brain/690f9f9b-bb53-4532-8ead-28b427fb9395/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "372b1f8387f7101c1544e8ff9820de822d6661a2b580cd99588002d665008379",
+      "report_sha256": "6600004738430719ea25a1545b8fe0fd31b8792964ffa9532517aa984b0cf735"
+    },
+    "M02": {
+      "conversation_id": "a60ad773-8d59-4bbc-bd4a-f3eb99a4af20",
+      "transcript": "<APP_DATA_DIR>/brain/a60ad773-8d59-4bbc-bd4a-f3eb99a4af20/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "30412c354e96fdbd5176a8ecac2c4761b69354468a5c96497ebd0809080ea234",
+      "report_sha256": "d4a1a10a7607ba9e5d573b22405dd33f1c5175cca1f4787ff32a898f337e2865"
+    },
+    "M03": {
+      "conversation_id": "f61aaa37-3b76-49a6-901e-fa82067f9cc3",
+      "transcript": "<APP_DATA_DIR>/brain/f61aaa37-3b76-49a6-901e-fa82067f9cc3/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "a0c24b6fa543ac940706a528a187807e9ae0231c5465c48b74cf82b9d0a35e90",
+      "report_sha256": "757060f3dc92df282831fcb9e385003e0f8554e18568b4fd8116f577a1af7ee2"
+    },
+    "M04": {
+      "conversation_id": "8c7fc8f5-b7f4-4d04-9cc3-96127aff0cb7",
+      "transcript": "<APP_DATA_DIR>/brain/8c7fc8f5-b7f4-4d04-9cc3-96127aff0cb7/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "07b2657e1a2d440d1b3766cdb5f946026c5ca2269faf7fc7c1f403777651d100",
+      "report_sha256": "0937e786df3785cba12ca6f543745d0b1bd9cb85cbb6aea5906ed6bf1552be12"
+    },
+    "M05": {
+      "conversation_id": "69b15e78-f930-46e5-98a0-38fcf6444000",
+      "transcript": "<APP_DATA_DIR>/brain/69b15e78-f930-46e5-98a0-38fcf6444000/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "1912114e2e77d15b8b0fcfdfbe81a4a2b65ac303f733424ef00d3e5606f78c44",
+      "report_sha256": "b35982f92e1ab243d9833a04ec557e3e22b15d15b6b6f5bae57a42aff0e58f11"
+    },
+    "M06": {
+      "conversation_id": "e3398084-4418-42f1-a6c2-299f001c97b0",
+      "transcript": "<APP_DATA_DIR>/brain/e3398084-4418-42f1-a6c2-299f001c97b0/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "448ba1979eeb3959982612cdc7dcb9908fd1739740a02386a693416d25cc6345",
+      "report_sha256": "9db4ef3a92f07310c4fd10032d9e9d31bc7e71a0b9209435045ed854048b8c31"
+    },
+    "M07": {
+      "conversation_id": "171cbf52-4c74-4f31-8395-28efe15aed73",
+      "transcript": "<APP_DATA_DIR>/brain/171cbf52-4c74-4f31-8395-28efe15aed73/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "ea5dd60e1228ea3adf58d6cfd99ccfdcdf0f0e3f98301d7a40e288182c3c291a",
+      "report_sha256": "77435c10dd4ea29e305e37e3246fcd4f500f80d080384eba3779be46cb23dc0f"
+    },
+    "M08": {
+      "conversation_id": "222df2d2-1381-4f40-8629-467d8401b8ed",
+      "transcript": "<APP_DATA_DIR>/brain/222df2d2-1381-4f40-8629-467d8401b8ed/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "b25cb2562e17f7236bacf36148cbf5b93fdfd506e5c4c79a937d68ce0f33a32a",
+      "report_sha256": "0937e786df3785cba12ca6f543745d0b1bd9cb85cbb6aea5906ed6bf1552be12"
+    },
+    "M09": {
+      "conversation_id": "e559bb5a-8d3a-4775-93a9-f160703e584a",
+      "transcript": "<APP_DATA_DIR>/brain/e559bb5a-8d3a-4775-93a9-f160703e584a/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "10554c96fe85a22cac0ac557da0f96967606274a1213bf8d89579b68ce8d3fdf",
+      "report_sha256": "d14ab717ffbf63e7c073dbaa9c42028c9f69bd3e7adf8409d45d30ece2a628e3"
+    },
+    "M10": {
+      "conversation_id": "9999c826-e0cc-4da2-9adb-5d9f5b2b207c",
+      "transcript": "<APP_DATA_DIR>/brain/9999c826-e0cc-4da2-9adb-5d9f5b2b207c/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "07015f88b86c70219f7cfd936d8ba2ed9538daa9169c8d1a38004edac3a2ef80",
+      "report_sha256": "3a06c5353246dd161c7a8b2066bd2b043e28e6c00f030ca743020205aa39a62a"
+    },
+    "M11": {
+      "conversation_id": "3a65784a-fb7a-489e-9cbf-5633d867df5e",
+      "transcript": "<APP_DATA_DIR>/brain/3a65784a-fb7a-489e-9cbf-5633d867df5e/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "7b4217a092a8dc3ab8dd7971e25962c299445bf4f1a58c148fe19d90d53ce973",
+      "report_sha256": "a404c4a0987259ecfd19e9aa425614d97b22a033da14c796e26dab75294b58bd"
+    },
+    "M12": {
+      "conversation_id": "8c763617-7023-4550-88cc-06caae505aaf",
+      "transcript": "<APP_DATA_DIR>/brain/8c763617-7023-4550-88cc-06caae505aaf/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "673111b38cff05247edf4a3225a4c97d9450a00796896a454e47fb649679dd34",
+      "report_sha256": "e8ebfb3ebc0b289b9fcdaee9d5b811db146a9180be51cc2a4217df546c3336ae"
+    },
+    "M13": {
+      "conversation_id": "ba10b1b5-d6c0-469b-baa6-7d4fd0ad0223",
+      "transcript": "<APP_DATA_DIR>/brain/ba10b1b5-d6c0-469b-baa6-7d4fd0ad0223/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "b3e5a692776252ca40423523f14d4c31bd3de64034969810abaac3acba9108ba",
+      "report_sha256": "0937e786df3785cba12ca6f543745d0b1bd9cb85cbb6aea5906ed6bf1552be12"
+    },
+    "M14": {
+      "conversation_id": "ccb473f9-1b88-4b77-a72a-07ba3d6a6306",
+      "transcript": "<APP_DATA_DIR>/brain/ccb473f9-1b88-4b77-a72a-07ba3d6a6306/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "dc64276507c7992a43e4cc15e3061fe0b7576029d6cfbee2bffea0258643f185",
+      "report_sha256": "898df575e5d617e2bad013969a78646517e665818bc6d5ab959d20630291884f"
+    },
+    "M15": {
+      "conversation_id": "688e1203-7f00-4d74-ac65-6f2abc630daf",
+      "transcript": "<APP_DATA_DIR>/brain/688e1203-7f00-4d74-ac65-6f2abc630daf/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "c165ecfcd171b26e2fe427cd03b61ff096fe396912ff825b13881f68be9c313e",
+      "report_sha256": "0937e786df3785cba12ca6f543745d0b1bd9cb85cbb6aea5906ed6bf1552be12"
+    },
+    "M16": {
+      "conversation_id": "a7c0d8bb-5da2-4344-bad9-9244fe078791",
+      "transcript": "<APP_DATA_DIR>/brain/a7c0d8bb-5da2-4344-bad9-9244fe078791/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "96ad5c8c7c2e6d3a5f18e46f12909f82ec48a283b51c979bde90a5c171d85265",
+      "report_sha256": "ad4d83a5b3ebf92e5a7d768eaa8f830641d7450ba454d3ec06c6685156fbc214"
+    },
+    "M17": {
+      "conversation_id": "c19e76d7-8832-49cc-b389-6d4bab186c4a",
+      "transcript": "<APP_DATA_DIR>/brain/c19e76d7-8832-49cc-b389-6d4bab186c4a/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "020e5eeb29d6823f72961626a2c68f6d5cfb5f475eede564474aab8f5973a0e0",
+      "report_sha256": "08f1f089833a075de355cb428535759ce475b5c4ba1119a7ff3b07284d53d4bf"
+    },
+    "M18": {
+      "conversation_id": "166b9c2a-39e0-4a65-8947-4bb841432d7c",
+      "transcript": "<APP_DATA_DIR>/brain/166b9c2a-39e0-4a65-8947-4bb841432d7c/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "8619057ad02477c6853dbed9cbf81710b2dd31e54ab6f5a3601b71a7a6c5b95a",
+      "report_sha256": "0d53a7f89cd772b1caf7eac0f21c21afd168d62296e75a7941850aef38b66c19"
+    },
+    "M19": {
+      "conversation_id": "5dc9bf69-046a-4988-bebc-3f29405d5b3e",
+      "transcript": "<APP_DATA_DIR>/brain/5dc9bf69-046a-4988-bebc-3f29405d5b3e/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "e085bad8aac9ea7572dfa44d0c6aec53540a7a943299b0005f2fbbd20a440528",
+      "report_sha256": "e366393480b4d1884513eb6d22e6822967c271dcbbe5bb38a0a4a8b8dd6b753c"
+    },
+    "M20": {
+      "conversation_id": "f521035f-bfff-4f6d-8d78-461691c2d4c1",
+      "transcript": "<APP_DATA_DIR>/brain/f521035f-bfff-4f6d-8d78-461691c2d4c1/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "c5f4c204f9ae065a9757cb72f400bebb2815273dc7535f683555f2f514961676",
+      "report_sha256": "75637013e3563792ed7db84ffc124293896aa03b3df91f27f46958e68c1098b8"
+    },
+    "M21": {
+      "conversation_id": "7f2bbd11-4f7e-4935-a63b-b56ef901a6e6",
+      "transcript": "<APP_DATA_DIR>/brain/7f2bbd11-4f7e-4935-a63b-b56ef901a6e6/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "2d075e9dd6380df2d93bafa99be64797d027247599f7d50222b2a9ba3530aea8",
+      "report_sha256": "9f84269912300aa5797f78537707a579e48663c50bbffe93a76fb92c71d81a4d"
+    },
+    "M22": {
+      "conversation_id": "6752e53c-ca6f-4081-955f-95af870e656d",
+      "transcript": "<APP_DATA_DIR>/brain/6752e53c-ca6f-4081-955f-95af870e656d/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "b617b6d627af8ca36d97153a1bc30ca9f0b1ee87d6815c6cac2b7df5918c9d38",
+      "report_sha256": "9a4cb11a83927379939c30844154080606e0c5dba5ac970e8276a87739541542"
+    },
+    "M23": {
+      "conversation_id": "b51c8886-357b-4630-955e-97b650a6607e",
+      "transcript": "<APP_DATA_DIR>/brain/b51c8886-357b-4630-955e-97b650a6607e/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "8488c20cab37c00e373f6a783b4d88c08caada276c92656b9aa172f4caf876ba",
+      "report_sha256": "0937e786df3785cba12ca6f543745d0b1bd9cb85cbb6aea5906ed6bf1552be12"
+    },
+    "M24": {
+      "conversation_id": "01e0c284-1137-43cc-929a-78ac03bb4283",
+      "transcript": "<APP_DATA_DIR>/brain/01e0c284-1137-43cc-929a-78ac03bb4283/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "72efde49154e136ade0266209aacf32889737ef62dfe929ab9aa408c66db2f46",
+      "report_sha256": "68bae2c073a1056276f881292df940ef33ac743baec2120e2d652a5f33b2661c"
+    },
+    "M25": {
+      "conversation_id": "677cdd2e-5692-434b-a425-4c4de357a11b",
+      "transcript": "<APP_DATA_DIR>/brain/677cdd2e-5692-434b-a425-4c4de357a11b/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "fda09b1d3c24954f9b509b29c9dc6629b0f2b117eca6c2cdcf863f170f310625",
+      "report_sha256": "8ef761423295986e83ec33d777d7f0973b1f453388e4cbc7c044baafd1613129"
+    },
+    "M26": {
+      "conversation_id": "5c002790-0999-4f4c-883f-85d8f5066aa7",
+      "transcript": "<APP_DATA_DIR>/brain/5c002790-0999-4f4c-883f-85d8f5066aa7/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "d7956b19b23ec28f7a703da0f7497f8b9526db37fe66956c6e77ae9a31c6d3b5",
+      "report_sha256": "0937e786df3785cba12ca6f543745d0b1bd9cb85cbb6aea5906ed6bf1552be12"
+    },
+    "M27": {
+      "conversation_id": "314aaa91-120b-4fec-b4c3-248ec20b3947",
+      "transcript": "<APP_DATA_DIR>/brain/314aaa91-120b-4fec-b4c3-248ec20b3947/.system_generated/logs/transcript.jsonl",
+      "packet_sha256": "d36652e5e3cd436a2e0554c9f2a046c0c4ceb1137ca5acb70de677ff25b34c68",
+      "report_sha256": "2e8c4f347f6349fc1dfb3dc381ab7926798bde2619c17f86e2942c3819ad2c52"
+    }
+  }
+}

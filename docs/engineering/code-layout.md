@@ -9,7 +9,7 @@ src/
 ├── ncc_shared/                 # 跨入口共享；配置按需加载Dynaconf
 │   ├── configuration.py        # 唯一Dynaconf装配、覆盖、校验和初始化
 │   ├── runtime.py              # 数据库操作按需进入项目.venv
-│   ├── database.py             # 正式连接及唯一-test派生，不连库
+│   ├── database.py             # 线上库 ncc-pro 及同连接 ncc-dev，不连库
 │   ├── http.py                 # CLI的HTTP客户端、来源和profile保护
 │   ├── workspace.py            # 文件扫描、路径校验、快照和本地标记
 │   └── quality/                # 唯一评分策略资源及无状态计算
@@ -38,7 +38,7 @@ src/
 
 ## 前端
 
-`apps/management-web/src/app/`只放启动、登录后的壳和路由装配。`features/`按session、creation、jobs、inbox、knowledge、definitions、exchange、quality、administration归属页面；领域专用组件进入该功能的`components/`，地图和图谱实现进入`knowledge/visuals/`。`shared/`放请求、作品上下文、编辑器、引用选择、反馈组件、评分元数据读取和任务阶段显示；样式归`styles/`。
+`apps/management-web/src/app/`只放启动、登录后的壳和路由装配。`features/`按session、creation、blueprint、commons、market、jobs、inbox、knowledge、definitions、exchange、quality、models、administration归属页面；领域专用组件进入该功能的`components/`，地图和图谱实现进入`knowledge/visuals/`。`shared/`放请求、创作台聚合接口契约、作品上下文、编辑器、引用选择、反馈组件、评分元数据读取和任务阶段显示；样式归`styles/`与功能目录就地样式。
 
 只供一个功能使用的组件不要过早提升到shared。跨页面共用的实现先抽出，再由页面引用；页面不反向依赖应用壳。类型与内容的评分方案映射由后端`domain/creation.py`负责，前端从策略接口读取，不复制一套映射表。评分权重仅在`ncc_shared/quality/resources/policy.json`维护，旧CLI和后台均读取此资源；前端展示接口返回值。
 
@@ -53,6 +53,6 @@ src/
 | 集成环境公共实现 | `tests/support/` | 唯一测试库校验、排他锁、迁移和测试服务生命周期 |
 | 操作、规范、设计、任务、证据 | `docs/`对应子目录 | 具体归属见[文档组织规范](documentation.md) |
 
-测试入口复用同一个`TestRuntime`；所有需要清理数据的操作只允许配置派生的-test库。禁止在用例里创建随机数据库或绕过公共守卫另写重置函数。集成验收串行执行，不用新库解决并行冲突。测试库仅存可丢弃合成数据；有未知表、其他业务schema或其他验收占用时停止。清理明确限定public中的NCC表，禁止CASCADE清理外部依赖。恢复演练需额外明确确认唯一测试库名，保留转储作为失败回退工件。
+测试入口复用同一个`TestRuntime`，只允许同连接的`ncc-dev`，禁止在用例里创建随机数据库或绕过公共守卫另写重置函数。集成验收串行执行，不用新库解决并行冲突。普通测试按用例建立隔离的合成账号与合成范围，禁止清表或改动无关作品、身份与历史；显式重置与恢复重放必须在空库且无未知表、无其他业务schema时才允许执行，非空共用库一律拒绝清理。恢复演练需额外明确确认`ncc-dev`库名，保留转储作为失败回退工件。
 
 配置说明只在指南，目录职责只在本规范；设计记录说明理由，任务记录说明进度，冻结证据保留当次路径。新增前先按职责搜索已有实现，避免再建一份config、client、utils或页面总文件。

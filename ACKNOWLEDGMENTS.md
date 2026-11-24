@@ -205,3 +205,15 @@ MCP采用[官方Python SDK](https://github.com/modelcontextprotocol/python-sdk)�
 | Dan Wells *7-Point Story Structure* 与 Lester Dent *Master Plot Formula* | 七点结构之中点“被动转主动（Reactive → Proactive）”枢轴与通俗小说层层加码模型 | 转化为 **8–12 章单元五拍骨架与中点攻守易形锚**（受压入局→初试拿牌→中点摸清底牌转入主动设局反猎杀→至暗封路→掀桌收网＋开箱余波），并在 `sandbox` 战前沙盘自动标出单元中点锚章 | [platinum-playbooks.md](skills/ncc-new/references/platinum-playbooks.md)、[loops.py](scripts/ncclib/loops.py) |
 | [Agents' Room — Fantine Huot 等](https://arxiv.org/abs/2410.02603)、[StoryVerse — Yi Chen 等](https://arxiv.org/abs/2405.13042)、[StoryWriter](https://arxiv.org/abs/2506.16445) 及开源网文工作流实践 | ICLR 2025 等多代理叙事分工、世界状态防吃书与社区对大模型“防御性写作（和稀泥降级冲突）”的总结，2026-11-22 核对 | 转化为故事审**反防御性掀桌检视**（拦截冲突半途各退一步和稀泥）与写手**关键筹码流转记账约定**（复用 `event add --attr 持有\|消耗\|损毁` 防忘底牌或重复用消耗品）；舍弃每章十余代理重管线、外部向量库及向写手暴露审稿清单的做法 | [scene-card.md](skills/ncc-write/references/scene-card.md)、[chapter-loop.md](skills/ncc-write/references/chapter-loop.md)、[story-editor.md](agents/story-editor.md) |
 | 起点白金连载公开方法论（爱潜水的乌贼卷末创作总结等） | 长篇连载换地图留存复盘、明暗线遮眼草蛇灰线、3·10·30 三级爽点密度与五类追读钩共识 | 转化为七大白金叙事机关、五大王牌母本、**换地图不断根定律**（30–40 章升维换图保留 1–2 个旧图残余回响锚点防断层弃书）与**章内微爽机锋保底**（蓄压章亦留 1 处局部占优或机锋锚点） | [platinum-upgrade.md](docs/designs/writing/platinum-upgrade.md)、[platinum-playbooks.md](skills/ncc-new/references/platinum-playbooks.md)、[outline.md](skills/ncc-new/references/outline.md) |
+
+## 开源小说创作工作台与 SDLC 优势融合（2026-11-23）
+
+本轮围绕[小说创作工作台全面重构设计](docs/designs/storage/novel-studio-overhaul.md)，结合自有 `sdlc-workflow` 工程治理方法，调研并甄别主流开源小说创作桌面与 AI 工作台项目。严格遵守[外部来源筛查规范](docs/engineering/source-vetting.md)：仅借鉴界面布局、信息组织与分段创作流程思想，由本项目基于既有 React＋FastAPI＋PostgreSQL 架构独立编写实现，**零 GPL/AGPL 源码、样式或提示词复制**，不新增任何第三方运行时包或受管依赖。
+
+| 来源与作者 | 许可与核对范围 | 借鉴的核心优势与机制 | NCC 的转化、取舍与落点 |
+|---|---|---|---|
+| [sdlc-workflow — cloudxy](https://github.com/cloudxy/sdlc-plugins) | 作者自有项目 | 角色帽职责分离（PM/Designer/Architect/Backend/Frontend/QA）、PRD-GWT 规格、页面六态×控件七态契约、分开滑动壳层与并行无冲突切片 | 转化为 `.sdlc/novel-studio/` 全套规格契约、双代理无冲突并行实施切片及壳层独立滚动防呆；不引入外部打包依赖 |
+| [novelWriter — Veronica Berglyd Olsen](https://github.com/vkbo/novelWriter) | GPL-3.0（仅借布局思想，零代码引用） | 左侧分层故事树（卷/章层级导航与字数状态）＋中间低干扰稿纸＋右侧上下文检视面板＋专注写作视图 | 转化为创作台（`/work`）三栏可折叠书案、左栏卷章与细纲树、一键专注模式与实时字数目标进度；舍弃其桌面 Qt 文件格式 |
+| [Manuskript — Olivier Keshavjee 等](https://github.com/olivierkes/manuskript) | GPL-3.0（仅借大纲思想，零代码引用） | 雪花法从核心命题到卷纲、章节索引卡片墙（Corkboard）与剧情线对照的渐进式规划体验 | 转化为「大纲与暗线」（`/blueprint`）的总纲走向、细纲卡片墙与按卷/剧情线/状态轻量聚合排序 |
+| [bibisco — Andrea Feccomandi](https://github.com/andreafeccomandi/bibisco) | GPL-3.0（仅借人物与设定卡片思想，零代码引用） | 叙事学导向的人物深层档案（动机、冲突、心理与人物弧光演化）及场景/物品分类陈列 | 转化为「作品资料 / 万象设定」（`/materials`）的人物角色深度档案、六大创作领域胶囊聚合与卡片/表格双视图 |
+| [Pagekin — EthanYoQ](https://github.com/EthanYoQ/Pagekin) | GPL-3.0（仅借流程交互思想，零代码引用） | 蓝图→章节细纲→正文写作→审校定稿的分阶段可控 AI 辅助闭环，以及紧凑局部控制面板替代繁琐弹窗 | 转化为后端 `worker.py` 与创作台右栏的**可拆分/可合并五工序 AI 协同编排**（`plan / judge_plan / write / judge / revise`），保留出品人随时审核接管 |

@@ -1,0 +1,45 @@
+# ncc-workflow 的 sdlc 项目配置。只填已知命令，不发明闸门。
+gates:
+  test: "npm --prefix apps/management-web run check"
+  lint: "npm --prefix apps/management-web run format:check"
+  build: "npm --prefix apps/management-web run build"
+  migration: null
+  e2e: ".venv/bin/python tests/browser/run_browser.py --output /tmp/ncc-console-ui-e2e"
+  e2e_reason: ""
+app:
+  start: ".venv/bin/ncc-data serve"
+  base_url: "http://127.0.0.1:8787"
+  urls:
+    management-web: "http://127.0.0.1:5173"
+  widths: [768, 1280, 1440]
+product_root: docs/product
+profile:
+  industry: aigc-workbench
+  traits: [ai-enabled]
+  surfaces: [web, api, cli-sdk]
+  db_engines: [postgresql]
+  architecture_style: modular-monolith
+  compliance: []
+imagery:
+  enabled: false
+  provider: grok
+  model: grok-imagine-image-2.0
+  auth: auto
+  allowed_kinds: [ref, illustration, empty-state, hero, icon]
+  defaults:
+    aspect_ratio: "16:9"
+    resolution: "1k"
+  budget:
+    max_per_feature: 20
+research:
+  offline: false
+constitution: workflow/principles.md
+artifact_root: .
+mcp_adapters: []
+lane_rules:
+  file_count_threshold: 20
+  subproject_dirs: []
+  schema_paths: []
+  auth_paths: []
+  ui_paths: [apps/management-web]
+  tracking_paths: []

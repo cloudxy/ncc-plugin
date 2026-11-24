@@ -1,9 +1,10 @@
 """书与闸门：建书、迁移、状态、闸门、书魂与契约、章节登记与定稿。"""
 
+import hashlib
 import re
 import sys
 from pathlib import Path
-from .core import (ARC_STAGES, MEMORY_DIR, MEMORY_ROLES, ARCS, CHAPTER_STATES, CHARACTER_REQUIRED, COLORS, CRAFT_EXCERPT, CRAFT_LIBRARY, DIRS, EVENTS, FACTS, FINALE_LIST, FINALE_REQUIRED, GATES, HAN, KNOWLEDGE, L, LEGACY_MOOD, LEVELS, MODES, NON_READER_TYPES, OLD_FORESHADOW, OPEN_STATES, PLANNED_GATES, PROMISES, READER_DATA, REVIEW_DIR, SCENE_DIR, SCHEMA, SEEDS, SIGNING_POINTS, STYLE_ANCHOR, STYLE_FP, TENSION, VOLUME_REVIEW_REQUIRED, as_int, chapter_file, copy_template, current_chapter, die, ensure_m3_fields, find_ch, han_words, ledger, length_band, load, load_cfg, next_id, now, open_unit, open_volume, parse_window, read_json, save, section, sha16, split_names, write_json)
+from .core import (ARC_STAGES, MEMORY_DIR, MEMORY_ROLES, ARCS, CHAPTER_STATES, CHARACTER_REQUIRED, COLORS, CRAFT_EXCERPT, CRAFT_LIBRARY, DIRS, EVENTS, FACTS, FINALE_LIST, FINALE_REQUIRED, GATES, HAN, KNOWLEDGE, L, LEGACY_MOOD, LEVELS, MODES, NON_READER_TYPES, OLD_FORESHADOW, OPEN_STATES, PLANNED_GATES, PROMISES, READER_DATA, REVIEW_DIR, SCENE_DIR, SCHEMA, SEEDS, SIGNING_POINTS, STYLE_ANCHOR, STYLE_FP, TENSION, VOLUME_REVIEW_REQUIRED, as_int, chapter_file, copy_template, current_chapter, die, ensure_m3_fields, find_ch, han_words, ledger, length_band, load, load_cfg, min_decidable_of, next_id, now, open_unit, open_volume, parse_window, read_json, save, section, sha16, split_names, write_json)
 from .ledgers import chapter_touches, promise_due_soon, promise_overdue, promise_summary
 from .materials import material_cards, material_usage
 from .scenes import knowledge_ready, knowledge_rows, scene_ready
@@ -623,10 +624,100 @@ def cmd_chapter(a):
     print(msg)
 
 
+_REPORT_TEMPLATE_UNFILLED_RE = re.compile(
+    r"(?:硬伤层(?:结论)?|审稿结论|评审结论|结论)\s*[*_`]*\s*[:：=]\s*[*_`]*\s*(?:通过|pass)\s*[|｜/／]\s*(?:不通过|未通过|fail)",
+    re.I,
+)
+_REPORT_VERDICT_RE = re.compile(
+    r"(?:硬伤层(?:结论)?|审稿结论|评审结论|复审结论|总体结论|(?:rev\s*\d+[^\n]*?)结论|^\s*(?:[-*]\s*)?[*_`]*结论|^\s*(?:[-*]\s*)?[*_`]*结果)"
+    r"\s*[*_`]*\s*[:：=]\s*[*_`'\"“”「『【\[]*\s*"
+    r"(?!(?:通过|pass)\s*[|｜/／]\s*(?:不通过|未通过|fail))"
+    r"(不通过|未通过|打回重写|打回|退回|准予定稿|通过|合格|"
+    r"(?:pass|passed|qualified|fail|failed|rejected|blocked|incomplete)(?![A-Za-z0-9_]))",
+    re.I | re.M,
+)
+_REPORT_KV_VERDICT_RE = re.compile(
+    r'(?:\b(?:hard|verdict)\s*[*_`]*\s*[:：=]\s*|"(?:hard|verdict)"\s*:\s*")\s*[*_`\'"“”]*'
+    r"(?!(?:pass)\s*[|｜/／]\s*(?:fail))"
+    r"(pass|passed|qualified|fail|failed|blocked|incomplete|rejected)(?![A-Za-z0-9_])",
+    re.I,
+)
+_REPORT_STANDALONE_FAIL_RE = re.compile(
+    r"(?:^\s*(?:[-*]\s*)?[*_`]*(?:硬伤(?:层)?\s*)?(?:不通过|未通过|打回重写)[*_`]*\s*$"
+    r"|(?:硬伤(?:层)?|审稿|评审|复审|结论|结果|判定)\s*(?:为|是)?\s*[*_`]*\s*(?:不通过|未通过|打回重写|拒绝定稿|不能定稿))",
+    re.M,
+)
+_REPORT_DECIDABLE_RE = re.compile(r"(?:可判定率|decidable)\s*[*_`]*\s*[:：=]\s*[*_`]*\s*([0-9]+(?:\.[0-9]+)?)", re.I)
+_REPORT_REV_SHA_ARROW_RE = re.compile(
+    r"(?:SHA|sha|摘要)\s*[:：=\s`\"'*]*([0-9a-fA-F]{6,64})\s*[`\"'*]*\s*(?:→|->)\s*[`\"'*]*([0-9a-fA-F]{6,64})\b"
+)
+_REPORT_SHA_RE = re.compile(
+    r'(?:正文\s*(?:SHA|sha|摘要|哈希)|稿件\s*(?:SHA|sha|摘要|哈希)|review\.sha|(?<![A-Za-z0-9_.-])(?:SHA|sha)(?:-?256)?|"sha")'
+    r'\s*[*_`]*\s*[:：=]\s*[`"\'“”*_]*([A-Za-z0-9_-]{6,64})\b'
+)
+_FAIL_VERDICT_TOKENS = {
+    "不通过", "未通过", "打回", "打回重写", "退回",
+    "fail", "failed", "rejected", "blocked", "incomplete",
+}
+
+
+def _inspect_review_report(rep_text: str):
+    verdict = None
+    last_pos = -1
+    for m in _REPORT_TEMPLATE_UNFILLED_RE.finditer(rep_text):
+        if m.start() >= last_pos:
+            last_pos = m.start()
+            verdict = "fail"
+    for rx in (_REPORT_VERDICT_RE, _REPORT_KV_VERDICT_RE):
+        for m in rx.finditer(rep_text):
+            if m.start() >= last_pos:
+                last_pos = m.start()
+                tok = m.group(1).strip().lower()
+                verdict = "fail" if (tok in _FAIL_VERDICT_TOKENS or m.group(1).strip() in _FAIL_VERDICT_TOKENS) else "pass"
+    if verdict is None and _REPORT_STANDALONE_FAIL_RE.search(rep_text):
+        verdict = "fail"
+
+    rep_sha = None
+    sha_pos = -1
+    for m in _REPORT_SHA_RE.finditer(rep_text):
+        cand = m.group(1).strip()
+        if cand.lower() in {"pass", "passed", "fail", "failed", "none", "null", "true", "false"} or set(cand) <= {"x", "X", "-"}:
+            continue
+        if m.start() >= sha_pos:
+            sha_pos = m.start()
+            rep_sha = cand
+    for m in _REPORT_REV_SHA_ARROW_RE.finditer(rep_text):
+        if m.start() >= sha_pos:
+            sha_pos = m.start()
+            rep_sha = m.group(2).strip()
+
+    rep_dec = None
+    dec_matches = list(_REPORT_DECIDABLE_RE.finditer(rep_text))
+    if dec_matches:
+        rep_dec = float(dec_matches[-1].group(1))
+    return verdict, rep_sha, rep_dec
+
+
 def cmd_complete(a):
     book_dir = Path(a.book_dir)
+    root = book_dir.resolve()
     d = load(book_dir)
     c = find_ch(d, a.seq)
+    rel_file = (c.get("file") or "").strip()
+    if not rel_file:
+        die(f"章定稿闸：第 {a.seq} 章未登记正文文件路径")
+    body_path = (book_dir / rel_file).resolve()
+    if not body_path.is_relative_to(root) or not body_path.is_file():
+        die(f"章定稿闸：找不到第 {a.seq} 章正文文件：{rel_file}")
+    raw_bytes = body_path.read_bytes()
+    raw_text = raw_bytes.decode("utf-8")
+    actual_words = han_words(raw_text)
+    full_sha = hashlib.sha256(raw_bytes).hexdigest()
+    current_sha = full_sha[:16]
+    if not raw_text.strip() or actual_words <= 0 or not current_sha:
+        die(f"章定稿闸：第 {a.seq} 章正文为空白或无有效汉字，不能定稿")
+    if a.words <= 0:
+        die(f"章定稿闸：申报字数必须大于 0（收到 {a.words}）")
     from .quality import quality_ready
     quality_problem = quality_ready(book_dir, c)
     if quality_problem:
@@ -639,13 +730,55 @@ def cmd_complete(a):
         die("章定稿闸：场景卡标了知识点，但知识点清单不合格——" + "；".join(kp))
     if a.hard != "pass":
         die("章定稿闸：硬伤层未通过（先派 editor 修订并复审）")
+    min_dec = min_decidable_of(book_dir)
+    if a.decidable is not None:
+        if not (0.0 <= a.decidable <= 1.0):
+            die(f"章定稿闸：可判定率必须在 0–1 之间（收到 {a.decidable}）")
+        if a.decidable < min_dec:
+            die(f"章定稿闸：硬伤层可判定率 {a.decidable} 低于下限 {min_dec}，评审覆盖不足不能定稿")
+    rep_dec = None
+    if a.report:
+        rep_path = (book_dir / a.report).resolve()
+        if not rep_path.is_relative_to(root) or not rep_path.is_file():
+            die(f"章定稿闸：指定的审稿报告不存在或为空：{a.report}")
+        rep_text = rep_path.read_text("utf-8")
+        if not rep_text.strip():
+            die(f"章定稿闸：指定的审稿报告不存在或为空：{a.report}")
+        rep_verdict, rep_sha, rep_dec = _inspect_review_report(rep_text)
+        if rep_verdict == "fail":
+            die(f"章定稿闸：审稿报告结论为不通过（{a.report}），不能按 --hard pass 定稿")
+        if rep_dec is not None:
+            if not (0.0 <= rep_dec <= 1.0) or rep_dec < min_dec:
+                die(f"章定稿闸：审稿报告可判定率 {rep_dec} 低于下限 {min_dec}，不能定稿")
+        if rep_sha is not None:
+            rep_low = rep_sha.lower()
+            is_hex = all(ch in "0123456789abcdef" for ch in rep_low)
+            if not is_hex or not full_sha.startswith(rep_low):
+                die(f"章定稿闸：审稿报告绑定的正文摘要（{rep_sha}）与当前正文（{current_sha}）不一致，正文改动后须复审更新报告")
+    lo, hi, _ = length_band(book_dir, a.seq)
+    in_normal_band = lo <= actual_words <= hi
+    length_rec = c.get("length") or {}
+    if not in_normal_band:
+        if length_rec.get("accepted") is not None and length_rec.get("sha") and length_rec["sha"] != current_sha:
+            die(f"章定稿闸：第 {a.seq} 章正文在篇幅确认后已改动（当前 {actual_words} 字仍不在区间 {lo}–{hi}），请重新经 chapter length --accept 确认")
+        if c.get("origin") in ("author", "ai"):
+            if length_rec.get("accepted") is None or length_rec.get("sha") != current_sha:
+                die(f"章定稿闸：第 {a.seq} 章当前 {actual_words} 字不在区间 {lo}–{hi}，请先经 chapter length --accept 确认")
+    if c.get("origin") in ("author", "ai"):
+        tolerance = max(20, int(actual_words * 0.05))
+        if abs(a.words - actual_words) > tolerance:
+            die(f"章定稿闸：申报字数 {a.words} 与当前正文实际汉字数 {actual_words} 不符")
     if c.get("key") and not c.get("selection"):
         die(f"章定稿闸：第 {a.seq} 章是关键章，须作者从 2–3 版中选定（chapter pick）")
+    if in_normal_band and length_rec.get("accepted") is not None and length_rec.get("sha") and length_rec["sha"] != current_sha:
+        c.pop("length", None)
+    recorded_words = actual_words if c.get("origin") in ("author", "ai") else a.words
+    effective_dec = a.decidable if a.decidable is not None else rep_dec
     c["status"] = "done"
     c["done_at"] = now()
-    c["word_count"] = a.words
-    c["sha"] = sha16(book_dir / c.get("file", ""))
-    c["review"] = {"hard": a.hard, "decidable": a.decidable,
-                   "report": a.report or (c.get("review") or {}).get("report", ""), "sha": c["sha"]}
+    c["word_count"] = recorded_words
+    c["sha"] = current_sha
+    c["review"] = {"hard": a.hard, "decidable": effective_dec,
+                   "report": a.report or (c.get("review") or {}).get("report", ""), "sha": current_sha}
     save(book_dir, d)
-    print(f"OK complete ch{a.seq} words={a.words} sha={c['sha']}")
+    print(f"OK complete ch{a.seq} words={recorded_words} sha={c['sha']}")

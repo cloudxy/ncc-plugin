@@ -717,29 +717,44 @@ class TestEval(unittest.TestCase):
             self.assertEqual(code, 0, out)
             packets = sorted((rd / "packets").glob("*.md"))
             self.assertEqual(len(packets), 12)
-            p = (rd / "packets" / "A01-古代时代错置与称谓-r1.md").read_text("utf-8")
+            man = json.loads((rd / "manifest.json").read_text("utf-8"))
+            anchors = man["anchors"]
+            blind = man["blind"]
+            self.assertEqual(len(blind), 12)
+            for pkt in packets:
+                self.assertRegex(pkt.stem, r"^M\d+$")
+                txt = pkt.read_text("utf-8")
+                for aid in anchors:
+                    self.assertNotIn(aid, txt)
+                    if "-" in aid:
+                        self.assertNotIn(aid.split("-", 1)[1], txt)
+            a01_code = next(c for c, v in blind.items() if v["anchor"] == "A01-古代时代错置与称谓" and v["run"] == 1)
+            p = (rd / "packets" / f"{a01_code}.md").read_text("utf-8")
             self.assertIn("看了看手表", p)                 # 正文在
             self.assertIn("时代错置词", p)                 # 机械提醒在
             self.assertNotIn("古代背景出现手表（时代错置）", p)   # 答案不在
-            anchors = json.loads((rd / "manifest.json").read_text("utf-8"))["anchors"]
-            for aid in anchors:
+            for code_id, meta in blind.items():
+                aid, k = meta["anchor"], meta["run"]
                 ans = json.loads((REPO_ROOT / "eval/anchors" / aid / "answers.json").read_text("utf-8"))
-                rows = [f"| {i} | {e['category']} | {e['severity']} | 「{e['quotes'][0]}」 | {e['desc']} | 改 |"
-                        for i, e in enumerate(ans["expected"], 1)] or ["| 1 | 无 | | | 无 | |"]
-                good = ("硬伤层: " + ("通过" if ans["verdict"] == "pass" else "不通过") + "\n\n"
-                        "| # | 类别 | 严重度 | 正文引用 | 问题 | 推荐处置与理由 |\n|---|---|---|---|---|---|\n" + "\n".join(rows))
-                if aid.startswith("A05"):                  # 引用别处、但问题里说清了没有揭穿：按关键词算检出
-                    good = good.replace("「转身走了」", "「身后排队打卡的工人越来越多」").replace(ans["expected"][0]["desc"], "主角没有当众揭穿队长，翻转没发生")
-                (rd / "reports" / f"{aid}-r1.md").write_text(good, "utf-8")
-                bad = "硬伤层: 通过\n\n| # | 类别 | 严重度 | 正文引用 | 问题 | 推荐处置与理由 |\n|---|---|---|---|---|---|\n| 1 | 无 | | | 无 | |\n"
-                if aid.startswith("A06"):
-                    bad = bad.replace("通过", "不通过", 1) + "| 2 | 底蕴 | major | 「西天挂着一弯月牙」 | 月相不对 | 改 |\n"
-                (rd / "reports" / f"{aid}-r2.md").write_text(bad, "utf-8")
+                if k == 1:
+                    rows = [f"| {i} | {e['category']} | {e['severity']} | 「{e['quotes'][0]}」 | {e['desc']} | 改 |"
+                            for i, e in enumerate(ans["expected"], 1)] or ["| 1 | 无 | | | 无 | |"]
+                    good = ("硬伤层: " + ("通过" if ans["verdict"] == "pass" else "不通过") + "\n\n"
+                            "| # | 类别 | 严重度 | 正文引用 | 问题 | 推荐处置与理由 |\n|---|---|---|---|---|---|\n" + "\n".join(rows))
+                    if aid.startswith("A05"):              # 引用别处、但问题里说清了没有揭穿：按关键词算检出
+                        good = good.replace("「转身走了」", "「身后排队打卡的工人越来越多」").replace(ans["expected"][0]["desc"], "主角没有当众揭穿队长，翻转没发生")
+                    (rd / "reports" / f"{code_id}.md").write_text(good, "utf-8")
+                else:
+                    bad = "硬伤层: 通过\n\n| # | 类别 | 严重度 | 正文引用 | 问题 | 推荐处置与理由 |\n|---|---|---|---|---|---|\n| 1 | 无 | | | 无 | |\n"
+                    if aid.startswith("A06"):
+                        bad = bad.replace("通过", "不通过", 1) + "| 2 | 底蕴 | major | 「西天挂着一弯月牙」 | 月相不对 | 改 |\n"
+                    (rd / "reports" / f"{code_id}.md").write_text(bad, "utf-8")
             code, out = run("score", rd, script=EVAL)
             self.assertEqual(code, 0, out)
             self.assertIn("检出率（埋的错被指出）：8/16（50%）", out)
             self.assertIn("结论准确率（通过／不通过判对）：6/12（50%）", out)
             self.assertIn("干净章误报（critical／major）：1 条", out)
+            self.assertIn("单轮基线（r1，收回 6/6 份）：检出 8/8（100%），定级 8/8（100%），结论准确 6/6（100%），干净章误报 0 条", out)
             self.assertIn("A01-古代时代错置与称谓（结论 50% 一致）（d1、d2 时有时无）", out)
             self.assertTrue((rd / "score.md").exists())
 

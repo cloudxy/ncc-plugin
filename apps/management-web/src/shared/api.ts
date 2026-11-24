@@ -5,6 +5,7 @@ export type Scope = {
   kind: string;
   version: number;
   actions: string[];
+  owner?: boolean;
   config: Json;
   base_id?: string;
 };

@@ -305,6 +305,349 @@ class TestPlatinumUpgrade(unittest.TestCase):
         self.assertIn("**多线雪崩合拢达标**：第 12 章", converge_preview)
         self.assertNotIn("十章一响提醒", converge_preview)
 
+    def test_w01_w07_dropped_promise_truth_isolation_and_template_placeholder_guard(self):
+        # W01: 暗线在第 2 章作废并补偿，第 2 章写手包只出公开补偿、绝不泄露真义；第 3 章场景卡照抄真义必须拦截
+        self.ok(
+            "promise", "add", self.book,
+            "--type", "伏笔", "--line", "暗线", "--strength", "4",
+            "--content", "残镜背面血印", "--ch", "1",
+            "--cover", "铜镜背面的朱砂旧印",
+            "--truth", "太上长老夺舍血契真名",
+        )
+        self.ok("promise", "drop", self.book, "FS-0001", "--ch", "2", "--compensation", "铜镜在斗法中碎裂化为凡铁")
+        for seq in (1, 2, 3):
+            self.ok("chapter", "add", self.book, seq, "--file", f"04-正文/第{seq:04d}章.md")
+        # W07: 官方模板说明、占位符与否定描述均不授权揭晓
+        self.ok(
+            "promise", "add", self.book,
+            "--type", "伏笔", "--line", "暗线", "--strength", "5",
+            "--content", "矿底寒铁锁链", "--ch", "1",
+            "--cover", "拴在废井口的冷铁链",
+            "--truth", "仙界贬谪罪龙锁魂链",
+        )
+        ch2_card = PLATINUM_CARD.format(
+            seq=2,
+            must=(
+                "铜镜碎裂\n"
+                "- 伏笔回收：<本场显式揭晓兑现的承诺编号，如 FS-0001；仅擦碰推进不揭晓时勿填>\n"
+                "- 备注：本场暂不揭晓 FS-0002，留到卷末回收"
+            ),
+        )
+        self.write("02-大纲/场景卡/ch-0002.md", ch2_card)
+        self.ok("scene", "check", self.book, 2)
+        self.ok("scene", "review", self.book, 2, "--result", "pass", "--by", "author")
+        self.ok("pack", self.book, 2)
+        pack2 = (self.book / ".ncc/写手包/ch-0002.md").read_text("utf-8")
+        self.assertIn("承诺作废补偿交代", pack2)
+        self.assertIn("铜镜在斗法中碎裂化为凡铁", pack2)
+        self.assertNotIn("太上长老夺舍血契真名", pack2)
+        self.assertNotIn("伏笔回收揭晓", pack2)
+        self.assertNotIn("仙界贬谪罪龙锁魂链", pack2)
+
+        # 第 3 章场景卡照抄已作废伏笔真义：scene check 与 pack 均须拦截
+        self.write("02-大纲/场景卡/ch-0003.md", PLATINUM_CARD.format(seq=3, must="识破太上长老夺舍血契真名"))
+        bad_check = self.bad("scene", "check", self.book, 3)
+        self.assertIn("已作废", bad_check)
+        # 显式把已作废编号填入伏笔回收同样拦截
+        self.write("02-大纲/场景卡/ch-0003.md", PLATINUM_CARD.format(seq=3, must="强行揭晓\n- 伏笔回收：FS-0001"))
+        bad_drop_rev = self.bad("scene", "check", self.book, 3)
+        self.assertIn("已作废承诺: FS-0001", bad_drop_rev)
+
+    def test_w02_w03_sandbox_missing_or_corrupt_signature_and_persistent_stale_review(self):
+        self.ok("plight", self.book, "--overhead", "三日清退令", "--leverage", "火耗真账")
+        self.ok("unit", "open", self.book, "--start", "1", "--title", "破冰", "--countdown", "三天")
+        self.ok("chapter", "add", self.book, 1, "--file", "04-正文/第0001章.md")
+        self.write("02-大纲/场景卡/ch-0001.md", PLATINUM_CARD.format(seq=1, must="亮出账册"))
+        self.ok("sandbox", self.book, "--from", "1", "--to", "3", "--write")
+        sb_file = self.book / "00-策划/沙盘/单元-U1.md"
+        orig = sb_file.read_text("utf-8")
+
+        # W02a: 移除签名并手改段落 -> 普通 --write 必须拒绝覆盖并保留原件
+        no_sig = orig.split("<!-- ncc:sandbox-sha")[0] + "手改补充备注\n<!-- ncc:生成区块 结束 -->\n\n## 出品人战前调优拍板\n- 拍板A\n"
+        sb_file.write_text(no_sig, "utf-8")
+        err_missing = self.bad("sandbox", self.book, "--from", "1", "--to", "3", "--write")
+        self.assertIn("缺少生成区块签名", err_missing)
+        self.assertEqual(sb_file.read_text("utf-8"), no_sig)
+
+        # W02b: 损坏签名 -> 普通 --write 必须拒绝覆盖并保留原件
+        corrupt_sig = orig.replace("<!-- ncc:sandbox-sha ", "<!-- ncc:sandbox-sha BROKEN_")
+        sb_file.write_text(corrupt_sig, "utf-8")
+        err_corrupt = self.bad("sandbox", self.book, "--from", "1", "--to", "3", "--write")
+        self.assertIn("签名已损坏", err_corrupt)
+        self.assertEqual(sb_file.read_text("utf-8"), corrupt_sig)
+
+        # W03: 恢复正常沙盘，作者拍板后改台账，连续重刷两次，待复核告警必须保留，直到作者更新拍板或 --ack-review
+        signed_off = orig.replace("确认开战／调整后开战（待填）", "第一版拍板：同意开战")
+        sb_file.write_text(signed_off, "utf-8")
+        self.ok("plight", self.book, "--overhead", "清退令提前到今夜")
+        self.ok("sandbox", self.book, "--from", "1", "--to", "3", "--write")
+        first_refresh = sb_file.read_text("utf-8")
+        self.assertIn("底层台账或场景卡已变更", first_refresh)
+        # 原样再刷新一次，告警绝不能消失！
+        self.ok("sandbox", self.book, "--from", "1", "--to", "3", "--write")
+        second_refresh = sb_file.read_text("utf-8")
+        self.assertIn("底层台账或场景卡已变更", second_refresh)
+        self.assertIn("第一版拍板：同意开战", second_refresh)
+
+        # R06/W03: 沙盘之外随手补普通备忘再刷新，绝不能清除待复核状态；只有明确复核当前沙盘摘要或对当前摘要执行 --ack-review 才解除
+        import re as _re
+        cur_sha = _re.search(r"<!-- ncc:sandbox-sha ([0-9a-f]{16})", second_refresh).group(1)
+        casual_memo = second_refresh + "\n- 随手备忘：明晚补一条茶馆闲笔\n"
+        sb_file.write_text(casual_memo, "utf-8")
+        self.ok("sandbox", self.book, "--from", "1", "--to", "3", "--write")
+        after_casual = sb_file.read_text("utf-8")
+        self.assertIn("底层台账或场景卡已变更", after_casual)
+        self.assertIn("随手备忘：明晚补一条茶馆闲笔", after_casual)
+
+        # 作者在拍板区明确写入「已复核：<当前沙盘摘要>」后刷新 -> 告警解除
+        reviewed = after_casual.replace(
+            "第一版拍板：同意开战",
+            f"第二版复核拍板：按今夜死限开战（已复核：{cur_sha}）",
+        )
+        sb_file.write_text(reviewed, "utf-8")
+        self.ok("sandbox", self.book, "--from", "1", "--to", "3", "--write")
+        cleared = sb_file.read_text("utf-8")
+        self.assertNotIn("底层台账或场景卡已变更", cleared)
+        self.assertIn(f"已复核：{cur_sha}", cleared)
+
+        # 再次改台账后，未先刷新直接带 --ack-review 必须拒绝；先刷新看到新快照后再 --ack-review 方可解除
+        self.ok("plight", self.book, "--overhead", "清退令再次升级为立斩")
+        blind_ack = self.bad("sandbox", self.book, "--from", "1", "--to", "3", "--write", "--ack-review")
+        self.assertIn("请先不带 --ack-review 刷新查看新沙盘", blind_ack)
+        self.ok("sandbox", self.book, "--from", "1", "--to", "3", "--write")
+        self.assertIn("底层台账或场景卡已变更", sb_file.read_text("utf-8"))
+        self.ok("sandbox", self.book, "--from", "1", "--to", "3", "--write", "--ack-review")
+        self.assertNotIn("底层台账或场景卡已变更", sb_file.read_text("utf-8"))
+
+    def test_w04_w05_w06_w08_chapter_scoped_unit_window_converge_and_complete_gate(self):
+        # 准备第 1–5 章已定稿
+        import re as _re
+        for seq in range(1, 6):
+            rel = f"04-正文/第{seq:04d}章.md"
+            self.ok("chapter", "add", self.book, seq, "--file", rel, "--origin", "author")
+            self.write(rel, "陆言执铁尺破局斩敌，火光映照寒潭。" * 210)
+            self.write(f"02-大纲/场景卡/ch-{seq:04d}.md", PLATINUM_CARD.format(seq=seq, must=f"第{seq}章推进"))
+            self.ok("scene", "review", self.book, seq, "--result", "pass", "--by", "author")
+            if seq <= 3:
+                self.ok("chapter", "pick", self.book, seq, "--version", "A")
+            len_out = self.ok("chapter", "length", self.book, seq, "--accept")
+            actual_words = int(_re.search(r"(\d+)\s*字", len_out).group(1))
+            self.ok("complete", self.book, seq, "--words", actual_words, "--hard", "pass", "--decidable", "0.95")
+
+        # W04: 第 6 章开启新单元并登记新处境，重新生成第 2 章写手包不能读出第 6 章的倒计时与新处境
+        self.ok("unit", "open", self.book, "--start", "6", "--title", "内门风云", "--countdown", "内门大比倒计时10天")
+        self.ok("plight", self.book, "--overhead", "第6章才出现的内门刑堂追杀令")
+        self.ok("pack", self.book, 2)
+        pack2 = (self.book / ".ncc/写手包/ch-0002.md").read_text("utf-8")
+        self.assertNotIn("内门大比倒计时10天", pack2)
+        self.assertNotIn("第6章才出现的内门刑堂追杀令", pack2)
+        self.assertIn("隔离", pack2)
+
+        # W05: 预登记第 90 章时，默认沙盘保持 10 章单元窗口（第6–15章），显式 --to 90 时允许扩展
+        self.ok("chapter", "add", self.book, 90, "--file", "04-正文/第0090章.md")
+        default_sb = self.ok("sandbox", self.book)
+        self.assertIn("（第6–15章）", default_sb)
+        self.assertNotIn("| 第90章 |", default_sb)
+        explicit_sb = self.ok("sandbox", self.book, "--from", "6", "--to", "90")
+        self.assertIn("| 第90章 |", explicit_sb)
+
+        # W06: 单场景写入两个不存在的回收编号 -> scene check 拒绝，沙盘不报合拢达标并定位错号
+        self.ok("chapter", "add", self.book, 6, "--file", "04-正文/第0006章.md", "--origin", "author")
+        self.write("02-大纲/场景卡/ch-0006.md", PLATINUM_CARD.format(seq=6, must="决战\n- 伏笔回收：FS-9998、FS-9999"))
+        bad_sc = self.bad("scene", "check", self.book, 6)
+        self.assertIn("FS-9998", bad_sc)
+        sb_w06 = self.ok("sandbox", self.book)
+        self.assertNotIn("多线雪崩合拢达标", sb_w06)
+        self.assertIn("错号定位告警", sb_w06)
+        self.assertIn("FS-9998", sb_w06)
+
+        # W08: 正文缺失或空白、低可判定率（0.1）均不能 complete，且失败后章节保持原状态
+        self.write("02-大纲/场景卡/ch-0006.md", PLATINUM_CARD.format(seq=6, must="决战内门"))
+        self.ok("scene", "review", self.book, 6, "--result", "pass", "--by", "author")
+        missing_err = self.bad("complete", self.book, 6, "--words", "3200", "--hard", "pass", "--decidable", "0.1")
+        self.assertIn("找不到第 6 章正文文件", missing_err)
+        d_after = json.loads((self.book / "book.json").read_text("utf-8"))
+        ch6 = next(c for c in d_after["chapters"] if c["seq"] == 6)
+        self.assertNotEqual(ch6["status"], "done")
+        self.assertEqual(ch6["sha"], "")
+
+        self.write("04-正文/第0006章.md", "   \n\n  ")
+        blank_err = self.bad("complete", self.book, 6, "--words", "3200", "--hard", "pass", "--decidable", "0.9")
+        self.assertIn("空白", blank_err)
+
+        self.write("04-正文/第0006章.md", "陆言踏入内门演武场，剑气冲霄。" * 230)
+        len6_out = self.ok("chapter", "length", self.book, 6, "--accept")
+        w6 = int(_re.search(r"(\d+)\s*字", len6_out).group(1))
+        dec_err = self.bad("complete", self.book, 6, "--words", w6, "--hard", "pass", "--decidable", "0.1")
+        self.assertIn("低于下限 0.8", dec_err)
+        self.ok("complete", self.book, 6, "--words", w6, "--hard", "pass", "--decidable", "0.9")
+        d_done = json.loads((self.book / "book.json").read_text("utf-8"))
+        ch6_done = next(c for c in d_done["chapters"] if c["seq"] == 6)
+        self.assertEqual(ch6_done["status"], "done")
+        self.assertEqual(len(ch6_done["sha"]), 16)
+
+    def test_r06_r07_r08_rework_verifications(self):
+        import hashlib as _hashlib
+
+        # --- R06: 第 1 章保存处境并开启 U1 -> 第 5 章关 U1 -> 第 6 章开 U2 并清空当前处境 -> 重打第 2 章写手包与历史沙盘均取 U1 及历史处境快照 ---
+        self.ok("plight", self.book, "--overhead", "第1章外门寒铁枷锁", "--leverage", "旧账残页")
+        self.ok("unit", "open", self.book, "--start", "1", "--title", "寒门立脚", "--countdown", "三日外门小考", "--milestone", "站稳外门脚跟")
+        for seq in range(1, 6):
+            rel = f"04-正文/第{seq:04d}章.md"
+            self.ok("chapter", "add", self.book, seq, "--file", rel, "--origin", "author")
+            self.write(rel, "风雪寒鸦渡，孤灯照旧剑。" * 324)  # 10 汉字/句 × 324 = 3240 汉字（正常区间 3000–5000）
+            self.write(f"02-大纲/场景卡/ch-{seq:04d}.md", PLATINUM_CARD.format(seq=seq, must=f"第{seq}章破局"))
+            self.ok("scene", "review", self.book, seq, "--result", "pass", "--by", "author")
+            if seq <= 3:
+                self.ok("chapter", "pick", self.book, seq, "--version", "A")
+            self.ok("complete", self.book, seq, "--words", 3240, "--hard", "pass", "--decidable", "0.95")
+
+        rep_out = self.ok("report", self.book, "unit", "--write")
+        import re as _re
+        rel_rev = _re.search(r"写进\s+(\S+)\s+的生成区块", rep_out).group(1)
+        u1_rev_path = self.book / rel_rev
+        u1_rev_path.write_text(u1_rev_path.read_text("utf-8").replace("（待填）", "已确认复盘结论"), "utf-8")
+        self.ok("unit", "close", self.book, "--end", "5")
+
+        self.ok("unit", "open", self.book, "--start", "6", "--title", "京城暗流", "--countdown", "第6章才开启的七日秋闱死限", "--milestone", "金榜入仕")
+        self.ok("plight", self.book, "--clear")
+
+        self.ok("pack", self.book, 2)
+        pack2 = (self.book / ".ncc/写手包/ch-0002.md").read_text("utf-8")
+        self.assertIn("第1章外门寒铁枷锁", pack2)
+        self.assertIn("三日外门小考", pack2)
+        self.assertNotIn("七日秋闱死限", pack2)
+
+        hist_sb = self.ok("sandbox", self.book, "--from", "1", "--to", "5")
+        self.assertIn("单元 U1《寒门立脚》", hist_sb)
+        self.assertIn("三日外门小考", hist_sb)
+        self.assertIn("站稳外门脚跟", hist_sb)
+        self.assertNotIn("七日秋闱死限", hist_sb)
+        self.assertIn("第1章外门寒铁枷锁", hist_sb)
+
+        cur_sb = self.ok("sandbox", self.book, "--from", "6", "--to", "10")
+        self.assertIn("单元 U2《京城暗流》", cur_sb)
+        self.assertIn("第6章才开启的七日秋闱死限", cur_sb)
+        self.assertNotIn("三日外门小考", cur_sb)
+        self.assertNotIn("第1章外门寒铁枷锁", cur_sb)
+
+        # --- R07: 同章兑现无场景卡（及跨两场分开回收）不误报同场合拢；延后/批注/否定不授权揭晓，明确本场回收才揭晓 ---
+        self.ok("promise", "add", self.book, "--type", "伏笔", "--line", "暗线", "--strength", "5",
+                "--content", "青铜罗盘裂纹", "--ch", "1", "--cover", "铜盘裂痕", "--truth", "钦天监星门坐标")
+        self.ok("promise", "add", self.book, "--type", "伏笔", "--line", "暗线", "--strength", "4",
+                "--content", "旧驿卒断指", "--ch", "2", "--cover", "缺指老卒", "--truth", "前朝影卫统领")
+        # 1) 第 7 章两条真实伏笔同章 resolve，但没有任何场景卡 -> 沙盘只报同章多线兑现（未证同场），绝不报同场合拢
+        self.ok("promise", "resolve", self.book, "FS-0001", "--ch", "7", "--note", "揭开星门")
+        self.ok("promise", "resolve", self.book, "FS-0002", "--ch", "7", "--note", "认出统领")
+        sb_no_card = self.ok("sandbox", self.book, "--from", "6", "--to", "10")
+        self.assertNotIn("多线雪崩合拢达标", sb_no_card)
+        self.assertIn("同章多线兑现（未证同场）", sb_no_card)
+
+        # 2) 第 7 章若有两场分别各收一条（不同场），仍属于同章非同场；排入同一场景才报多线雪崩合拢达标
+        split_scenes_card = (
+            "# ch-0007 场景卡\n\n## 场景 1\n- 翻转：罗盘裂开\n- 伏笔回收：FS-0001\n\n"
+            "## 场景 2\n- 翻转：老卒亮刀\n- 伏笔回收：FS-0002\n"
+        )
+        self.write("02-大纲/场景卡/ch-0007.md", split_scenes_card)
+        sb_split = self.ok("sandbox", self.book, "--from", "6", "--to", "10")
+        self.assertNotIn("多线雪崩合拢达标", sb_split)
+        self.assertIn("同章多线兑现（未证同场）", sb_split)
+
+        same_scene_card = "# ch-0007 场景卡\n\n## 场景 1\n- 翻转：星门与影卫同场引爆\n- 伏笔回收：FS-0001、FS-0002\n"
+        self.write("02-大纲/场景卡/ch-0007.md", same_scene_card)
+        sb_same_scene = self.ok("sandbox", self.book, "--from", "6", "--to", "10")
+        self.assertIn("**多线雪崩合拢达标**：第 7 章", sb_same_scene)
+
+        # 3) 新增 FS-0003 / FS-0004 测试延后（含括号内带逗号与并列局部延后）、批注、否定 vs 明确本场有效回收（含禁地/不得不等正常叙事词）
+        self.ok("promise", "add", self.book, "--type", "伏笔", "--line", "暗线", "--strength", "5",
+                "--content", "井底红绳木牌", "--ch", "1", "--cover", "系红绳的榆木腰牌", "--truth", "皇后私印密令")
+        self.ok("promise", "add", self.book, "--type", "伏笔", "--line", "暗线", "--strength", "4",
+                "--content", "破庙残碑拓片", "--ch", "2", "--cover", "磨损青石拓片", "--truth", "太祖遗诏藏宝图")
+        self.ok("chapter", "add", self.book, 6, "--file", "04-正文/第0006章.md", "--origin", "author")
+        deferred_card = PLATINUM_CARD.format(
+            seq=6,
+            must=(
+                "井口试探\n"
+                "- 伏笔回收：FS-0003（下章再揭晓）\n"
+                "- 揭晓伏笔：FS-0003（表面写腰牌，实留到卷末再揭晓）\n"
+                "- 兑现承诺：（批注：FS-0003 本场仅擦碰明面伪装）；【注】FS-0004\n"
+                "- 本场兑现：暂不回收 FS-0003"
+            ),
+        )
+        self.write("02-大纲/场景卡/ch-0006.md", deferred_card)
+        self.ok("scene", "review", self.book, 6, "--result", "pass", "--by", "author")
+        self.ok("pack", self.book, 6)
+        pack6_def = (self.book / ".ncc/写手包/ch-0006.md").read_text("utf-8")
+        self.assertNotIn("皇后私印密令", pack6_def)
+        self.assertNotIn("太祖遗诏藏宝图", pack6_def)
+        self.assertNotIn("伏笔回收揭晓", pack6_def)
+        self.assertIn("系红绳的榆木腰牌", pack6_def)
+
+        # 第 6 章当前章不带真义的同时，核对第 2 章旧章写手包同样不含 FS-0003 / FS-0004 未揭晓真义
+        self.ok("pack", self.book, 2)
+        pack2_re = (self.book / ".ncc/写手包/ch-0002.md").read_text("utf-8")
+        self.assertNotIn("皇后私印密令", pack2_re)
+        self.assertNotIn("太祖遗诏藏宝图", pack2_re)
+
+        # 并列声明中 FS-0003 为本场有效回收，FS-0004 带括号延后 -> 仅披露 FS-0003 真义，仍严防泄露 FS-0004 真义
+        valid_card = PLATINUM_CARD.format(
+            seq=6,
+            must="井底翻牌\n- 伏笔回收：FS-0003（禁地前不得不当众识别并揭开密令）、FS-0004（下章再揭晓）",
+        )
+        self.write("02-大纲/场景卡/ch-0006.md", valid_card)
+        self.ok("scene", "review", self.book, 6, "--result", "pass", "--by", "author")
+        self.ok("pack", self.book, 6)
+        pack6_ok = (self.book / ".ncc/写手包/ch-0006.md").read_text("utf-8")
+        self.assertIn("伏笔回收揭晓：皇后私印密令", pack6_ok)
+        self.assertNotIn("太祖遗诏藏宝图", pack6_ok)
+
+        # --- R08: 传入不通过或 SHA 过期的报告拒绝定稿；旧无 SHA 通过报告及复审更新 SHA 报告兼容；正常字数免重批旧例外 ---
+        # 1) 先写 1800 字短稿并授权接收篇幅例外
+        self.write("04-正文/第0006章.md", "夜雪入京城，铁衣踏寒街。" * 180)  # 1800 汉字 < 3000
+        self.ok("chapter", "length", self.book, 6, "--accept", "--force", "--note", "初稿偏短先收")
+        # 若改为 2100 字（仍低于 3000 下限且 SHA 已变），定稿闸仍须拒绝并要求重核字数
+        self.write("04-正文/第0006章.md", "夜雪入京城，铁衣踏寒街。" * 210)  # 2100 汉字 < 3000
+        err_still_short = self.bad("complete", self.book, 6, "--words", 2100, "--hard", "pass")
+        self.assertIn("篇幅确认后已改动", err_still_short)
+
+        # 随后扩写回 3200 字正常范围（区间 3000–5000）
+        body6_path = self.write("04-正文/第0006章.md", "夜雪入京城，铁衣踏寒街。" * 320)  # 3200 汉字
+        real_sha = _hashlib.sha256(body6_path.read_bytes()).hexdigest()[:16]
+
+        # 2) 传入明确“不通过”且摘要过期的报告（含 Markdown 加粗及未填模板占位）+ hard=pass -> 必须拒绝
+        self.write("05-审稿/ch-0006-bad.md", "# ch-0006 审稿\n- **正文 SHA**: `0000deadbeef0000`\n- **硬伤层**: **不通过**｜**可判定率**: 0.90\n")
+        err_fail_rep = self.bad("complete", self.book, 6, "--words", 3200, "--hard", "pass", "--report", "05-审稿/ch-0006-bad.md")
+        self.assertIn("不通过", err_fail_rep)
+
+        self.write("05-审稿/ch-0006-tpl.md", f"# ch-0006 审稿\n- 正文 SHA: {real_sha}\n- 硬伤层: 通过 | 不通过｜可判定率: 0.90\n")
+        err_tpl_rep = self.bad("complete", self.book, 6, "--words", 3200, "--hard", "pass", "--report", "05-审稿/ch-0006-tpl.md")
+        self.assertIn("不通过", err_tpl_rep)
+
+        # 3) 传入结论“通过”但正文 SHA 过期的报告 -> 必须拒绝
+        self.write("05-审稿/ch-0006-stale.md", "# ch-0006 审稿\n- 正文 SHA: 0000deadbeef0000\n- 硬伤层: 通过｜可判定率: 0.92\n")
+        err_stale_rep = self.bad("complete", self.book, 6, "--words", 3200, "--hard", "pass", "--report", "05-审稿/ch-0006-stale.md")
+        self.assertIn("不一致", err_stale_rep)
+
+        # 4) 传入含复审记录更新到当前 SHA 且通过的有效报告（且 3200 字已在正常范围，无需再次跑 chapter length --accept！） -> 成功定稿
+        self.write(
+            "05-审稿/ch-0006-ok.md",
+            f"# ch-0006 审稿\n- 正文 SHA: 0000deadbeef0000\n- 硬伤层: 不通过｜可判定率: 0.85\n\n"
+            f"## 复审记录\n- rev 1（SHA 0000deadbeef0000→{real_sha}）: 重跑硬伤层，结论：通过｜可判定率: 0.95\n",
+        )
+        out_ok = self.ok("complete", self.book, 6, "--words", 3200, "--hard", "pass", "--report", "05-审稿/ch-0006-ok.md")
+        self.assertIn(f"sha={real_sha}", out_ok)
+        ch6_after = next(c for c in json.loads((self.book / "book.json").read_text("utf-8"))["chapters"] if c["seq"] == 6)
+        self.assertEqual(ch6_after["status"], "done")
+        self.assertNotIn("length", ch6_after)
+
+        # 5) 旧报告兼容：无 SHA 元数据的传统简版审稿通过记录仍可定稿
+        self.ok("chapter", "add", self.book, 8, "--file", "04-正文/第0008章.md")
+        self.write("04-正文/第0008章.md", "长街灯火明灭，刀锋映雪。" * 300)
+        self.write("02-大纲/场景卡/ch-0008.md", PLATINUM_CARD.format(seq=8, must="夜探旧宅"))
+        self.ok("scene", "review", self.book, 8, "--result", "pass", "--by", "author")
+        self.write("05-审稿/ch-0008-legacy.md", "# 第8章审稿纪要\n全文连贯无硬伤，准予定稿。\n")
+        self.ok("complete", self.book, 8, "--words", 3000, "--hard", "pass", "--report", "05-审稿/ch-0008-legacy.md")
+
 
 if __name__ == "__main__":
     unittest.main()

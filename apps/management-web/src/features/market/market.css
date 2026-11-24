@@ -1,0 +1,87 @@
+.mkt-scope,
+.mkt-note {
+  margin: 0 0 12px;
+}
+
+.mkt-layout {
+  display: grid;
+  gap: 16px;
+}
+
+.mkt-actions .ant-btn,
+.mkt-capsules .ant-btn {
+  min-height: 44px;
+  height: auto;
+}
+
+.mkt-capsules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.mkt-playbook,
+.mkt-wind {
+  margin-bottom: 12px;
+}
+
+.mkt-playbook h3,
+.mkt-wind h3 {
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}
+
+.mkt-health {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 7em minmax(0, 1fr);
+  gap: 8px 12px;
+}
+
+.mkt-health dt,
+.mkt-health dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.mkt-warn {
+  margin-top: 12px;
+  padding: 8px 12px;
+  border: 1px solid #8a1c1c;
+  background: #fff4f0;
+  color: #8a1c1c;
+}
+
+.mkt-empty p {
+  margin: 0 0 8px;
+}
+
+@media (min-width: 1280px) {
+  .mkt-layout {
+    grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
+  }
+
+  .mkt-notes {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 768px) {
+  .mkt-layout {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .mkt-health-block {
+    order: 3;
+  }
+
+  .mkt-playbooks {
+    order: 1;
+  }
+
+  .mkt-notes {
+    order: 2;
+  }
+}

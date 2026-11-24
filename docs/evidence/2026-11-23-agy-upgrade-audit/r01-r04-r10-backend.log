@@ -1,0 +1,70 @@
+# R01–R04 / R02补充 / R10 真实 ncc-dev 定向回归与前后对账脱敏日志
+# Command: tests/backend/test_studio.py::test_d03_d05_a07_a09_a11_overview_projection_reorder_idempotency_scale_and_metrics tests/backend/test_studio.py::test_d04_a01_a02_a06_a10_pipeline_gates_revocation_volumes_and_plan_adopt tests/backend/test_studio.py::test_a05_a08_cli_studio_bidirectional_workspace_and_concurrent_model_settings tests/backend/test_studio.py::test_r01_r02_r03_ordinary_author_paged_aggregates_and_ephemeral_lifecycle -v
+
+## 1. Pytest 定向执行输出
+============================= test session starts ==============================
+platform darwin -- Python 3.12.14, pytest-9.1.1, pluggy-1.7.0 -- /Users/xuyun/Documents/ncc-workflow/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /Users/xuyun/Documents/ncc-workflow
+configfile: pyproject.toml
+plugins: asyncio-1.4.0, anyio-4.15.1
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 4 items
+
+tests/backend/test_studio.py::test_d03_d05_a07_a09_a11_overview_projection_reorder_idempotency_scale_and_metrics PASSED [ 25%]
+tests/backend/test_studio.py::test_d04_a01_a02_a06_a10_pipeline_gates_revocation_volumes_and_plan_adopt PASSED [ 50%]
+tests/backend/test_studio.py::test_a05_a08_cli_studio_bidirectional_workspace_and_concurrent_model_settings PASSED [ 75%]
+tests/backend/test_studio.py::test_r01_r02_r03_ordinary_author_paged_aggregates_and_ephemeral_lifecycle PASSED [100%]
+
+============================== 4 passed in 22.14s ==============================
+
+## 2. ncc-dev 前后对账与 R03 生命周期失活核验（脱敏）
+{
+  "timestamp": "2026-11-24T09:34:02+08:00",
+  "database": "ncc-dev",
+  "pytest_exit_code": 0,
+  "pre_existing_scopes": {
+    "count_before": 75,
+    "count_after": 75,
+    "digest_before": "5c1ef900742813b0",
+    "digest_after": "5c1ef900742813b0",
+    "preserved": true
+  },
+  "pre_existing_revisions": {
+    "count_before": 5593,
+    "count_after": 5593,
+    "digest_before": "528ad1586ea03c96",
+    "digest_after": "528ad1586ea03c96",
+    "preserved": true
+  },
+  "pre_existing_users": {
+    "count": 91,
+    "unchanged": true,
+    "legacy_browser_author_untouched": true
+  },
+  "ephemeral_users_created_this_run": {
+    "count": 13,
+    "sample_masked": [
+      "browser-author-EWl7***",
+      "test-other-gBvm***",
+      "test-author-yuoy***",
+      "browser-author-mF3Q***",
+      "test-other-wXlE***",
+      "test-ordinary-4wsz***"
+    ],
+    "remaining_active_count": 0,
+    "remaining_unrevoked_sessions": 0,
+    "remaining_unrevoked_delegations": 0,
+    "remaining_open_jobs": 0
+  },
+  "r03_live_relogin_probe": {
+    "ephemeral_admin": "browser-author-mF3Q***",
+    "ephemeral_sub_author": "studio-author-iBS0***",
+    "admin_login_during_status": 200,
+    "sub_user_create_status": 201,
+    "sub_login_during_status": 200,
+    "session_access_after_teardown_status": 401,
+    "admin_relogin_after_teardown_status": 401,
+    "sub_relogin_after_teardown_status": 401
+  }
+}

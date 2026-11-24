@@ -39,8 +39,14 @@ REVIEW_WORDS = tuple(REG["review_words"]["values"])
 def tracked():
     out = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard"], cwd=ROOT,
                          capture_output=True, text=True).stdout.split()
-    files = [ROOT / f for f in out if (ROOT / f).is_file()]
-    return files or [p for p in ROOT.rglob("*") if p.is_file() and ".git" not in p.parts]
+    files = [
+        ROOT / f
+        for f in out
+        if (ROOT / f).is_file() and ".sdlc" not in Path(f).parts
+    ]
+    return files or [
+        p for p in ROOT.rglob("*") if p.is_file() and ".git" not in p.parts and ".sdlc" not in p.parts
+    ]
 
 
 def rel(p):
@@ -76,6 +82,9 @@ def check_links(md, bad):
             if not t.startswith(("http", "mailto")) and not (p.parent / t).exists():
                 bad.append(f"链接不存在：{rel(p)} -> {t}")
         for m in re.finditer(r"`((?:skills|agents|scripts|workflow|commands|docs)/[^`\s<>*]+?\.(?:md|py|json|yaml))`", s):
+            prefix = s[max(0, m.start() - 16):m.start()]
+            if re.search(r"(?:不存在|已删除|已移除|缺失)的?\s*$", prefix):
+                continue
             if not (ROOT / m.group(1)).exists():
                 bad.append(f"路径不存在：{rel(p)} -> {m.group(1)}")
 

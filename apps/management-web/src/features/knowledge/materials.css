@@ -1,0 +1,77 @@
+.mat-scope {
+  margin: 0 0 12px;
+}
+
+.mat-note {
+  margin: 8px 0 0;
+}
+
+.mat-capsules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.mat-capsules .ant-btn {
+  min-height: 44px;
+  height: auto;
+}
+
+.mat-card-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.mat-card {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mat-card-name {
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.mat-highlight {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.mat-highlight div {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.mat-empty {
+  padding: 24px 0;
+}
+
+.mat-empty p {
+  margin: 0 0 8px;
+}
+
+@media (max-width: 1279px) {
+  .mat-card-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .mat-capsules {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .mat-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

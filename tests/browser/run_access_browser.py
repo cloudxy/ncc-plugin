@@ -12,19 +12,18 @@ from playwright.sync_api import expect, sync_playwright
 @browser_test
 def main(runtime):
     origin = runtime.origin
-    password = "synthetic-access-password"
+    username, password = runtime.new_credentials("access-fixture")
     with httpx.Client(base_url=origin, timeout=30) as owner:
         me = (
             owner.post(
                 "/api/v1/auth/login",
                 headers={"x-ncc-client": "console"},
-                json={"username": "browser-author", "password": "synthetic-browser-password"},
+                json={"username": runtime.username, "password": runtime.password},
             )
             .raise_for_status()
             .json()
         )
         headers = {"x-csrf-token": me["csrf"]}
-        username = "access-fixture-" + str(uuid4())[:8]
         user = (
             owner.post("/api/v1/users", headers=headers, json={"username": username, "password": password})
             .raise_for_status()

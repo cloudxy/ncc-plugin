@@ -44,7 +44,9 @@ def register(commands):
 
 
 def run(args):
-    settings = Settings.load(args.config, "test" if args.test else "production")
+    from ncc_data.cli.main import cli_profile
+
+    settings = Settings.load(args.config, cli_profile(args))
     access = DataAccess(settings, settings.api_token)
     reads = {
         "get": "entity",

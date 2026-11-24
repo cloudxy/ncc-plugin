@@ -1,5 +1,6 @@
 """Management use cases shared by HTTP, CLI and workers."""
 
+import copy
 from datetime import timedelta
 
 from sqlalchemy import func, select
@@ -278,6 +279,26 @@ class Service(CalibrationMixin, MaintenanceMixin, WorkspaceMixin, ExchangeMixin,
         return row
 
     def job_json(self, row, details=True):
+        result = copy.deepcopy(row.result) if details and isinstance(row.result, dict) else {}
+        packet = result.get("packet")
+        if isinstance(packet, dict) and isinstance(packet.get("sources"), list):
+            sanitized = []
+            for item in packet["sources"]:
+                if isinstance(item, dict) and item.get("scope_id") and item.get("scope_id") != row.scope_id:
+                    sanitized.append(
+                        {
+                            "id": item.get("id"),
+                            "scope_id": item.get("scope_id"),
+                            "revision": item.get("revision"),
+                            "version": item.get("version"),
+                            "content_hash": item.get("content_hash"),
+                            "readonly": True,
+                            "redacted": True,
+                        }
+                    )
+                else:
+                    sanitized.append(item)
+            packet["sources"] = sanitized
         return jsonable(
             {
                 "id": row.id,
@@ -285,7 +306,7 @@ class Service(CalibrationMixin, MaintenanceMixin, WorkspaceMixin, ExchangeMixin,
                 "state": row.state,
                 "progress": row.progress,
                 "payload": row.payload if details else {},
-                "result": row.result if details else {},
+                "result": result if details else {},
                 "attempts": row.attempts,
                 "cancel_requested": row.cancel_requested,
                 "created_at": row.created_at,
@@ -293,17 +314,74 @@ class Service(CalibrationMixin, MaintenanceMixin, WorkspaceMixin, ExchangeMixin,
             }
         )
 
+    async def serialize_job(self, row, details=True):
+        data = self.job_json(row, details=details)
+        if not details:
+            return data
+        raw_sources = ((row.result or {}).get("packet") or {}).get("sources")
+        if not isinstance(raw_sources, list):
+            return data
+        projected = []
+        for item in raw_sources:
+            if not (isinstance(item, dict) and item.get("scope_id") and item.get("scope_id") != row.scope_id):
+                projected.append(jsonable(item))
+                continue
+            ref_entry = {
+                "id": item.get("id"),
+                "scope_id": item.get("scope_id"),
+                "revision": item.get("revision"),
+                "version": item.get("version"),
+                "content_hash": item.get("content_hash"),
+                "readonly": True,
+            }
+            if hasattr(self.actor, "_access_scope") and self.actor._access_scope != item.get("scope_id"):
+                projected.append({**ref_entry, "redacted": True})
+                continue
+            viewer = copy.copy(self.actor)
+            for attr in ("_access_scope", "_access_actions"):
+                if hasattr(viewer, attr):
+                    delattr(viewer, attr)
+            reader_svc = Service(self.db, viewer)
+            try:
+                if item.get("revision"):
+                    obj = await reader_svc.revision(item["scope_id"], item["id"], item["revision"])
+                    if obj.get("deleted"):
+                        raise DomainError("not_found", "对象已停用", 404)
+                    # Enforce live entity/field secret visibility for non-deleted check as well
+                    live = await reader_svc.entity(item["scope_id"], item["id"])
+                    if live.get("deleted"):
+                        raise DomainError("not_found", "对象已停用", 404)
+                else:
+                    obj = await reader_svc.entity(item["scope_id"], item["id"])
+                projected.append(
+                    jsonable(
+                        {
+                            **ref_entry,
+                            "name": obj.get("name") or "",
+                            "kind": obj.get("kind") or "",
+                            "data": obj.get("data") or {},
+                            "text": (obj.get("text") or "")[:16000],
+                            "redacted": False,
+                        }
+                    )
+                )
+            except DomainError:
+                projected.append({**ref_entry, "redacted": True})
+        data["result"]["packet"]["sources"] = projected
+        return data
+
     async def jobs(self, scope_id):
         _, actions = await authorize(self.db, self.actor, scope_id)
         statement = select(Job).where(Job.scope_id == scope_id, Job.kind != "author-draft")
         if not {"admin", "secret"} <= set(actions):
             statement = statement.where(Job.actor_id == self.actor.id)
         rows = (await self.db.scalars(statement.order_by(Job.created_at.desc()).limit(100))).all()
-        return [
-            self.job_json(r, details=bool({"edit", "assess"} & set(actions)))
-            for r in rows
-            if not r.payload.get("requires_secret") or "secret" in actions
-        ]
+        details = bool({"edit", "assess"} & set(actions))
+        out = []
+        for r in rows:
+            if not r.payload.get("requires_secret") or "secret" in actions:
+                out.append(await self.serialize_job(r, details=details))
+        return out
 
     async def intervene(self, scope_id, job_id, value):
         row = await self.job(scope_id, job_id, "read", lock=True)
@@ -337,7 +415,7 @@ class Service(CalibrationMixin, MaintenanceMixin, WorkspaceMixin, ExchangeMixin,
             row.result = {**row.result, "selected": value.candidate}
         # Fencing invalidates an in-flight worker, including its late model response.
         row.lease_token, row.lease_until, row.updated_at = None, None, utcnow()
-        return self.job_json(row)
+        return await self.serialize_job(row)
 
     async def assessments(self, scope_id):
         scope, actions = await authorize(self.db, self.actor, scope_id)

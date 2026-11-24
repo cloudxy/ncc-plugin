@@ -4,11 +4,29 @@ from decimal import Decimal
 from sqlalchemy import Integer, Numeric, and_, cast, func, literal, or_, select, union_all
 
 from ncc_data.application.security import authorize
-from ncc_data.domain.contracts import Query, ScopeInput, StateQuery
-from ncc_data.domain.definitions import SYSTEM_SCOPE
-from ncc_data.persistence.models import ChangeSet, Definition, Entity, Fact, Membership, Revision, Scope
+from ncc_data.domain.contracts import Query, ScopeInput, ScopeRename, StateQuery
+from ncc_data.domain.definitions import SYSTEM_SCOPE, merge_system_properties
+from ncc_data.persistence.models import Audit, ChangeSet, Definition, Entity, Fact, Membership, Revision, Scope
 from ncc_shared.errors import DomainError, require
 from ncc_shared.serialization import jsonable
+
+
+class ResolvedDefinition:
+    """In-memory definition. Stored property keys win; missing system keys are filled without mutating ncc_definition."""
+
+    def __init__(self, row):
+        self.id = row.id
+        self.key = row.key
+        self.version = row.version
+        self.scope_id = row.scope_id
+        self.spec = view_spec(row)
+
+
+def view_spec(row):
+    spec = copy.deepcopy(row.spec if isinstance(getattr(row, "spec", None), dict) else {})
+    if getattr(row, "scope_id", None) == SYSTEM_SCOPE and getattr(row, "version", None) == 1 and not spec.get("relation"):
+        spec = merge_system_properties(spec)
+    return spec
 
 
 class QueryService:
@@ -43,8 +61,28 @@ class QueryService:
             "base_id": row.base_id,
             "base_version": row.base_version,
             "actions": sorted(actions),
+            "owner": row.owner_id == self.actor.id,
             "config": config,
         }
+
+    async def rename_scope(self, scope_id, value: ScopeRename):
+        scope, _ = await authorize(self.db, self.actor, scope_id, "admin", lock=True)
+        require(scope.owner_id == self.actor.id, "owner_only", "只有范围所有者可修改名称", 403)
+        require(not hasattr(self.actor, "_access_scope"), "scoped_credential", "范围凭据不能修改范围名称", 403)
+        name = value.name.strip()
+        require(name, "name", "名称不能为空")
+        scope.name = name
+        self.db.add(
+            Audit(
+                scope_id=scope.id,
+                actor_id=self.actor.id,
+                action="scope.rename",
+                version=scope.version,
+                detail={"name": name},
+            )
+        )
+        await self.db.flush()
+        return await self.scope_info(scope.id)
 
     async def create_scope(self, value: ScopeInput):
         if value.parent_id:
@@ -141,7 +179,7 @@ class QueryService:
                 picked[key] = d
         result = []
         for d in sorted(picked.values(), key=lambda d: (d.spec.get("domain", ""), d.key)):
-            spec = copy.deepcopy(d.spec)
+            spec = view_spec(d)
             if "secret" not in actions:
                 for rule in spec.get("properties", {}).values():
                     if rule.get("secret"):
@@ -163,7 +201,7 @@ class QueryService:
             )
         )
         require(row is not None, "unknown_kind", f"请先注册类型或关系：{key}")
-        return row
+        return ResolvedDefinition(row)
 
     async def revision_query(self, scope, as_of=None):
         chains = await self.lineage(scope, as_of)
@@ -203,7 +241,34 @@ class QueryService:
         body = await self.raw_entity(scope, entity_id, query.as_of)
         return await self.redact(scope, actions, body, query)
 
+    async def _book_chapter_orders(self, scope, as_of=None):
+        from ncc_data.domain.studio_catalog import ordered_book_chapters
+
+        stmt = (await self.revision_query(scope, as_of)).where(
+            Revision.body["deleted"].as_boolean().is_(False),
+            Revision.body["kind"].astext.in_(["volume", "卷", "chapter", "章节"]),
+        )
+        rows = (await self.db.scalars(stmt.order_by(Revision.entity_id))).all()
+        vols, chs = [], []
+        for r in rows:
+            b = r.body or {}
+            entry = {"id": r.entity_id, "data": b.get("data") or {}}
+            if b.get("kind") in {"volume", "卷"}:
+                vols.append(entry)
+            else:
+                chs.append(entry)
+        ordered = ordered_book_chapters(vols, chs)
+        return {c["id"]: c["book_order"] for c in ordered}
+
     async def redact(self, scope, actions, body, query):
+        definition = await self.db.get(Definition, body["definition_id"])
+        return await self.redact_with_definitions(
+            scope, actions, body, query, {body["definition_id"]: definition}
+        )
+
+    async def redact_with_definitions(
+        self, scope, actions, body, query, definitions_by_id=None, book_orders=None
+    ):
         require(
             not body.get("secret") or ("secret" in actions and query.role == "author"),
             "not_found",
@@ -222,14 +287,31 @@ class QueryService:
             if body["kind"] in {"chapter", "章节", "scene", "场景"}:
                 require(query.chapter_id is not None, "view_context", "受限文本视图必须指定叙述截止章节")
                 cutoff = await self.raw_entity(scope, query.chapter_id, query.as_of)
+                orders = book_orders if book_orders is not None else await self._book_chapter_orders(scope, query.as_of)
+                cutoff_order = orders.get(query.chapter_id)
+                if body["kind"] in {"chapter", "章节"} and body.get("id") in orders and cutoff_order is not None:
+                    allowed_pos = orders[body["id"]] <= cutoff_order
+                elif (
+                    body["kind"] in {"scene", "场景"}
+                    and (body.get("data") or {}).get("chapter_id") in orders
+                    and cutoff_order is not None
+                ):
+                    allowed_pos = orders[body["data"]["chapter_id"]] <= cutoff_order
+                else:
+                    allowed_pos = body.get("data", {}).get("position", 10**12) <= cutoff.get("data", {}).get(
+                        "position", -1
+                    )
                 require(
-                    body.get("data", {}).get("position", 10**12)
-                    <= cutoff.get("data", {}).get("position", -1),
+                    allowed_pos,
                     "not_found",
                     "当前视角不可访问",
                     404,
                 )
-        definition = await self.db.get(Definition, body["definition_id"])
+        def_id = body.get("definition_id")
+        if definitions_by_id is not None and def_id in definitions_by_id:
+            definition = definitions_by_id[def_id]
+        else:
+            definition = await self.db.get(Definition, def_id) if def_id else None
         properties = definition.spec.get("properties", {}) if definition else {}
         can_secret = "secret" in actions and query.role == "author"
         data = {
@@ -237,7 +319,7 @@ class QueryService:
             for k, v in body.get("data", {}).items()
             if can_secret or not properties.get(k, {}).get("secret")
         }
-        spec = copy.deepcopy(definition.spec) if definition else {}
+        spec = view_spec(definition) if definition else {}
         if not can_secret:
             for rule in spec.get("properties", {}).values():
                 if rule.get("secret"):
@@ -306,6 +388,7 @@ class QueryService:
                 )
             else:
                 raise DomainError("filter", "不支持的筛选运算符")
+        book_orders = None
         if query.role != "author":
             statement = statement.where(
                 body["kind"].astext.not_in(["outline", "大纲", "细纲", "主线", "暗线"])
@@ -313,10 +396,31 @@ class QueryService:
             require(query.chapter_id is not None, "view_context", "受限查询必须指定叙述截止章节")
             cutoff = await self.raw_entity(scope, query.chapter_id, query.as_of)
             position = int(cutoff.get("data", {}).get("position", -1))
-            narrative = body["kind"].astext.in_(["chapter", "章节", "scene", "场景"])
-            statement = statement.where(
-                or_(~narrative, cast(body["data"]["position"].astext, Integer) <= position)
-            )
+            book_orders = await self._book_chapter_orders(scope, query.as_of)
+            cutoff_order = book_orders.get(query.chapter_id)
+            if cutoff_order is not None:
+                allowed_ch_ids = [cid for cid, ord_no in book_orders.items() if ord_no <= cutoff_order]
+                is_ch = body["kind"].astext.in_(["chapter", "章节"])
+                is_sc = body["kind"].astext.in_(["scene", "场景"])
+                sc_ok = or_(
+                    body["data"]["chapter_id"].astext.in_(allowed_ch_ids),
+                    and_(
+                        body["data"]["chapter_id"].astext.is_(None),
+                        cast(body["data"]["position"].astext, Integer) <= position,
+                    ),
+                )
+                statement = statement.where(
+                    or_(
+                        and_(~is_ch, ~is_sc),
+                        and_(is_ch, Revision.entity_id.in_(allowed_ch_ids)),
+                        and_(is_sc, sc_ok),
+                    )
+                )
+            else:
+                narrative = body["kind"].astext.in_(["chapter", "章节", "scene", "场景"])
+                statement = statement.where(
+                    or_(~narrative, cast(body["data"]["position"].astext, Integer) <= position)
+                )
         ordering = (
             body["name"].astext if query.sort == "name" else cast(body["data"]["position"].astext, Integer)
         )
@@ -331,7 +435,10 @@ class QueryService:
                 "version": f"{row.scope_id}:{row.version}",
                 "content_hash": row.content_hash,
             }
-            obj = await self.redact(scope, actions, obj, query)
+            definition = await self.db.get(Definition, obj["definition_id"])
+            obj = await self.redact_with_definitions(
+                scope, actions, obj, query, {obj["definition_id"]: definition}, book_orders=book_orders
+            )
             obj["text_preview"] = obj.pop("text", "")[:200]
             obj.pop("definition_spec", None)
             items.append(obj)

@@ -46,15 +46,15 @@ def _write(path, content):
             os.unlink(temporary)
 
 
-def install(host="both", root=None, profile="production", config=None):
+def install(host="both", root=None, profile="local", config=None, explicit_flag=False):
     if host not in {"codex", "claude", "both"}:
         raise ValueError("不支持的MCP宿主")
     root = Path(root or project_root()).resolve()
     python = root / ".venv/bin/python"
     if not python.is_file():
         raise ValueError("请先在项目根执行uv sync安装数据运行环境")
-    if profile not in {"production", "test"}:
-        raise ValueError("MCP只能选择正式或唯一测试模式")
+    if profile not in {"local", "production", "test"}:
+        raise ValueError("MCP只能选择本地、正式或测试模式")
     arguments = [
         str(root / "scripts/ncc_data.py"),
         "--config",
@@ -62,6 +62,8 @@ def install(host="both", root=None, profile="production", config=None):
     ]
     if profile == "test":
         arguments.append("--test")
+    elif profile == "production" and explicit_flag:
+        arguments.append("--production")
     arguments.append("mcp")
     entry = {"command": str(python), "args": arguments}
     legacy_arguments = [*arguments]

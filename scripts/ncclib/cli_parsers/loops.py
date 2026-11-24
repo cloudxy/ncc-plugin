@@ -49,6 +49,7 @@ def register_sandbox(sub):
     p = sub.add_parser("sandbox"); p.add_argument("book_dir")
     p.add_argument("--from", dest="from_ch", type=int); p.add_argument("--to", dest="to_ch", type=int)
     p.add_argument("--write", action="store_true"); p.add_argument("--force", action="store_true")
+    p.add_argument("--ack-review", action="store_true")
     p.set_defaults(fn=cmd_sandbox)
 
 REGISTRARS = {

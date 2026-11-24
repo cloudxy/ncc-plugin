@@ -16,6 +16,7 @@ from ncc_data.api.routes.events import build_router as events_router
 from ncc_data.api.routes.exchange import build_router as exchange_router
 from ncc_data.api.routes.knowledge import build_router as knowledge_router
 from ncc_data.api.routes.session import build_router as session_router
+from ncc_data.api.routes.studio import build_router as studio_router
 from ncc_data.api.routes.system import build_router as system_router
 from ncc_data.api.routes.workspace import build_router as workspace_router
 from ncc_data.application.security import (
@@ -129,7 +130,8 @@ def create_app(settings=None, factory=None):
     app.include_router(knowledge_router(service))
     app.include_router(workspace_router(service))
     app.include_router(creation_router(service))
-    app.include_router(administration_router(service))
+    app.include_router(studio_router(service))
+    app.include_router(administration_router(service, settings))
     app.include_router(exchange_router(service, settings))
     app.include_router(events_router(factory))
     app.include_router(system_router(app, service, settings, factory))

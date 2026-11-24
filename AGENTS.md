@@ -66,7 +66,7 @@ zcode 插件更新：本机直注册本目录，源文件改完开新会话即�
 
 新开发任务在D1通过scripts/dev/development.py记录影响和按需角色计划，实际执行选中的工程角色并登记报告。角色定义与触发在registry的development域，与十二创作角色分开；纯文档不增加工程派单。派单绑定输入字节，缺失/失败/陈旧报告不能通过交付检查。作者已经授权的角色接线实施直接执行，不重复要求批准同一范围。
 
-配置使用Dynaconf，按默认文件、兼容进程值、环境文件、`config/.env`的顺序覆盖，初始化不覆盖原值；只允许一个正式库及其同连接的`正式库-test`。不得另建每次测试/评审/恢复专用数据库，不更换既定PostgreSQL参数。代码归属和复用规则见[代码归属规范](docs/engineering/code-layout.md)，操作见[数据后台指南](docs/guides/data-console.md)。
+配置使用Dynaconf，按默认文件、兼容进程值、环境文件、`config/.env`的顺序覆盖，初始化不覆盖原值；只允许线上库`ncc-pro`及其同连接的本地测试库`ncc-dev`。本地与测试数据进入`ncc-dev`。不得另建每次测试/评审/恢复专用数据库，不更换既定PostgreSQL参数。代码归属和复用规则见[代码归属规范](docs/engineering/code-layout.md)，操作见[数据后台指南](docs/guides/data-console.md)。
 
 ## 自测
 

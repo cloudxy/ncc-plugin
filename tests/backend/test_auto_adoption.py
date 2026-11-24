@@ -58,10 +58,17 @@ async def test_trial_adopts_once_and_keeps_calibration_unverified(store):
         assert row.result["automatic_adoption"]["calibration"] == "unverified"
         assert (await svc.entity(sid, target["id"]))["version"] != target["version"]
         assert (await db.get(Delegation, delegation["id"])).remaining == 0
-        assert await db.scalar(select(func.count()).select_from(Calibration)) == 0
         assert (
             await db.scalar(
-                select(func.count()).select_from(Audit).where(Audit.action == "creation.auto_adopt")
+                select(func.count()).select_from(Calibration).where(Calibration.scope_id == sid)
+            )
+            == 0
+        )
+        assert (
+            await db.scalar(
+                select(func.count())
+                .select_from(Audit)
+                .where(Audit.scope_id == sid, Audit.action == "creation.auto_adopt")
             )
             == 1
         )

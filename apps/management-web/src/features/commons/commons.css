@@ -1,0 +1,59 @@
+.com-scope,
+.com-note {
+  margin: 0 0 12px;
+}
+
+.com-capsules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.com-capsules .ant-btn,
+.com-actions .ant-btn {
+  min-height: 44px;
+  height: auto;
+}
+
+.com-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.com-column {
+  min-width: 0;
+}
+
+.com-card {
+  margin-bottom: 12px;
+}
+
+.com-card h3 {
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}
+
+.com-card p,
+.com-card li {
+  overflow-wrap: anywhere;
+}
+
+.com-empty p {
+  margin: 0 0 8px;
+}
+
+@media (min-width: 1280px) {
+  .com-split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .com-capsules {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+}

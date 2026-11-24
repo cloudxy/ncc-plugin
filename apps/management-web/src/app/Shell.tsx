@@ -1,16 +1,22 @@
 import {
+  AppstoreOutlined,
   BookOutlined,
   BranchesOutlined,
   ClockCircleOutlined,
   CloudServerOutlined,
   DatabaseOutlined,
+  DownOutlined,
   EditOutlined,
   EnvironmentOutlined,
+  FundOutlined,
   HistoryOutlined,
   ImportOutlined,
   InboxOutlined,
   LogoutOutlined,
+  PartitionOutlined,
   PlusOutlined,
+  RightOutlined,
+  RobotOutlined,
   SafetyCertificateOutlined,
   SettingOutlined,
   StarOutlined,
@@ -22,7 +28,6 @@ import {
   Form,
   Input,
   Layout,
-  Menu,
   Modal,
   Select,
   Space,
@@ -30,11 +35,29 @@ import {
   Tag,
   Typography,
 } from "antd";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { api, scoped, setCSRF, type Json, type Scope } from "../shared/api";
-import { ErrorPanel } from "../shared/components/Feedback";
+import { SCOPE_KINDS, kindLabel, scopeTag } from "../shared/scopeLabel";
+import {
+  bindStudioSessionOwner,
+  clearAllStudioSessionDrafts,
+  clearScopeStudioDrafts,
+  pruneStudioDraftScopes,
+  syncScopeStudioActions,
+} from "../shared/studioApi";
 import { Workspace } from "../shared/WorkspaceContext";
+
 const CreativePage = lazy(() =>
   import("../features/creation/CreativePage").then((x) => ({
     default: x.CreativePage,
@@ -84,19 +107,82 @@ const MaintenancePage = lazy(() =>
     default: x.MaintenancePage,
   })),
 );
+const ModelSettingsPage = lazy(() =>
+  import("../features/models/ModelSettingsPage").then((x) => ({
+    default: x.ModelSettingsPage,
+  })),
+);
+const BlueprintPage = lazy(() =>
+  import("../features/blueprint/BlueprintPage").then((x) => ({
+    default: x.BlueprintPage,
+  })),
+);
+const CommonsPage = lazy(() =>
+  import("../features/commons/CommonsPage").then((x) => ({
+    default: x.CommonsPage,
+  })),
+);
+const MarketPage = lazy(() =>
+  import("../features/market/MarketPage").then((x) => ({
+    default: x.MarketPage,
+  })),
+);
 
 import { LoginPage } from "../features/session/LoginPage";
+
+const DAILY: [string, string, ReactNode][] = [
+  ["/work", "创作台", <EditOutlined />],
+  ["/blueprint", "大纲与暗线", <PartitionOutlined />],
+  ["/materials", "作品资料", <BookOutlined />],
+  ["/commons", "公共陈列库", <AppstoreOutlined />],
+  ["/market", "市场与风向", <FundOutlined />],
+  ["/inbox", "我的待办", <InboxOutlined />],
+];
+const ADVANCED: [string, string, ReactNode][] = [
+  ["/admin/maintenance", "身份与历史维护", <HistoryOutlined />],
+  ["/admin/definitions", "定义中心", <DatabaseOutlined />],
+  ["/admin/relations", "关系与时间", <BranchesOutlined />],
+  ["/admin/maps", "地图与地点", <EnvironmentOutlined />],
+  ["/admin/quality", "质量与评分", <StarOutlined />],
+  ["/admin/exchange", "导入与导出", <ImportOutlined />],
+  ["/admin/jobs", "任务中心", <ClockCircleOutlined />],
+  ["/admin/audit", "操作审计", <SafetyCertificateOutlined />],
+  ["/admin/settings", "成员与设置", <SettingOutlined />],
+  ["/admin/models", "AI 配置", <RobotOutlined />],
+  ["/admin/operations", "运行管理", <CloudServerOutlined />],
+];
+const NAV_KEYS = new Set([...DAILY, ...ADVANCED].map(([key]) => key));
+
+type ScrollShot = { side: number; main: number };
+type LeavePending = ScrollShot & { type: "nav" | "scope"; key: string };
+type ScrollPlan = ScrollShot & { focusKey?: string };
+
 export function Shell() {
   const cache = useQueryClient(),
     nav = useNavigate(),
     location = useLocation(),
-    { message, modal } = AntApp.useApp();
+    { message } = AntApp.useApp();
   const [authenticated, setAuthenticated] = useState(true),
     [scopeId, setScopeId] = useState(""),
     [dirty, setDirty] = useState(false),
     [newScope, setNewScope] = useState(false),
-    [accessEpoch, setAccessEpoch] = useState(0);
+    [renameOpen, setRenameOpen] = useState(false),
+    [renaming, setRenaming] = useState(false),
+    [creating, setCreating] = useState(false),
+    [accessEpoch, setAccessEpoch] = useState(0),
+    [loginEpoch, setLoginEpoch] = useState(0),
+    [pending, setPending] = useState<LeavePending | null>(null),
+    [advancedOpen, setAdvancedOpen] = useState(() =>
+      window.location.pathname.startsWith("/admin/"),
+    );
   const [form] = Form.useForm();
+  const [renameForm] = Form.useForm();
+  const sidebarRef = useRef<HTMLElement>(null),
+    mainRef = useRef<HTMLDivElement>(null),
+    stayRef = useRef<HTMLButtonElement>(null),
+    liveScroll = useRef<ScrollShot>({ side: 0, main: 0 }),
+    gestureScroll = useRef<ScrollShot | null>(null),
+    scrollPlan = useRef<ScrollPlan | null>(null);
   const me = useQuery({
     queryKey: ["me"],
     queryFn: () => api<Json>("/me"),
@@ -111,10 +197,18 @@ export function Shell() {
   const scope = scopeId
     ? scopes.data?.find((x) => x.id === scopeId)
     : scopes.data?.[0];
+  const sessionKey =
+    authenticated && !me.error && me.data?.id
+      ? `${me.data.id}:${me.data.csrf || "cookie"}:${loginEpoch}`
+      : "";
+  bindStudioSessionOwner(sessionKey || null);
+  const shellReady =
+    authenticated && !me.error && !me.isPending && !scopes.isPending;
   const accessStamp = useRef(""),
     activeScope = useRef("");
   activeScope.current = scope?.id || "";
   function resetAccess(sid: string) {
+    clearScopeStudioDrafts(sid);
     cache.removeQueries({ queryKey: ["scope", sid] });
     cache.invalidateQueries({ queryKey: ["scopes"] });
     if (activeScope.current === sid) {
@@ -125,7 +219,75 @@ export function Shell() {
   const currentStamp = scope
     ? scope.id + ":" + scope.actions.slice().sort().join(":")
     : "";
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    if (!shellReady) {
+      root.classList.remove("shell-lock");
+      return;
+    }
+    root.classList.add("shell-lock");
+    return () => root.classList.remove("shell-lock");
+  }, [shellReady]);
+  useLayoutEffect(() => {
+    const plan = scrollPlan.current;
+    if (!plan) return;
+    scrollPlan.current = null;
+    applyScroll(plan);
+    requestAnimationFrame(() => applyScroll(plan));
+  }, [location.pathname, scope?.id, pending]);
+  function readScroll(): ScrollShot {
+    return {
+      side: sidebarRef.current?.scrollTop ?? 0,
+      main: mainRef.current?.scrollTop ?? 0,
+    };
+  }
+  function trackScroll() {
+    if (gestureScroll.current) return;
+    liveScroll.current = readScroll();
+  }
+  function beginGesture(event: ReactPointerEvent | ReactKeyboardEvent) {
+    const target = event.target;
+    if (!(target instanceof Element) || !target.closest(".nav-item")) return;
+    const shot = readScroll();
+    liveScroll.current = shot;
+    gestureScroll.current = shot;
+  }
+  function endGesture() {
+    gestureScroll.current = null;
+  }
+  function shotScroll() {
+    const shot = gestureScroll.current ?? liveScroll.current;
+    gestureScroll.current = null;
+    return shot;
+  }
+  function applyScroll(plan: ScrollPlan) {
+    const sideEl = sidebarRef.current,
+      mainEl = mainRef.current;
+    if (mainEl) mainEl.scrollTop = plan.main;
+    if (sideEl) sideEl.scrollTop = plan.side;
+    if (plan.focusKey) {
+      sideEl
+        ?.querySelector<HTMLElement>(
+          `[data-nav-key="${CSS.escape(plan.focusKey)}"]`,
+        )
+        ?.focus({ preventScroll: true });
+    }
+    if (mainEl) mainEl.scrollTop = plan.main;
+    if (sideEl) sideEl.scrollTop = plan.side;
+  }
+  function paintScroll(plan: ScrollPlan) {
+    applyScroll(plan);
+    requestAnimationFrame(() => applyScroll(plan));
+  }
   useEffect(() => {
+    if (scopes.data) {
+      pruneStudioDraftScopes(scopes.data.map((item) => item.id));
+    }
+  }, [scopes.data]);
+  useEffect(() => {
+    if (scope) {
+      syncScopeStudioActions(scope.id, scope.actions);
+    }
     if (
       scope &&
       accessStamp.current.startsWith(scope.id + ":") &&
@@ -142,7 +304,13 @@ export function Shell() {
     if (me.data) setCSRF(me.data.csrf);
   }, [me.data]);
   useEffect(() => {
+    if (location.pathname.startsWith("/admin/")) setAdvancedOpen(true);
+  }, [location.pathname]);
+  useEffect(() => {
     const expire = () => {
+      clearAllStudioSessionDrafts();
+      setDirty(false);
+      setLoginEpoch((x) => x + 1);
       setAuthenticated(false);
       setCSRF("");
       cache.clear();
@@ -197,23 +365,51 @@ export function Shell() {
     return () => events.close();
   }, [scope?.id]);
   function navigate(key: string) {
+    const shot = shotScroll();
     if (dirty) {
-      modal.confirm({
-        title: "保留当前未保存内容？",
-        content: "离开前请保存修改。选择离开会放弃当前编辑。",
-        okText: "离开",
-        cancelText: "继续编辑",
-        onOk: () => {
-          setDirty(false);
-          nav(key);
-        },
-      });
-    } else nav(key);
+      applyScroll({ ...shot });
+      setPending({ type: "nav", key, ...shot });
+      return;
+    }
+    const plan = { ...shot, main: 0, focusKey: key };
+    if (location.pathname !== key) {
+      scrollPlan.current = plan;
+      nav(key);
+    }
+    paintScroll(plan);
+  }
+  function keepEditing() {
+    if (!pending) return;
+    const plan = {
+      side: pending.side,
+      main: pending.main,
+      focusKey: pending.type === "nav" ? pending.key : undefined,
+    };
+    scrollPlan.current = plan;
+    setPending(null);
+    paintScroll(plan);
+  }
+  function confirmLeave() {
+    if (!pending) return;
+    const plan = {
+      side: pending.side,
+      main: 0,
+      focusKey: pending.type === "nav" ? pending.key : undefined,
+    };
+    scrollPlan.current = plan;
+    setDirty(false);
+    if (pending.type === "nav") nav(pending.key);
+    else setScopeId(pending.key);
+    setPending(null);
+    paintScroll(plan);
   }
   if (!authenticated || me.error)
     return (
       <LoginPage
         done={() => {
+          clearAllStudioSessionDrafts();
+          setDirty(false);
+          setLoginEpoch((x) => x + 1);
           setAuthenticated(true);
           cache.clear();
           me.refetch();
@@ -226,21 +422,39 @@ export function Shell() {
         <Spin description="正在打开私有工作台" />
       </div>
     );
-  const advanced = [
-    ["/admin/maintenance", "身份与历史维护", <HistoryOutlined />],
-    ["/admin/definitions", "定义中心", <DatabaseOutlined />],
-    ["/admin/relations", "关系与时间", <BranchesOutlined />],
-    ["/admin/maps", "地图与地点", <EnvironmentOutlined />],
-    ["/admin/quality", "质量与评分", <StarOutlined />],
-    ["/admin/exchange", "导入与导出", <ImportOutlined />],
-    ["/admin/jobs", "任务中心", <ClockCircleOutlined />],
-    ["/admin/audit", "操作审计", <SafetyCertificateOutlined />],
-    ["/admin/settings", "成员与设置", <SettingOutlined />],
-    ["/admin/operations", "运行管理", <CloudServerOutlined />],
-  ];
+  const current = NAV_KEYS.has(location.pathname) ? location.pathname : "/work";
+  function item(key: string, label: string, icon: ReactNode) {
+    return (
+      <button
+        key={key}
+        type="button"
+        className="nav-item"
+        data-nav-key={key}
+        aria-label={label}
+        aria-current={current === key ? "page" : undefined}
+        onClick={() => navigate(key)}
+      >
+        <span aria-hidden="true">{icon}</span>
+        <span>{label}</span>
+      </button>
+    );
+  }
+  const scopeFailed = scopes.isError;
   return (
-    <Layout className="app-layout">
-      <Layout.Sider width={228} theme="light" className="sidebar">
+    <Layout className="app-layout" data-component="split-scroll">
+      <aside
+        className="sidebar"
+        ref={sidebarRef}
+        onScroll={trackScroll}
+        onPointerDown={beginGesture}
+        onPointerUp={endGesture}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") beginGesture(event);
+        }}
+        onKeyUp={(event) => {
+          if (event.key === "Enter" || event.key === " ") endGesture();
+        }}
+      >
         <div className="brand">
           <div className="brand-mark small">N</div>
           <div>
@@ -248,65 +462,83 @@ export function Shell() {
             <small>创作工作台</small>
           </div>
         </div>
-        <Menu
-          mode="inline"
-          selectedKeys={[location.pathname]}
-          onClick={({ key }) => navigate(key)}
-          items={[
-            { key: "/work", icon: <EditOutlined />, label: "创作台" },
-            { key: "/materials", icon: <BookOutlined />, label: "作品资料" },
-            { key: "/inbox", icon: <InboxOutlined />, label: "我的待办" },
-            { type: "divider" },
-            {
-              key: "advanced",
-              label: "高级管理",
-              children: advanced.map(([key, label, icon]) => ({
-                key: String(key),
-                label,
-                icon,
-              })),
-            },
-          ]}
-        />
+        <nav aria-label="创作后台导航">
+          {DAILY.map(([key, label, icon]) => item(key, label, icon))}
+          <button
+            type="button"
+            className="nav-item"
+            aria-label="高级管理"
+            aria-expanded={advancedOpen}
+            aria-controls="advanced-nav"
+            onClick={() => setAdvancedOpen((open) => !open)}
+          >
+            <span aria-hidden="true">
+              {advancedOpen ? <DownOutlined /> : <RightOutlined />}
+            </span>
+            <span>高级管理</span>
+          </button>
+          {advancedOpen ? (
+            <div id="advanced-nav">
+              {ADVANCED.map(([key, label, icon]) => item(key, label, icon))}
+            </div>
+          ) : null}
+        </nav>
         <div className="sidebar-footer">
           <span className="live-dot" />
           私有资料空间 <Tag bordered={false}>v4.0</Tag>
           <small>创作、事实与修改都有来处。</small>
         </div>
-      </Layout.Sider>
-      <Layout>
-        <Layout.Header className="topbar">
+      </aside>
+      <div className="workspace" ref={mainRef} onScroll={trackScroll}>
+        <header className="topbar">
           <Space>
             <Select
               aria-label="当前作品或资料库"
-              value={scope?.id}
+              value={scopeFailed ? undefined : scope?.id}
+              disabled={scopeFailed}
               style={{ width: 240 }}
-              options={scopes.data?.map((s) => ({
-                value: s.id,
-                label: s.name,
-              }))}
+              options={
+                scopeFailed
+                  ? []
+                  : scopes.data?.map((s) => ({
+                      value: s.id,
+                      label: s.name,
+                    }))
+              }
               onChange={(value) => {
+                const shot = readScroll();
+                liveScroll.current = shot;
                 if (dirty) {
-                  modal.confirm({
-                    title: "切换范围将离开当前编辑",
-                    onOk: () => {
-                      setDirty(false);
-                      setScopeId(value);
-                    },
-                  });
-                } else setScopeId(value);
+                  applyScroll(shot);
+                  setPending({ type: "scope", key: value, ...shot });
+                  return;
+                }
+                setScopeId(value);
               }}
             />
             <Button
-              icon={<PlusOutlined />}
-              onClick={() => setNewScope(true)}
-              aria-label="新建作品或资料库"
+              icon={<EditOutlined />}
+              aria-label="修改当前范围名称"
+              title={
+                scope?.owner === false
+                  ? "只有范围所有者可修改名称"
+                  : "修改当前范围名称"
+              }
+              disabled={!scope || scope.owner === false}
+              onClick={() => {
+                renameForm.setFieldsValue({ name: scope?.name });
+                setRenameOpen(true);
+              }}
             />
-            {scope && (
-              <Tag>
-                {scope.kind === "branch" ? "IF分支" : "当前采用版"} ·{" "}
-                {scope.version}
-              </Tag>
+            {scope || scopeFailed ? (
+              <Button
+                icon={<PlusOutlined />}
+                onClick={() => setNewScope(true)}
+                aria-label="新建作品或资料库"
+              />
+            ) : null}
+            {scope && !scopeFailed && (
+              <Tag>{scopeTag(scope.kind, scope.version)}</Tag>
             )}
           </Space>
           <Space>
@@ -314,29 +546,55 @@ export function Shell() {
               {me.data?.username}
             </Typography.Text>
             <Button
+              className="topbar-ai"
+              icon={<RobotOutlined />}
+              aria-label="AI 配置"
+              onClick={() => navigate("/admin/models")}
+            >
+              <span className="topbar-ai-label">AI 配置</span>
+            </Button>
+            <Button
               type="text"
               icon={<LogoutOutlined />}
+              aria-label="退出"
               onClick={async () => {
-                await api("/auth/logout", "POST");
-                setAuthenticated(false);
-                cache.clear();
+                try {
+                  await api("/auth/logout", "POST");
+                } finally {
+                  clearAllStudioSessionDrafts();
+                  setCSRF("");
+                  setDirty(false);
+                  setLoginEpoch((x) => x + 1);
+                  setAuthenticated(false);
+                  cache.clear();
+                }
               }}
             >
-              退出
+              <span className="topbar-logout-label">退出</span>
             </Button>
           </Space>
-        </Layout.Header>
-        <Layout.Content className="content">
-          <ErrorPanel error={scopes.error} retry={() => scopes.refetch()} />
-          {scope ? (
+        </header>
+        <div className="content">
+          {scopeFailed ? (
+            <div className="scope-failure" role="alert">
+              <p>没有取到范围列表。</p>
+              {scopes.error instanceof Error && scopes.error.message ? (
+                <p>{scopes.error.message}</p>
+              ) : null}
+              <Button onClick={() => scopes.refetch()}>重试</Button>
+            </div>
+          ) : scope ? (
             <Workspace.Provider
               key={scope.id + ":" + accessEpoch}
-              value={{ scope, refresh, setDirty }}
+              value={{ scope, sessionKey, refresh, setDirty }}
             >
               <Suspense fallback={<Spin description="正在打开功能" />}>
                 <Routes>
                   <Route path="/work" element={<CreativePage />} />
+                  <Route path="/blueprint" element={<BlueprintPage />} />
                   <Route path="/materials" element={<MaterialsPage />} />
+                  <Route path="/commons" element={<CommonsPage />} />
+                  <Route path="/market" element={<MarketPage />} />
                   <Route path="/inbox" element={<InboxPage />} />
                   <Route
                     path="/admin/definitions"
@@ -351,6 +609,7 @@ export function Shell() {
                     path="/admin/maintenance"
                     element={<MaintenancePage />}
                   />
+                  <Route path="/admin/models" element={<ModelSettingsPage />} />
                   <Route path="/admin/:page" element={<AdminPage />} />
                   <Route path="*" element={<CreativePage />} />
                 </Routes>
@@ -364,19 +623,88 @@ export function Shell() {
               <Button
                 size="large"
                 type="primary"
+                aria-label="新建作品或资料库"
                 onClick={() => setNewScope(true)}
               >
                 创建创作空间
               </Button>
             </div>
           )}
-        </Layout.Content>
-      </Layout>
+        </div>
+      </div>
+      <Modal
+        title="保留当前未保存内容？"
+        open={pending !== null}
+        onCancel={keepEditing}
+        closable={false}
+        mask={{ closable: false }}
+        footer={
+          <div className="leave-actions">
+            <Button type="primary" ref={stayRef} onClick={keepEditing}>
+              继续编辑
+            </Button>
+            <Button onClick={confirmLeave}>离开</Button>
+          </div>
+        }
+        afterOpenChange={(open) => {
+          if (open) stayRef.current?.focus();
+        }}
+        destroyOnHidden
+      >
+        <p>
+          尚未自动保存成功的本次输入，离开后不再保留。已经自动保存成功的草稿，回到创作台时会恢复。
+        </p>
+      </Modal>
+      <Modal
+        title="修改名称"
+        open={renameOpen}
+        onCancel={() => setRenameOpen(false)}
+        onOk={() => renameForm.submit()}
+        okText={renaming ? "正在保存" : "保存"}
+        confirmLoading={renaming}
+        destroyOnHidden
+      >
+        <Form
+          form={renameForm}
+          layout="vertical"
+          onFinish={async (values) => {
+            if (!scope) return;
+            setRenaming(true);
+            try {
+              const updated = await api<Scope>(
+                `/scopes/${scope.id}`,
+                "PATCH",
+                values,
+              );
+              cache.setQueriesData<Scope[]>({ queryKey: ["scopes"] }, (old) =>
+                (old || []).map((item) =>
+                  item.id === updated.id ? { ...item, ...updated } : item,
+                ),
+              );
+              setRenameOpen(false);
+              message.success("名称已更新");
+            } catch (e) {
+              message.error((e as Error).message);
+            } finally {
+              setRenaming(false);
+            }
+          }}
+        >
+          <Form.Item
+            name="name"
+            label="名称"
+            rules={[{ required: true, whitespace: true, max: 256 }]}
+          >
+            <Input placeholder="作品、世界或资料库名称" maxLength={256} />
+          </Form.Item>
+        </Form>
+      </Modal>
       <Modal
         title="新建创作空间"
         open={newScope}
         onCancel={() => setNewScope(false)}
         onOk={() => form.submit()}
+        confirmLoading={creating}
         destroyOnHidden
       >
         <Form
@@ -384,6 +712,8 @@ export function Shell() {
           layout="vertical"
           initialValues={{ kind: "book" }}
           onFinish={async (values) => {
+            if (values.kind === "branch" && !values.base_id) return;
+            setCreating(true);
             try {
               const created = await api<Scope>("/scopes", "POST", values);
               cache.setQueriesData<Scope[]>({ queryKey: ["scopes"] }, (old) => [
@@ -397,6 +727,8 @@ export function Shell() {
               message.success("创作空间已建立");
             } catch (e) {
               message.error((e as Error).message);
+            } finally {
+              setCreating(false);
             }
           }}
         >
@@ -405,14 +737,10 @@ export function Shell() {
           </Form.Item>
           <Form.Item name="kind" label="用途">
             <Select
-              options={[
-                ["book", "书项目"],
-                ["author", "作者资料库"],
-                ["universe", "共享宇宙"],
-                ["series", "系列"],
-                ["research", "拆书研究"],
-                ["branch", "IF分支"],
-              ].map(([value, label]) => ({ value, label }))}
+              options={SCOPE_KINDS.map((value) => ({
+                value,
+                label: kindLabel(value),
+              }))}
             />
           </Form.Item>
           <Form.Item noStyle shouldUpdate={(a, b) => a.kind !== b.kind}>
@@ -421,7 +749,12 @@ export function Shell() {
                 <Form.Item
                   name="base_id"
                   label="固定基线来源"
-                  rules={[{ required: true }]}
+                  rules={[
+                    {
+                      required: true,
+                      message: "IF分支必须选择基线，否则不能提交。",
+                    },
+                  ]}
                 >
                   <Select
                     options={scopes.data?.map((s) => ({

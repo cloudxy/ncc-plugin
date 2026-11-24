@@ -1,6 +1,6 @@
 # 数据服务与创作后台
 
-NCC v4在原有文件工作流之外，提供PostgreSQL数据服务、FastAPI接口和React后台。作者日常使用“创作台、作品资料、我的待办”；定义、关系与时间、地图、历史维护、导入导出、评分、任务、审计和权限位于高级管理。
+NCC v4在原有文件工作流之外，提供PostgreSQL数据服务、FastAPI接口和React小说创作工作台。作者日常围绕六大创作空间开展出品把控与AI协同写作：“创作台、大纲与暗线、作品资料（万象设定与人物角色管理）、公共陈列库、市场与风向、我的待办”；定义、关系与时间、地图、历史维护、导入导出、评分、任务、审计、AI配置和运行管理默认折叠收纳于“高级管理”。
 
 文件模式继续只需Python标准库。数据库模式需要Python 3.11以上（开发验证为3.12）、PostgreSQL 17以及Node.js 22.12以上。前后端依赖分别由`uv.lock`和`package-lock.json`锁定。界面、数据服务与独立Worker共用一套应用服务；启动服务不会自动建库或迁移真实小说。
 
@@ -24,7 +24,7 @@ npm --prefix apps/management-web run build
 
 旧版本把私有配置放在项目根`.env`时，再执行一次`init`即可原字节迁入`config/.env`并移除旧位置；不需要重新填写。新旧文件同时存在时会停止，请先核对并仅保留配置目录中的文件，程序不自动合并。默认加载不会回退旧位置；高级自动化仍可用`--config`明确指定隔离配置。完成迁移后执行`mcp-config --host both`更新本机宿主接线。
 
-只使用两个库：既定正式库，以及同一服务器、端口、账号和连接选项的`正式库-test`。测试库名自动派生，不维护第二套连接。数据库维护者只需在初始化时准备这两个库；所有作品用逻辑范围隔离，不按作品、验收、恢复操作创建库。
+只使用两个库：线上正式库`ncc-pro`，以及同一服务器、端口、账号和连接选项的本地测试库`ncc-dev`。测试库名固定为`ncc-dev`，不维护第二套连接。默认`NCC_ENV="local"`时，以下本地命令全部自动选中`ncc-dev`，不会连接`ncc-pro`。数据库维护者只需在初始化时准备这两个库；所有作品用逻辑范围隔离，不按作品、验收、恢复操作创建库。
 
 ```bash
 .venv/bin/ncc-data migrate
@@ -33,11 +33,13 @@ npm --prefix apps/management-web run build
 .venv/bin/ncc-data serve
 ```
 
-`create-user`通过终端两次输入密码，至少12字符；首个账号是系统管理员。没有内置默认密码或匿名管理入口。打开`http://127.0.0.1:8787`登录。另一个终端在项目中启动任务执行器，自动读取同一份`config/.env`：
+`doctor`输出实际选中的`profile`与`database`（本地默认为`local`与`ncc-dev`）。`create-user`通过终端两次输入密码，至少12字符；首个账号是系统管理员。没有内置默认密码或匿名管理入口。打开`http://127.0.0.1:8787`登录。另一个终端在项目中启动任务执行器，自动读取同一份`config/.env`并同样连接`ncc-dev`：
 
 ```bash
 .venv/bin/ncc-data worker
 ```
+
+正式部署线上环境时，在服务器`config/.env`设置`NCC_ENV="production"`（或在单次维护命令显式传`--production` / `--profile production`），同一组`migrate / create-user / doctor / serve / worker`即选中线上库`ncc-pro`。
 
 API和前端同源运行，采用HttpOnly会话与CSRF令牌。远程部署需要HTTPS同源反向代理，并在`config/.env`中将`NCC_PUBLIC_ORIGIN`设为实际地址；代理需支持SSE、限制请求大小、关闭事件流缓冲。CLI与Worker不接收任意SQL或脚本。`serve`默认仅监听本机，不暴露数据库端口。
 
@@ -55,7 +57,7 @@ API和前端同源运行，采用HttpOnly会话与CSRF令牌。远程部署需�
 
 ## 配置创作模型
 
-在`config/.env`填写以下配置，再重启服务和Worker：
+管理后台「AI 配置」分成订阅授权和模型登记。订阅授权只查看本机 Grok、Codex、AGY 的 CLI 登录态，并保存所选的公开模型标识；订阅令牌留在本机，不回传给浏览器，也不当作 `NCC_MODEL_KEY` 或其他按量密钥。写作、修订和评价仍走模型登记。模型登记可以保存多套兼容 Chat JSON 的配置，并把场景计划、正文与设定、修订、独立评价、第二评价分别绑到不同的已启用配置。页面只保存网关地址、模型标识和凭证环境变量名，不接收、不回传密钥值。检查配置和在线验证都不发起付费生成。已经开始的任务保留开始时记下的模型。某一用途没有绑定、也没有包含该用途的已启用配置时，这一用途仍使用下列环境变量。修改环境变量后重启服务和 Worker：
 
 | 配置项 | 用途 |
 |---|---|
@@ -122,7 +124,7 @@ PostgreSQL只读MCP和不依赖API启动的直接CLI读写，见[数据接入指
 .venv/bin/ncc-data restore '<仓外私有备份文件.dump>' --confirm-database '<既定正式库名>'
 ```
 
-备份为完整custom格式转储，拒绝覆盖文件，权限为600并给出摘要。恢复只允许明确确认的空库，不隐式清理正式数据。恢复后撤销会话与托管，暂停未完成任务；核对对象、历史、事实、附件、正文、权限与摘要后再恢复服务。恢复演练仅在唯一-test库进行，使用合成数据备份重放，需显式确认，失败时保留转储。定时备份、异地副本、WAL归档由部署环境配置。
+备份为完整custom格式转储，拒绝覆盖文件，权限为600并给出摘要。恢复只允许明确确认的空库，不隐式清理正式数据。恢复后撤销会话与托管，暂停未完成任务；核对对象、历史、事实、附件、正文、权限与摘要后再恢复服务。恢复演练仅在`ncc-dev`进行，使用合成数据备份重放，需显式确认，失败时保留转储。定时备份、异地副本、WAL归档由部署环境配置。
 
 ## 验证入口
 
@@ -132,10 +134,10 @@ python3 scripts/dev/check_plugin.py -v
 .venv/bin/pytest tests/unit tests/backend -q
 npm --prefix apps/management-web run build
 .venv/bin/python tests/browser/run_browser.py --output '<仓外验收截图目录>'
-.venv/bin/python tests/backend/run_recovery.py --confirm-reset-test '<正式库-test>'
+.venv/bin/python tests/backend/run_recovery.py --confirm-reset-test 'ncc-dev'
 ```
 
-后台集成、浏览器、CLI往返和恢复演练共用`tests/support/`环境，串行使用同一个-test库；已占用时停止，不创建更多库。后台测试会清空NCC合成数据，测试库不得存放真实作品。发现未知表或其他业务schema时拒绝清理。连接尚未配置时，数据库用例明确跳过，不视为联调通过。
+后台集成、浏览器、CLI往返和恢复演练共用`tests/support/`环境，串行使用`ncc-dev`；已占用时停止，不创建更多库。普通定向与集成测试仅操作当次新建的合成范围与合成账号，不执行整库TRUNCATE，保护`ncc-dev`中已有的日常作品、身份与历史记录；恢复演练与显式重置在检测到非空共用库或未知表、其他业务schema时拒绝清库。连接尚未配置时，数据库用例明确跳过，不视为联调通过。
 
 浏览器验收自动启动并关闭本机测试服务，默认`http://127.0.0.1:8788`，不复用已有端口服务。合成账号由公共环境在-test库准备。`ncc-data --test serve/worker/migrate/doctor`选择同一测试库和测试服务地址；`--test request/workspace`也选择测试地址，并在发送凭据前核对服务profile。普通正式服务默认8787；测试地址可在`config/.env`的`NCC_TEST_PUBLIC_ORIGIN`填写。高级自动化可显式使用`--config '<config/.env>'`，普通操作无需此参数。
 

@@ -16,7 +16,7 @@ def test_file_is_authoritative_and_does_not_mutate_environment(tmp_path, monkeyp
     password = "p@:/#中文$()secret"
     values = {
         "NCC_DB_HOST": "localhost",
-        "NCC_DB_NAME": "正式小说",
+        "NCC_DB_NAME": "ncc-pro",
         "NCC_DB_USER": "author",
         "NCC_DB_PASSWORD": password,
         "NCC_DB_PORT": "5544",
@@ -29,15 +29,23 @@ def test_file_is_authoritative_and_does_not_mutate_environment(tmp_path, monkeyp
     monkeypatch.chdir(tmp_path / "..")
     settings = Settings.load(path)
     params = connection_parameters(settings.database_url)
-    assert params["dbname"] == "正式小说" and params["password"] == password
+    assert settings.profile == "local"
+    assert params["dbname"] == "ncc-dev" and params["password"] == password
     assert params["port"] == 5544
+    assert settings.public_origin == "http://127.0.0.1:8787"
     assert settings.model_url == "https://model.example"
     assert os.environ["NCC_MODEL_URL"] == "https://wrong.example"
     assert password not in repr(settings)
     assert not initialize(path, values={"NCC_DB_NAME": "changed"})
     assert read_dotenv(path) == values
+    prod = Settings.load(path, "production")
+    assert prod.profile == "production"
+    assert connection_parameters(prod.database_url)["dbname"] == "ncc-pro"
+    prod_env = Settings.load(path, environ={"NCC_ENV": "production"})
+    assert prod_env.profile == "production"
+    assert connection_parameters(prod_env.database_url)["dbname"] == "ncc-pro"
     test = Settings.load(path, "test")
-    assert connection_parameters(test.database_url)["dbname"] == "正式小说-test"
+    assert connection_parameters(test.database_url)["dbname"] == "ncc-dev"
     assert test.public_origin == "http://127.0.0.1:8788"
 
 
@@ -63,16 +71,21 @@ def test_exactly_one_sibling_preserves_all_connection_parameters(host):
         {
             "NCC_DB_HOST": host,
             "NCC_DB_PORT": "5533",
-            "NCC_DB_NAME": "创作",
+            "NCC_DB_NAME": "ncc-pro",
             "NCC_DB_USER": "u",
             "NCC_DB_PASSWORD": "p@#",
         }
     )
     pair = DatabasePair(url)
     prod, test = connection_parameters(url), connection_parameters(pair.test_url)
-    assert pair.production_url == url and pair.select() == url
-    assert prod.pop("dbname") == "创作"
-    assert test.pop("dbname") == "创作-test"
+    assert pair.production_url == url
+    assert pair.select() == pair.test_url
+    assert pair.select("local") == pair.test_url
+    assert pair.select("production") == url
+    assert prod.pop("dbname") == "ncc-pro"
+    assert test.pop("dbname") == "ncc-dev"
+    with pytest.raises(ValueError, match="ncc-pro"):
+        DatabasePair(url.replace("/ncc-pro", "/ncc"))
     assert prod == test
     pair.require_test(pair.test_url)
     for rejected in (url, url.replace("5533", "5534"), pair.test_url + "x"):
@@ -88,10 +101,10 @@ def test_query_cannot_redirect_test_back_to_production(key):
 
 
 def test_maintenance_keeps_tls_options_and_private_secrets():
-    url = "postgresql+psycopg://author:private%40value@db.example/formal?sslmode=verify-full&sslrootcert=%2Fprivate%2Fca.pem&connect_timeout=8&options=-c%20statement_timeout%3D3000"
+    url = "postgresql+psycopg://author:private%40value@db.example/ncc-pro?sslmode=verify-full&sslrootcert=%2Fprivate%2Fca.pem&connect_timeout=8&options=-c%20statement_timeout%3D3000"
     pair = DatabasePair(url)
     parameters = connection_parameters(pair.test_url)
-    assert parameters["dbname"] == "formal-test"
+    assert parameters["dbname"] == "ncc-dev"
     assert parameters["sslmode"] == "verify-full"
     assert parameters["sslrootcert"] == "/private/ca.pem"
     with pg_service(parameters) as env:
@@ -296,3 +309,64 @@ def test_concurrent_editor_replacement_is_never_deleted_by_migration(tmp_path, m
     else:
         assert target.read_bytes() == b'NCC_DB_NAME="editor"'
     # Migration has no cleanup unlink that could remove a concurrently saved file.
+
+
+def test_local_cli_onboarding_selects_ncc_dev_and_formal_deploy_selects_ncc_pro(tmp_path, monkeypatch):
+    from ncc_data.cli.main import build_parser, cli_profile
+    from ncc_data.mcp.configuration import install as install_mcp
+    from ncc_shared.http import default_api_profile
+
+    local_env = tmp_path / "local.env"
+    initialize(
+        local_env,
+        values={
+            "NCC_ENV": "local",
+            "NCC_DB_HOST": "localhost",
+            "NCC_DB_PORT": "5432",
+            "NCC_DB_NAME": "ncc-pro",
+            "NCC_DB_USER": "synthetic",
+            "NCC_DB_PASSWORD": "synthetic-password",
+        },
+    )
+    parser = build_parser()
+    for argv in (["migrate"], ["create-user", "author"], ["doctor"], ["serve"], ["worker", "--once"], ["mcp"]):
+        args = parser.parse_args(argv)
+        s = Settings.load(local_env, profile=cli_profile(args), environ={})
+        assert s.profile == "local"
+        assert connection_parameters(s.database_url)["dbname"] == "ncc-dev"
+
+    fake_root = tmp_path / "repo"
+    (fake_root / ".venv/bin").mkdir(parents=True)
+    (fake_root / ".venv/bin/python").write_text("#!/bin/sh\n")
+    mcp_res = install_mcp(host="claude", root=fake_root, profile="local", config=local_env)
+    assert mcp_res["profile"] == "local"
+    assert default_api_profile(configuration(local_env, environ={})) == "local"
+
+    for argv in (
+        ["migrate", "--production"],
+        ["create-user", "author", "--production"],
+        ["serve", "--production"],
+        ["worker", "--once", "--production"],
+    ):
+        args = parser.parse_args(argv)
+        s = Settings.load(local_env, profile=cli_profile(args), environ={})
+        assert s.profile == "production"
+        assert connection_parameters(s.database_url)["dbname"] == "ncc-pro"
+
+    prod_env = tmp_path / "prod.env"
+    initialize(
+        prod_env,
+        values={
+            "NCC_ENV": "production",
+            "NCC_DB_HOST": "localhost",
+            "NCC_DB_PORT": "5432",
+            "NCC_DB_NAME": "ncc-pro",
+            "NCC_DB_USER": "synthetic",
+            "NCC_DB_PASSWORD": "synthetic-password",
+        },
+    )
+    for argv in (["migrate"], ["serve"], ["worker", "--once"]):
+        args = parser.parse_args(argv)
+        s = Settings.load(prod_env, profile=cli_profile(args), environ={})
+        assert s.profile == "production"
+        assert connection_parameters(s.database_url)["dbname"] == "ncc-pro"

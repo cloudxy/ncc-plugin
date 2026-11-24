@@ -1,6 +1,6 @@
 # MCP读取与直接数据操作
 
-现行接口说明。先按[后台指南](data-console.md)配置既定PostgreSQL连接、迁移和账号；所有入口使用同一Dynaconf配置及正式库/-test数据库对，不另建库。MCP、直接CLI、HTTP和后台共用应用Service、权限、历史及审计。
+现行接口说明。先按[后台指南](data-console.md)配置既定PostgreSQL连接、迁移和账号；所有入口使用同一Dynaconf配置及线上库`ncc-pro`与本地测试库`ncc-dev`，不另建库。MCP、直接CLI、HTTP和后台共用应用Service、权限、历史及审计。
 
 ## 范围凭据
 
@@ -22,7 +22,7 @@
 
 MCP提供9个只读工具：连接状态、范围列表、范围详情、定义列表、实体检索、实体详情、时态事实、修订历史和指定修订。数据库事务强制只读，每次读取重验凭据及当前权限，保留秘密字段过滤；没有任意SQL或写工具。
 
-`postgresql_status`返回是否真正连接、数据库名、只读状态及schema是否就绪，不返回密码。工具能发现不等于已连库；连接字段未填写时明确返回configured=false和connected=false。修改宿主清单后需新会话加载；stdio不能混入普通输出。测试时可单独运行`ncc-data --test mcp`，仅选择既定正式连接派生的-test库。
+`postgresql_status`返回是否真正连接、数据库名、只读状态及schema是否就绪，不返回密码。工具能发现不等于已连库；连接字段未填写时明确返回configured=false和connected=false。修改宿主清单后需新会话加载；stdio不能混入普通输出。测试时可单独运行`ncc-data --test mcp`，仅选择同连接的`ncc-dev`。
 
 ## 非MCP读写与编辑更新
 

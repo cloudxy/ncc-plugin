@@ -31,6 +31,20 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
+def default_api_profile(values):
+    configured = (values or {}).get("NCC_API_PROFILE", "").strip()
+    env = (values or {}).get("NCC_ENV", "").strip()
+    if configured and not (env == "local" and configured == "production"):
+        return configured
+    if env == "production":
+        return "production"
+    if env == "test":
+        return "test"
+    if env:
+        return "local"
+    return configured or "local"
+
+
 class APIClient:
     def __init__(self, values=None, timeout=120, profile=None):
         values = configuration() if values is None else values
@@ -44,9 +58,9 @@ class APIClient:
             raise ValueError("范围凭据格式无效，请重新复制；凭据内容不会输出")
         self.timeout = timeout
         self.opener = build_opener(NoRedirect)
-        self.profile = profile or values.get("NCC_API_PROFILE", "production")
-        if self.profile not in {"production", "test"}:
-            raise ValueError("API profile必须是production或test")
+        self.profile = profile or default_api_profile(values)
+        if self.profile not in {"local", "production", "test"}:
+            raise ValueError("API profile必须是local、production或test")
         self._profile_checked = False
 
     def check_profile(self):

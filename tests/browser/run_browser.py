@@ -26,8 +26,8 @@ def main(runtime):
         errors = []
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.goto(args.url + "/work")
-        page.get_by_label("账号", exact=True).fill("browser-author")
-        page.get_by_label("密码", exact=True).fill("synthetic-browser-password")
+        page.get_by_label("账号", exact=True).fill(runtime.username)
+        page.get_by_label("密码", exact=True).fill(runtime.password)
         page.get_by_role("button", name=re.compile(r"登\s*录"), exact=True).click()
         page.get_by_role("button", name="新建作品或资料库").click()
         page.get_by_label("名称", exact=True).fill("合成验收空间")

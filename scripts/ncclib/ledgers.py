@@ -5,7 +5,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from .core import (DARK_LINE_COOL, EVENTS, FACTS, KNOWLEDGE, NON_READER_TYPES, OPEN_STATES, PROMISE_LINES, PROMISES, PROMISE_PREFIX, PROMISE_TYPES, as_int, current_chapter, die, ledger, load, mood_of, next_id, open_unit, parse_window, read_json, save, scene_path, split_names, write_json)
+from .core import (DARK_LINE_COOL, EVENTS, FACTS, KNOWLEDGE, NON_READER_TYPES, OPEN_STATES, PROMISE_LINES, PROMISES, PROMISE_PREFIX, PROMISE_TYPES, as_int, current_chapter, die, ledger, load, mood_of, next_id, open_unit, parse_window, read_json, save, scene_path, split_names, unit_for_chapter, write_json)
 
 
 def promise_overdue(p, cur: int) -> bool:
@@ -41,6 +41,24 @@ def promise_summary(book_dir: Path, d: dict) -> dict:
     }
 
 
+def is_paid(p) -> bool:
+    return p.get("status") == "已兑现"
+
+
+def is_dropped(p) -> bool:
+    return p.get("status") == "作废"
+
+
+def paid_ch(p):
+    return as_int(p.get("resolved_ch")) if is_paid(p) else None
+
+
+def dropped_ch(p):
+    if not is_dropped(p):
+        return None
+    return as_int(p.get("dropped_ch")) if p.get("dropped_ch") is not None else as_int(p.get("resolved_ch"))
+
+
 def chapter_touches(items, seq: int):
     """本章建立、推进、兑现（或作废补偿）的读者向承诺。"""
     hits = []
@@ -51,8 +69,10 @@ def chapter_touches(items, seq: int):
             hits.append((p["id"], "建立"))
         if any(e.get("ch") == seq for e in p.get("progress", [])):
             hits.append((p["id"], "推进"))
-        if p.get("resolved_ch") == seq:
-            hits.append((p["id"], "兑现" if p.get("status") == "已兑现" else "作废补偿"))
+        if paid_ch(p) == seq:
+            hits.append((p["id"], "兑现"))
+        elif dropped_ch(p) == seq:
+            hits.append((p["id"], "作废补偿"))
     return hits
 
 
@@ -83,7 +103,10 @@ def dark_line_cooling(items, seq: int, limit: int = DARK_LINE_COOL) -> list:
     for p in items:
         if p.get("type") == "暂定决策":
             continue
-        unrevealed = p.get("status") in OPEN_STATES or ((as_int(p.get("resolved_ch")) or 0) >= seq)
+        if is_dropped(p):
+            unrevealed = (dropped_ch(p) or 0) > seq
+        else:
+            unrevealed = p.get("status") in OPEN_STATES or ((paid_ch(p) or 0) >= seq)
         if not unrevealed:
             continue
         line = infer_line(p)
@@ -99,11 +122,43 @@ def dark_line_cooling(items, seq: int, limit: int = DARK_LINE_COOL) -> list:
     return out
 
 
-def plight_lines(d: dict) -> list:
-    pl = d.get("plight") or {}
+def _format_plight(pl: dict) -> list:
     mapping = (("overhead", "头顶恶规／大山"), ("peers", "身边暗箭／同侪"),
                ("shortfall", "兜里短板／软肋"), ("leverage", "唯一生门／支点"))
     return [f"- {label}：{pl[k]}" for k, label in mapping if pl.get(k)]
+
+
+def _history_plight_for_seq(history: list, seq: int):
+    snap = None
+    for h in history or []:
+        h_since = as_int(h.get("since_ch")) or 1
+        h_until = as_int(h.get("until_ch"))
+        if h_since <= seq and (h_until is None or seq <= h_until):
+            snap = h
+    return snap
+
+
+def plight_lines(d: dict, seq: int = None) -> list:
+    pl = d.get("plight") or {}
+    current_formatted = _format_plight(pl)
+    if seq is None:
+        return current_formatted
+    history = d.get("plight_history") or []
+    if current_formatted:
+        since = as_int(pl.get("since_ch"))
+        cur_u = open_unit(d)
+        if since is None and cur_u and (as_int(cur_u.get("start")) or 0) > seq and current_chapter(d) >= seq:
+            since = as_int(cur_u.get("start"))
+        if since is not None and seq < since:
+            snap = _history_plight_for_seq(history, seq)
+            if snap:
+                return _format_plight(snap)
+            return [f"- （第 {seq} 章缺少当时处境历史记录；当前登记处境自第 {since} 章起生效，已隔离未来情报）"]
+        return current_formatted
+    snap = _history_plight_for_seq(history, seq)
+    if snap:
+        return _format_plight(snap)
+    return []
 
 
 def reader_now_lines(book_dir: Path, d: dict, seq: int, top: int = 5, mask_truth: bool = False):
@@ -118,7 +173,9 @@ def reader_now_lines(book_dir: Path, d: dict, seq: int, top: int = 5, mask_truth
     out += [f"- {k['id']} {k['fact']}——{'、'.join(k['unknown_to'])} 还不知道" for k in gaps[:top]] or ["- （无登记的信息差）"]
     out += ["", "**在等什么（强度最高的开放承诺）**"]
     waiting = [p for p in items if p.get("type") not in NON_READER_TYPES
-               and (p.get("status") in OPEN_STATES or ((as_int(p.get("resolved_ch")) or 0) >= seq))
+               and (p.get("status") in OPEN_STATES
+                    or (is_paid(p) and (paid_ch(p) or 0) >= seq)
+                    or (is_dropped(p) and (dropped_ch(p) or 0) > seq))
                and (as_int(p.get("created_ch")) or 0) < seq
                and not (mask_truth and is_secret_foreshadow(p))]
     waiting.sort(key=lambda p: (-(p.get("strength") or 0), as_int(p.get("created_ch")) or 0))
@@ -154,12 +211,13 @@ def reader_now_lines(book_dir: Path, d: dict, seq: int, top: int = 5, mask_truth
     tired = [f"章尾钩子「{t}」近 5 章用了 {hooks.count(t)} 次" for t in dict.fromkeys(hooks) if hooks.count(t) >= 3]
     colors = [x for _, m in moods for x in m.get("colors", [])]
     tired += [f"情绪「{x}」近 5 章出现 {colors.count(x)} 次" for x in dict.fromkeys(colors) if colors.count(x) >= 3]
-    desires = [p.get("desire") for p in items if p.get("type") == "爽点欠账" and p.get("status") == "已兑现"
-               and p.get("desire") and seq - 10 <= (p.get("resolved_ch") or -99) < seq]
+    desires = [p.get("desire") for p in items if p.get("type") == "爽点欠账" and is_paid(p)
+               and p.get("desire") and seq - 10 <= (paid_ch(p) or -99) < seq]
     tired += [f"爽感谱系第 {x} 型近 10 章兑现了 {desires.count(x)} 次" for x in dict.fromkeys(desires) if desires.count(x) >= 3]
     out += [f"- {t}" for t in tired] or ["- （无明显重复）"]
-    cur = current_chapter(d)
-    alerts = [p for p in items if (promise_overdue(p, cur) or promise_due_soon(p, cur))
+    ref_ch = min(current_chapter(d), max(seq - 1, 0))
+    alerts = [p for p in items if (as_int(p.get("created_ch")) or 0) < seq
+              and (promise_overdue(p, ref_ch) or promise_due_soon(p, ref_ch))
               and not (mask_truth and is_secret_foreshadow(p))]
     if alerts:
         out += ["", "**到期提醒**"]
@@ -187,7 +245,7 @@ def focus_core(book_dir: Path, d: dict, seq: int) -> list:
         out.append(f"- 第{c['seq']}章：" + ("；".join(turns) or "（场景卡缺失）") + (f"｜章尾钩子：{hook['type']}" if hook.get("type") else ""))
     if not done:
         out.append("- （无）")
-    u = open_unit(d)
+    u = unit_for_chapter(d, seq)
     locks = []
     if u and u.get("countdown"):
         locks.append(f"悬顶倒计时：{u['countdown']}")
@@ -195,7 +253,9 @@ def focus_core(book_dir: Path, d: dict, seq: int) -> list:
         locks.append(f"台阶跃迁目标：{u['milestone']}")
     if locks:
         out += ["", "**本单元推进锁**"] + [f"- {x}" for x in locks]
-    pl = plight_lines(d)
+    elif d.get("units") and any((as_int(x.get("start")) or 0) > seq for x in d.get("units", [])):
+        out += ["", "**本单元推进锁**", f"- （第 {seq} 章无在期单元记录；后续单元信息已按目标章隔离）"]
+    pl = plight_lines(d, seq=seq)
     if pl:
         out += ["", "**主角当下处境（四维高压挤压）**"] + pl
     return out
@@ -322,6 +382,7 @@ def cmd_promise(a):
         elif a.action == "resolve":
             p["status"] = "已兑现"
             p["resolved_ch"] = a.ch
+            p.pop("dropped_ch", None)
             if a.note:
                 p["resolve_note"] = a.note
             msg = f"OK {a.id} 第{a.ch}章兑现"
@@ -336,7 +397,8 @@ def cmd_promise(a):
             if not (a.compensation or "").strip():
                 die("承诺作废必须写 --compensation（给读者的交代或替代兑现）")
             p["status"] = "作废"
-            p["resolved_ch"] = a.ch
+            p["dropped_ch"] = a.ch
+            p["resolved_ch"] = None
             p["compensation"] = a.compensation
             msg = f"OK {a.id} 第{a.ch}章作废，补偿：{a.compensation}"
     write_json(book_dir / PROMISES, data)
@@ -415,20 +477,49 @@ def cmd_plight(a):
     """主角四维高压处境账（头顶恶规、身边暗箭、兜里短板、唯一生门）。"""
     book_dir = Path(a.book_dir)
     d = load(book_dir)
+    cur_u = open_unit(d)
+    last_closed_end = max(
+        [as_int(u.get("end")) or 0 for u in d.get("units", []) if u.get("status") == "closed"],
+        default=0,
+    )
+    base_next_ch = max(current_chapter(d) + 1, last_closed_end + 1)
+    effective_ch = max(base_next_ch, as_int(cur_u.get("start")) or 1) if cur_u else base_next_ch
     if a.clear:
+        old_pl = d.get("plight")
+        if old_pl and any(old_pl.get(k) for k in ("overhead", "peers", "shortfall", "leverage")):
+            prev_since = as_int(old_pl.get("since_ch")) or 1
+            if prev_since < effective_ch:
+                snap = {k: old_pl[k] for k in ("overhead", "peers", "shortfall", "leverage") if old_pl.get(k)}
+                snap["since_ch"] = prev_since
+                snap["until_ch"] = effective_ch - 1
+                d.setdefault("plight_history", []).append(snap)
         d.pop("plight", None)
+        d["plight_cleared_ch"] = effective_ch
         save(book_dir, d)
         print("OK 已清空主角处境账")
         return
     updates = {k: getattr(a, k) for k in ("overhead", "peers", "shortfall", "leverage") if getattr(a, k) is not None}
     if updates:
+        old_pl = dict(d.get("plight") or {})
+        old_fields = {k: old_pl[k] for k in ("overhead", "peers", "shortfall", "leverage") if old_pl.get(k)}
+        prev_since = as_int(old_pl.get("since_ch")) or 1
+        if old_fields and prev_since < effective_ch:
+            d.setdefault("plight_history", []).append(
+                {**old_fields, "since_ch": prev_since, "until_ch": effective_ch - 1}
+            )
         pl = d.setdefault("plight", {})
+        cleared_ch = as_int(d.get("plight_cleared_ch"))
+        if not old_fields or prev_since < effective_ch:
+            pl["since_ch"] = max(effective_ch, cleared_ch or 1) if not old_fields else effective_ch
+        else:
+            pl.setdefault("since_ch", effective_ch)
+        d.pop("plight_cleared_ch", None)
         for k, v in updates.items():
             if v.strip():
                 pl[k] = v.strip()
             else:
                 pl.pop(k, None)
-        if not pl:
+        if not any(pl.get(k) for k in ("overhead", "peers", "shortfall", "leverage")):
             d.pop("plight", None)
         save(book_dir, d)
         lines = plight_lines(d)

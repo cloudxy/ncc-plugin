@@ -27,7 +27,9 @@ createRoot(document.getElementById("root")!).render(
           colorPrimary: "#245d4d",
           colorInfo: "#245d4d",
           colorBgLayout: "#f5f6f8",
-          borderRadius: 8,
+          colorTextSecondary: "#3e5147",
+          colorTextDisabled: "#3e5147",
+          borderRadius: 0,
           fontFamily:
             '-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif',
         },

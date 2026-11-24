@@ -1,0 +1,16 @@
+{
+  "id": "P03",
+  "suite": "对照",
+  "era": "古代",
+  "seq": 10,
+  "prev_hook": {
+    "type": "悬剑钩",
+    "intensity": 4,
+    "line": "巷口火把齐亮，黑衣捕头刀锋一指：“搜他药箱！”",
+    "next": "沈砚在南巷口应对捕头盘查药箱之危"
+  },
+  "verdict": "pass",
+  "mech": [],
+  "mech_clean": true,
+  "expected": []
+}

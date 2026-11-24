@@ -25,7 +25,7 @@ v4提供PostgreSQL知识底座、Python/FastAPI服务、React管理后台与创�
 
 AI正文、纲要、设定、抽取和修订按P1–P5量表给分项、证据和总分，系统执行有限返修；作者可直接修改、暂停或采用。自动定稿支持有范围、期限和次数的作者试运行或已校准策略；试运行保留质量闸门并记录校准未验证。
 
-配置由Dynaconf统一管理，公共默认值归`config/default/settings.toml`，个性化连接与凭据归`config/.env`，命令自动读取。数据库只使用一个正式库及其同连接的`正式库-test`测试库。
+配置由Dynaconf统一管理，公共默认值归`config/default/settings.toml`，个性化连接与凭据归`config/.env`，命令自动读取。数据库只使用线上库`ncc-pro`及其同连接的本地测试库`ncc-dev`。
 
 PostgreSQL只读MCP供AI检索作品资料；非MCP可通过后台、HTTP接口及`ncc-data data`直接查询、创建、编辑和更新，统一保留权限、版本与审计。
 

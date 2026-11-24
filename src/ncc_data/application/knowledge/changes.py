@@ -2,7 +2,7 @@ import copy
 
 from sqlalchemy import func, select
 
-from ncc_data.application.knowledge.queries import QueryService
+from ncc_data.application.knowledge.queries import QueryService, ResolvedDefinition
 from ncc_data.application.security import authorize
 from ncc_data.domain.contracts import ChangeInput, DefinitionInput, FactInput
 from ncc_data.domain.validation import validate_definition, validate_values
@@ -151,7 +151,7 @@ class ChangeService(QueryService):
         row.approved_hash, row.approver_id, row.state = self.approval_digest(row), self.actor.id, "approved"
         return self.change_json(row)
 
-    async def apply_change(self, scope_id, change_id, key):
+    async def apply_change(self, scope_id, change_id, key, receipt_extra=None):
         require(isinstance(key, str) and 1 <= len(key) <= 128, "idempotency", "采用操作必须提供幂等键")
         scope, _, row = await self.change(scope_id, change_id, "adopt", lock=True)
         request_hash = digest({"change": row.id, "draft": row.draft_version, "ops": row.operations})
@@ -189,6 +189,10 @@ class ChangeService(QueryService):
         impacts = await self._operations(scope, row)
         row.state, row.applied_version = "applied", scope.version
         result = {"change_id": row.id, "version": scope.version, "impacts": impacts}
+        extra = getattr(self, "_receipt_extra", None) or receipt_extra
+        if extra:
+            self._receipt_extra = None
+            result = {**result, **extra}
         self.db.add(
             Receipt(
                 scope_id=scope_id, actor_id=self.actor.id, key=key, request_hash=request_hash, result=result
@@ -209,11 +213,11 @@ class ChangeService(QueryService):
         await self.db.flush()
         return result
 
-    async def adopt(self, scope_id, change_id, key):
+    async def adopt(self, scope_id, change_id, key, receipt_extra=None):
         """A single author action; not an alternative business write path."""
         _, _, row = await self.change(scope_id, change_id, "adopt")
         if row.state == "applied":
-            return await self.apply_change(scope_id, change_id, key)
+            return await self.apply_change(scope_id, change_id, key, receipt_extra=receipt_extra)
         result = await self.validate_change(scope_id, change_id)
         require(
             result["validation"]["valid"],
@@ -223,7 +227,7 @@ class ChangeService(QueryService):
             errors=result["validation"]["errors"],
         )
         await self.approve_change(scope_id, change_id)
-        return await self.apply_change(scope_id, change_id, key)
+        return await self.apply_change(scope_id, change_id, key, receipt_extra=receipt_extra)
 
     async def _save_body(self, scope, identity, body, change_id):
         content_hash = digest(body)
@@ -422,7 +426,8 @@ class ChangeService(QueryService):
                         412,
                         current_version=previous["version"],
                     )
-                definition = await self.db.get(Definition, body["definition_id"])
+                raw_def = await self.db.get(Definition, body["definition_id"])
+                definition = ResolvedDefinition(raw_def) if raw_def is not None else None
                 if op.get("definition_id"):
                     require("secret" in actions, "definition_upgrade", "定义升级需要完整属性权限", 403)
                     adopted = await self.definition(scope, body["kind"])
@@ -440,7 +445,8 @@ class ChangeService(QueryService):
                         k: copy.deepcopy(old[k])
                         for k in ("kind", "name", "data", "text", "secret", "deleted", "definition_id")
                     }
-                    definition = await self.db.get(Definition, body["definition_id"])
+                    raw_def = await self.db.get(Definition, body["definition_id"])
+                    definition = ResolvedDefinition(raw_def) if raw_def is not None else None
                 if action == "update":
                     if op.get("reactivate"):
                         body["deleted"] = False

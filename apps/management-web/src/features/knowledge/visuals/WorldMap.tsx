@@ -1,4 +1,3 @@
-import { Input, Select, Space } from "antd";
 import Feature from "ol/Feature";
 import Map from "ol/Map";
 import View from "ol/View";
@@ -16,92 +15,85 @@ import {
   Style,
   Text as TextStyle,
 } from "ol/style";
-import { useEffect, useRef, useState } from "react";
-import { type Entity } from "../../../shared/api";
+import { useEffect, useRef } from "react";
+
+export type MapMarker = { id: string; name: string; x: string; y: string };
+
+function extentOf(points: MapMarker[]): [number, number, number, number] {
+  if (points.length === 0) return [0, 0, 2000, 1200];
+  let minX = Number(points[0].x);
+  let maxX = minX;
+  let minY = Number(points[0].y);
+  let maxY = minY;
+  for (const point of points) {
+    const x = Number(point.x);
+    const y = Number(point.y);
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y);
+    maxY = Math.max(maxY, y);
+  }
+  if (minX === maxX) {
+    minX -= 1;
+    maxX += 1;
+  }
+  if (minY === maxY) {
+    minY -= 1;
+    maxY += 1;
+  }
+  return [minX, minY, maxX, maxY];
+}
 
 export function WorldMap({
-  scope,
-  entities,
+  points,
+  imageUrl,
 }: {
-  scope: string;
-  entities: Entity[];
+  points: MapMarker[];
+  imageUrl?: string;
 }) {
-  const element = useRef<HTMLDivElement>(null),
-    [frame, setFrame] = useState("local"),
-    [attachment, setAttachment] = useState(""),
-    [url, setUrl] = useState<string>();
-  const frames = Array.from(
-    new Set([
-      "local",
-      ...entities.map((e) => e.data.coordinate?.frame).filter(Boolean),
-    ]),
-  );
+  const element = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!attachment) {
-      setUrl(undefined);
-      return;
-    }
-    let object: string | undefined,
-      active = true;
-    fetch(`/api/v1/scopes/${scope}/attachments/${attachment}`, {
-      credentials: "same-origin",
-    })
-      .then((r) => {
-        if (!r.ok) throw Error("底图不可访问");
-        return r.blob();
-      })
-      .then((blob) => {
-        if (!active) return;
-        object = URL.createObjectURL(blob);
-        setUrl(object);
-      })
-      .catch(() => setUrl(undefined));
-    return () => {
-      active = false;
-      if (object) URL.revokeObjectURL(object);
-    };
-  }, [attachment, scope]);
-  useEffect(() => {
-    if (!element.current) return;
+    const host = element.current;
+    if (!host) return;
+    const tone = getComputedStyle(host).color || "CanvasText";
+    const extent = extentOf(points);
     const projection = new Projection({
-      code: "NCC:" + frame,
+      code: "NCC:places",
       units: "pixels",
-      extent: [0, 0, 2000, 1200],
+      extent,
     });
-    const markers = entities
-      .filter((e) => e.data.coordinate?.frame === frame)
-      .map((e) => {
-        const c = e.data.coordinate;
-        const f = new Feature({
-          geometry: new Point([Number(c.x), Number(c.y)]),
-          name: e.name,
-        });
-        f.setStyle(
-          new Style({
-            image: new CircleStyle({
-              radius: 6,
-              fill: new Fill({ color: "#245d4d" }),
-              stroke: new Stroke({ color: "#fff", width: 2 }),
-            }),
-            text: new TextStyle({
-              text: e.name,
-              offsetY: -16,
-              font: "13px sans-serif",
-              fill: new Fill({ color: "#213d31" }),
-              stroke: new Stroke({ color: "#fff", width: 3 }),
-            }),
-          }),
-        );
-        return f;
+    const markers = points.map((point) => {
+      const feature = new Feature({
+        geometry: new Point([Number(point.x), Number(point.y)]),
+        name: point.name,
       });
-    const layers: any[] = [];
-    if (url)
+      feature.setId(point.id);
+      feature.setStyle(
+        new Style({
+          image: new CircleStyle({
+            radius: 6,
+            fill: new Fill({ color: tone }),
+            stroke: new Stroke({ color: "Canvas", width: 2 }),
+          }),
+          text: new TextStyle({
+            text: point.name,
+            offsetY: -16,
+            font: "13px sans-serif",
+            fill: new Fill({ color: tone }),
+            stroke: new Stroke({ color: "Canvas", width: 3 }),
+          }),
+        }),
+      );
+      return feature;
+    });
+    const layers = [];
+    if (imageUrl)
       layers.push(
         new ImageLayer({
           source: new ImageStatic({
-            url,
+            url: imageUrl,
             projection,
-            imageExtent: [0, 0, 2000, 1200],
+            imageExtent: extent,
           }),
         }),
       );
@@ -109,43 +101,40 @@ export function WorldMap({
       new VectorLayer({ source: new VectorSource({ features: markers }) }),
     );
     const map = new Map({
-      target: element.current,
+      target: host,
       layers,
       view: new View({
         projection,
-        center: [1000, 600],
+        center: [(extent[0] + extent[2]) / 2, (extent[1] + extent[3]) / 2],
         zoom: 1,
         minZoom: -2,
         maxZoom: 8,
       }),
     });
-    map
-      .getView()
-      .fit([0, 0, 2000, 1200], { size: [900, 500], padding: [30, 30, 30, 30] });
+    map.getView().fit(extent, { padding: [30, 30, 30, 30] });
     return () => map.setTarget(undefined);
-  }, [entities, frame, url]);
+  }, [points, imageUrl]);
   return (
-    <>
-      <Space wrap style={{ marginBottom: 16 }}>
-        <Select
-          aria-label="地图坐标系"
-          value={frame}
-          onChange={setFrame}
-          style={{ width: 200 }}
-          options={frames.map((value) => ({ value, label: value }))}
-        />
-        <Input.Search
-          placeholder="可访问的底图附件ID（可选）"
-          style={{ width: 360 }}
-          onSearch={setAttachment}
-          enterButton="加载底图"
-        />
-      </Space>
+    <div className="map-board">
       <div
         ref={element}
         className="world-map"
-        aria-label="虚构地图与地点标注"
+        data-component="map-board"
+        data-marker-count={points.length}
+        data-marker-ids={points.map((point) => point.id).join(" ")}
+        aria-label="只画出有坐标的地点"
       />
-    </>
+      <ol className="marker-ledger">
+        {points.map((point) => (
+          <li
+            key={point.id}
+            data-marker={point.id}
+            data-x={point.x}
+            data-y={point.y}
+          />
+        ))}
+      </ol>
+      <p className="rel-caption">移动视图不改地理事实。</p>
+    </div>
   );
 }

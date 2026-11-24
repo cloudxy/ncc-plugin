@@ -8,12 +8,13 @@ from mcp.types import ToolAnnotations
 from pydantic import ValidationError
 
 from ncc_data.application.access import DataAccess
-from ncc_data.runtime.settings import Settings
+from ncc_data.runtime.settings import Settings, resolve_profile
+from ncc_shared.configuration import configuration
 from ncc_shared.database import DatabaseNotConfigured
 from ncc_shared.errors import DomainError
 
 
-def create_server(config=None, profile="production", access=None):
+def create_server(config=None, profile=None, access=None):
     current = access
 
     def reader():
@@ -55,10 +56,16 @@ def create_server(config=None, profile="production", access=None):
         try:
             return await reader().status()
         except DatabaseNotConfigured:
+            resolved = profile
+            if resolved is None:
+                try:
+                    resolved = resolve_profile(configuration(config))
+                except ValueError:
+                    resolved = "local"
             return {
                 "configured": False,
                 "connected": False,
-                "profile": profile,
+                "profile": resolved,
                 "detail": "请在config/.env填写已确定的PostgreSQL参数",
             }
         except DomainError as error:

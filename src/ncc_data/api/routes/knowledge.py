@@ -10,6 +10,7 @@ from ncc_data.domain.contracts import (
     MaintenanceInput,
     Query,
     ScopeInput,
+    ScopeRename,
     StateQuery,
 )
 from ncc_data.domain.creation import REVISION_SCHEMES, SCHEME_LABELS
@@ -41,6 +42,10 @@ def build_router(service):
     @router.get("/api/v1/scopes/{sid}")
     async def scope_info(sid: str, svc: Service = Depends(service, scope="function")):
         return await svc.scope_info(sid)
+
+    @router.patch("/api/v1/scopes/{sid}")
+    async def rename_scope(sid: str, value: ScopeRename, svc: Service = Depends(service, scope="function")):
+        return await svc.rename_scope(sid, value)
 
     @router.get("/api/v1/scopes/{sid}/definitions")
     async def definitions(sid: str, svc: Service = Depends(service, scope="function")):

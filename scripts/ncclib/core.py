@@ -446,6 +446,20 @@ def load_cfg(book_dir: Path) -> dict:
     return resolved_config(book_dir)[0]
 
 
+def min_decidable_of(where: Path) -> float:
+    """读取硬伤层可判定率下限（默认 0.8，支持书库与本书 ncc.config.yaml 覆盖）。"""
+    where = Path(where)
+    root = book_root(where)
+    val = 0.8
+    candidates = [root / "ncc.config.yaml"] + ([where / "ncc.config.yaml"] if root != where else [])
+    for p in candidates:
+        if p.is_file():
+            matches = re.findall(r"^\s*min_decidable:[ \t]*([0-9]+(?:\.[0-9]+)?)[ \t]*(?:#.*)?$", p.read_text("utf-8"), re.M)
+            if matches:
+                val = float(matches[-1])
+    return val
+
+
 def ledger(book_dir: Path, rel: str, key: str = "items"):
     return read_json(book_dir / rel, {key: [] if key != "facts" else {}})
 
@@ -560,6 +574,24 @@ def ensure_m3_fields(d: dict):
 
 def open_unit(d):
     return next((u for u in d.get("units", []) if u.get("status") == "open"), None)
+
+
+def unit_for_chapter(d: dict, seq: int):
+    """Locate the unit covering target chapter seq without leaking future units."""
+    units = sorted(d.get("units", []), key=lambda u: as_int(u.get("start")) or 0)
+    matched = None
+    for idx, u in enumerate(units):
+        start = as_int(u.get("start"))
+        if start is None or start > seq:
+            continue
+        end = as_int(u.get("end"))
+        next_start = as_int(units[idx + 1].get("start")) if idx + 1 < len(units) else None
+        if end is not None and seq > end:
+            continue
+        if end is None and next_start is not None and seq >= next_start:
+            continue
+        matched = u
+    return matched
 
 
 def open_volume(d):

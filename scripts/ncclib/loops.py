@@ -5,10 +5,10 @@ import hashlib
 import re
 import sys
 from pathlib import Path
-from .core import (DARK_LINE_COOL, L, MEMORY_CFG, MEMORY_LOG, SANDBOX_DIR, TRACK_PLAYBOOK, as_int, book_root, next_seq, read_jsonl, scene_path, EVENTS, FEEDBACK_KINDS, FEEDBACK_SOURCES, FINALE_LIST, FINALE_REQUIRED, KNOWLEDGE, NON_READER_TYPES, OPEN_STATES, PROMISES, READER_DATA, REVIEW_DIR, TEAM_POSITIONS, UNIT_REVIEW_REQUIRED, VOLUME_REVIEW_REQUIRED, current_chapter, die, ensure_m3_fields, ledger, load, load_cfg, mood_of, normalize_domain, now, open_unit, open_volume, range_chapters, read_json, save, write_json)
-from .ledgers import chapter_touches, dark_line_cooling, infer_line, plight_lines, promise_last_touch, promise_overdue
+from .core import (DARK_LINE_COOL, L, MEMORY_CFG, MEMORY_LOG, SANDBOX_DIR, TRACK_PLAYBOOK, as_int, book_root, next_seq, read_jsonl, scene_path, EVENTS, FEEDBACK_KINDS, FEEDBACK_SOURCES, FINALE_LIST, FINALE_REQUIRED, KNOWLEDGE, NON_READER_TYPES, OPEN_STATES, PROMISES, READER_DATA, REVIEW_DIR, TEAM_POSITIONS, UNIT_REVIEW_REQUIRED, VOLUME_REVIEW_REQUIRED, current_chapter, die, ensure_m3_fields, ledger, load, load_cfg, mood_of, normalize_domain, now, open_unit, open_volume, range_chapters, read_json, save, unit_for_chapter, write_json)
+from .ledgers import chapter_touches, dark_line_cooling, dropped_ch, infer_line, is_dropped, is_paid, paid_ch, plight_lines, promise_last_touch, promise_overdue
 from . materials import material_cards, material_usage
-from .scenes import knowledge_rows
+from .scenes import declared_reveal_ids, knowledge_rows, reveal_problems, revealing_ids
 from .views import GEN_BEGIN, GEN_RE, outside_block, write_block
 from .memory import consolidate_lines, handoff_open, memory_items, memory_roles
 from .techniques import settle, technique_refs
@@ -224,7 +224,7 @@ def cmd_report(a):
         out += ["", "## 故事审回顾", "", f"- 由发展编辑放行、待作者复看的章：{by_editor or '（无）'}",
                 "- 发展编辑的单元问题（待填）：最打动人的是什么？主角的选择够不够难？哪个配角比主角更鲜活？哪条线该删？主角失去了什么？主题之问从哪个角度被考验？"]
         made = [p for p in items if lo <= (p.get("created_ch") or -1) <= hi]
-        paid = [p for p in items if lo <= (p.get("resolved_ch") or -1) <= hi]
+        paid = [p for p in items if lo <= (paid_ch(p) or -1) <= hi or lo <= (dropped_ch(p) or -1) <= hi]
         water = [c["seq"] for c in chs if c.get("status") == "done" and not chapter_touches(items, c["seq"])]
         lost = [e for e in events if e.get("attribute") == "失去" and lo <= (e.get("chapter") or -1) <= hi]
         out += ["", "## 承诺", "", f"- 本段建立 {len(made)} 条，兑现或作废 {len(paid)} 条；水章：{water or '（无）'}", "- 逾期："] + plist(overdue)
@@ -351,26 +351,38 @@ def _sandbox_digest(text: str) -> str:
     return hashlib.sha256(text.strip().encode("utf-8")).hexdigest()[:16]
 
 
-SANDBOX_SHA_RE = re.compile(r"\n?<!-- ncc:sandbox-sha ([0-9a-f]{16}) -->\s*$")
-SANDBOX_STALE_NOTE = re.compile(r"^> ⚠ 底层台账或场景卡已变更[^\n]*\n\n", re.M)
+SANDBOX_SHA_RE = re.compile(r"\n?<!-- ncc:sandbox-sha ([0-9a-f]{16})(?: state=([0-9a-f:]+))? -->\s*$")
+SANDBOX_ANY_SHA_TAG = re.compile(r"<!--\s*ncc:sandbox-sha\b")
+SANDBOX_STALE_NOTE = re.compile(r"^> ⚠ 底层台账或场景卡已变更（快照 ([0-9a-f]{16}) → ([0-9a-f]{16})）[^\n]*\n\n", re.M)
+
+
+def _has_explicit_digest_ack(outside: str, digest_hex: str) -> bool:
+    if not outside or not digest_hex:
+        return False
+    pattern = rf"(?:已复核(?:快照|摘要)?|复核(?:快照|摘要|确认)|确认(?:快照|摘要)|ack(?:-sha)?)[：:\s`]*{re.escape(digest_hex)}\b"
+    return bool(re.search(pattern, outside, re.I))
 
 
 def sandbox_lines(book_dir: Path, d: dict, lo: int = None, hi: int = None):
-    u = open_unit(d)
+    open_u = open_unit(d)
     if lo is None:
-        lo = u["start"] if u else (1 if d.get("stage") == "opening" else next_seq(d))
+        lo = open_u["start"] if open_u else (1 if d.get("stage") == "opening" else next_seq(d))
+    u = unit_for_chapter(d, lo)
     if hi is None:
         if d.get("stage") == "opening" and not u:
             hi = max(3, lo + 2)
+        elif u and lo == u["start"] and as_int(u.get("end")):
+            hi = as_int(u["end"])
         else:
-            reg_max = max([c["seq"] for c in d.get("chapters", []) if c["seq"] >= lo] or [0])
-            hi = max(reg_max, lo + 9)
+            near_reg = max([c["seq"] for c in d.get("chapters", []) if lo <= c["seq"] <= lo + 11] or [0])
+            hi = max(near_reg, lo + 9)
     if hi < lo:
         die("--to 不能小于 --from")
     label = f"单元 {u['id']}{'《' + u['title'] + '》' if u.get('title') else ''}" if (u and lo == u["start"]) else f"第{lo}–{hi}章"
     target = f"{SANDBOX_DIR}/单元-{u['id']}.md" if (u and lo == u["start"]) else f"{SANDBOX_DIR}/ch-{lo:04d}-{hi:04d}.md"
     items = ledger(book_dir, PROMISES)["items"]
     soul = d.get("soul") or {}
+    has_future_unit_only = u is None and any((as_int(x.get("start")) or 0) > lo for x in d.get("units", []))
     out = [f"# 战前剧情沙盘：{label}（第{lo}–{hi}章）", "",
            "> 每一个剧情展开前先看本沙盘：同屏核对处境枷锁、明暗灰三线交织与爽点断章排布，把剧情优化好再正式开火动笔。", ""]
 
@@ -384,22 +396,37 @@ def sandbox_lines(book_dir: Path, d: dict, lo: int = None, hi: int = None):
         out.append(f"- 赛道白金母本：已挂载专属 `{TRACK_PLAYBOOK}`" + (f"（{pb_extra}）" if pb_extra else ""))
     else:
         out.append(f"- 赛道白金母本：通用五大母本底盘（提出想写细分赛道时可深挖生成 `{TRACK_PLAYBOOK}`）")
-    out.append(f"- 悬顶倒计时锁：{u.get('countdown') if u and u.get('countdown') else '⚠ 未设置（建议 unit open --countdown 挂上时间死锁，防慢热散步）'}")
-    out.append(f"- 10章跃迁台阶：{u.get('milestone') if u and u.get('milestone') else '⚠ 未设置（建议明确本轮结束主角跨上的可见新台阶）'}")
+    if u and u.get("countdown"):
+        out.append(f"- 悬顶倒计时锁：{u['countdown']}")
+    elif has_future_unit_only:
+        out.append(f"- 悬顶倒计时锁：（第 {lo} 章无在期单元记录；后续单元倒计时已按目标章隔离）")
+    else:
+        out.append("- 悬顶倒计时锁：⚠ 未设置（建议 unit open --countdown 挂上时间死锁，防慢热散步）")
+    if u and u.get("milestone"):
+        out.append(f"- 10章跃迁台阶：{u['milestone']}")
+    elif has_future_unit_only:
+        out.append(f"- 10章跃迁台阶：（第 {lo} 章无在期单元记录；后续单元台阶已按目标章隔离）")
+    else:
+        out.append("- 10章跃迁台阶：⚠ 未设置（建议明确本轮结束主角跨上的可见新台阶）")
     mid_ch = (lo + hi) // 2 if (hi - lo + 1) >= 6 else None
     if mid_ch is not None:
         out.append(f"- 单元五拍中点锚：第 {mid_ch} 章（前半受压拿牌 → 中点摸清底牌转入主动设局反猎杀 → 至暗封路 → 掀桌收网＋开箱余波）")
     arc_info = f"{soul.get('arc') or '未定'}" + (f" · 当前刻度「{soul['arc_stage']}」" if soul.get("arc_stage") else "")
     arc_ch_info = f"，本轮显影章：第 {u['arc_ch']} 章" if (u and u.get("arc_ch")) else ""
     out.append(f"- 主角弧光坐标：{arc_info}{arc_ch_info}")
-    pl = plight_lines(d)
+    pl = plight_lines(d, seq=lo)
     if pl:
         out += ["- 主角四维高压处境："] + [f"  {x}" for x in pl]
     else:
         out.append("- 主角四维高压处境：⚠ 未登记（建议用 `plight` 填清头顶恶规、身边暗箭、兜里短板、唯一生门）")
 
     out += ["", "## 二、明·暗·灰三线交织进度表", ""]
-    active = [p for p in items if p.get("status") in OPEN_STATES and p.get("type") != "暂定决策"]
+    active = [
+        p for p in items
+        if p.get("status") in OPEN_STATES
+        and p.get("type") != "暂定决策"
+        and (as_int(p.get("created_ch")) or 0) <= hi
+    ]
     unplanned_cool = []
     if active:
         out += ["| 编号 | 叙事线 | 类型／强度 | 明面伪装或内容 | 里层真相（写手包隔离） | 距上次触碰 | 本轮排布 |",
@@ -408,7 +435,7 @@ def sandbox_lines(book_dir: Path, d: dict, lo: int = None, hi: int = None):
             line = infer_line(p)
             gap = max(lo - promise_last_touch(p, before_seq=lo), 0)
             planned = [seq for seq in range(lo, hi + 1)
-                       if p.get("created_ch") == seq or p.get("resolved_ch") == seq
+                       if p.get("created_ch") == seq or paid_ch(p) == seq
                        or any(e.get("ch") == seq for e in p.get("progress", []))
                        or (scene_path(book_dir, seq).is_file() and p["id"] in scene_path(book_dir, seq).read_text("utf-8"))
                        or ((book_dir / L("chapter_outlines") / f"ch-{seq:04d}.md").is_file()
@@ -427,13 +454,14 @@ def sandbox_lines(book_dir: Path, d: dict, lo: int = None, hi: int = None):
             "| 章号 | 定位 | 翻转与第一手受挫 | 承诺／爽点动作 | 二阶后果（新隐患） | 张力／情绪 | 章尾断章钩 |",
             "|---|---|---|---|---|---|---|"]
     chs_by_seq = {c["seq"]: c for c in d.get("chapters", [])}
-    blank_chs, tension_seq, hook_seq, desire_seq, weave_chs, resolved_old, converge_chs = [], [], [], [], [], [], []
+    blank_chs, tension_seq, hook_seq, desire_seq, weave_chs, resolved_old, converge_chs, same_ch_only_chs, bad_reveals = [], [], [], [], [], [], [], [], []
     for seq in range(lo, hi + 1):
         c = chs_by_seq.get(seq, {})
+        u_seq = unit_for_chapter(d, seq)
         role_tags = []
         if c.get("key", seq <= 3):
             role_tags.append("关键章")
-        if u and u.get("arc_ch") == seq:
+        if u_seq and u_seq.get("arc_ch") == seq:
             role_tags.append("弧光章")
         if mid_ch == seq:
             role_tags.append("中点反守为攻")
@@ -447,20 +475,39 @@ def sandbox_lines(book_dir: Path, d: dict, lo: int = None, hi: int = None):
             turn = f"{turn}｜受挫：{setback}"
         aftermath = _card_field(card_txt, ("二阶后果", "新隐患", "新麻烦")) or "—"
         touches = chapter_touches(items, seq)
-        rev_mark = set(re.findall(r"\b[A-Z]{1,4}-\d{4}\b", " ".join(re.findall(r"(?:伏笔回收|回收伏笔|揭晓伏笔|兑现承诺|本场兑现)[：:][^\n]*", card_txt + "\n" + out_txt))))
+        rev_mark = revealing_ids(card_txt + "\n" + out_txt, items=items, seq=seq)
         for p in items:
-            if (p.get("resolved_ch") == seq or p["id"] in rev_mark) and p.get("type") in ("伏笔", "悬念") and (as_int(p.get("created_ch")) or seq) < seq:
+            if not is_dropped(p) and (paid_ch(p) == seq or p["id"] in rev_mark) and p.get("type") in ("伏笔", "悬念") and (as_int(p.get("created_ch")) or seq) < seq:
                 resolved_old.append((seq, p["id"]))
         ref_ids = [p["id"] for p in active if (p["id"] in card_txt or p["id"] in out_txt) and p["id"] not in {i for i, _ in touches}]
-        paid_ids = {p["id"] for p in items if p.get("resolved_ch") == seq} | rev_mark
-        if len(paid_ids) >= 2:
+        scene_blocks = re.split(r"^##\s*场景", card_txt, flags=re.M)[1:] if card_txt else []
+        for prob in reveal_problems(book_dir, seq, scene_blocks or ([out_txt] if out_txt else []), card_txt + "\n" + out_txt):
+            bad_reveals.append(f"第{seq}章{prob}")
+        same_scene_converge = False
+        if scene_blocks:
+            for blk in scene_blocks:
+                blk_ids = revealing_ids(blk, items=items, seq=seq)
+                if len(blk_ids) >= 2:
+                    same_scene_converge = True
+                    break
+        paid_ids = {
+            p["id"]
+            for p in items
+            if paid_ch(p) == seq
+            and not is_dropped(p)
+            and p.get("type") not in NON_READER_TYPES
+            and (as_int(p.get("created_ch")) or 0) <= seq
+        } | rev_mark
+        if same_scene_converge:
             converge_chs.append(seq)
+        elif len(paid_ids) >= 2:
+            same_ch_only_chs.append(seq)
         touch_parts = [f"{i}:{'回收' if i in rev_mark else k}" for i, k in touches] + [f"{i}:{'计划回收' if i in rev_mark else '计划'}" for i in ref_ids]
         lines_hit = {infer_line(p) for p in items if p["id"] in {i for i, _ in touches} | set(ref_ids)}
         if "明线" in lines_hit and (lines_hit & {"暗线", "灰线"}):
             weave_chs.append(seq)
         for p in items:
-            if p.get("resolved_ch") == seq and p.get("desire"):
+            if paid_ch(p) == seq and p.get("desire"):
                 desire_seq.append(str(p["desire"]))
         m = mood_of(c) if c.get("mood") else None
         mood_txt = (f"{m['tension']}" + (f"（{'、'.join(m['colors'])}）" if m.get("colors") else "")) if m else (_card_field(card_txt or out_txt, ("情感", "情绪点")) or "—")
@@ -508,6 +555,10 @@ def sandbox_lines(book_dir: Path, d: dict, lo: int = None, hi: int = None):
         findings.append(f"- **明暗交织达标**：第 {'、'.join(map(str, weave_chs))} 章已实现明线与暗/灰线同章交织。")
     if converge_chs:
         findings.append(f"- **多线雪崩合拢达标**：第 {'、'.join(map(str, converge_chs))} 章同场引爆兑现 ≥2 条线索（Sanderlanche 合拢）。")
+    if same_ch_only_chs:
+        findings.append(f"- **同章多线兑现（未证同场）**：第 {'、'.join(map(str, same_ch_only_chs))} 章同章兑现 ≥2 条线索，但缺少同一场景卡 `## 场景 N` 同场回收证据，暂不计入同场合拢。")
+    if bad_reveals:
+        findings.append("- **[错号定位告警] 伏笔回收引用无效**：" + "；".join(bad_reveals[:5]))
     if unplanned_cool:
         findings.append("- **[后台自修项] 暗香断档报警**：" + "；".join(f"{p['id']}（已沉底 {gap} 章，本轮尚未排入）" for p, _, gap in unplanned_cool[:3]) + "，由 `outliner` 顺手织入明面痕迹后再呈沙盘。")
     dup_hooks = [h for h in dict.fromkeys(hook_seq) if hook_seq.count(h) >= 3]
@@ -516,7 +567,8 @@ def sandbox_lines(book_dir: Path, d: dict, lo: int = None, hi: int = None):
     dup_desires = [x for x in dict.fromkeys(desire_seq) if desire_seq.count(x) >= 3]
     if dup_desires:
         findings.append(f"- **[后台自修项] 同型爽点疲劳预警**：爽感谱系第 {'、'.join(dup_desires)} 型本轮兑现 ≥3 次，建议换谱系交叉调剂。")
-    if not pl or not (u and u.get("countdown")):
+    has_real_plight = bool(pl) and not any("隔离未来情报" in x for x in pl)
+    if not has_real_plight or not (u and u.get("countdown")):
         findings.append("- **[战前引导项] 高压处境锁待加固**：开战前建议补全 `plight` 四维挤压账与单元 `--countdown` 悬顶倒计时（旧书不阻断续写）。")
     out += findings or ["- 战前体检全部绿灯：三线交织、十章一响、节奏呼吸与处境枷锁均已就绪，可呈出品人一键开战！"]
     return out, target
@@ -535,22 +587,73 @@ def cmd_sandbox(a):
         skeleton = "## 出品人战前调优拍板\n\n- 战前结论：确认开战／调整后开战（待填）\n- 剧情优化指令：（待填：如哪章提前兑现小爽、哪条暗线换个伪装道具；经理回写台账或场景卡后再重刷本沙盘核验）\n"
         if dest.exists():
             old_raw = dest.read_text("utf-8")
-            if GEN_BEGIN not in old_raw or not GEN_RE.search(old_raw):
-                if not getattr(a, "force", False):
-                    die(f"{target} 为无生成区块标记的手写文件，防丢稿拒绝覆盖；请先备份移走或加 --force")
+            force = getattr(a, "force", False)
+            ack_review = getattr(a, "ack_review", False)
+            if old_raw.count(GEN_BEGIN) != 1 or old_raw.count("<!-- ncc:生成区块 结束 -->") != 1 or not GEN_RE.search(old_raw):
+                if not force:
+                    die(f"{target} 为无完整生成区块标记的手写或已改文件，防丢稿拒绝覆盖；请先备份移走或加 --force")
+                old_sha, prev_stale_base = None, None
+                outside = outside_block(old_raw).strip()
             else:
                 inner = GEN_RE.search(old_raw).group(0)
                 inner = re.sub(r"^.*?\n", "", inner, count=1)
                 inner = re.sub(r"\n[^\n]*$", "", inner, count=1)
                 sm = SANDBOX_SHA_RE.search(inner)
-                old_sha = sm.group(1) if sm else None
-                clean_old = SANDBOX_STALE_NOTE.sub("", SANDBOX_SHA_RE.sub("", inner)).rstrip()
-                if old_sha and _sandbox_digest(clean_old) != old_sha and not getattr(a, "force", False):
+                if not sm:
+                    if not force:
+                        reason = "生成区块签名已损坏" if SANDBOX_ANY_SHA_TAG.search(inner) else "缺少生成区块签名"
+                        die(f"{target} {reason}，防丢稿拒绝覆盖；请核对保留内容后加 --force 重刷")
+                    old_sha, state_tokens = None, []
+                else:
+                    old_sha = sm.group(1)
+                    state_tokens = (sm.group(2) or "").split(":") if sm.group(2) else []
+                without_sig = SANDBOX_SHA_RE.sub("", inner)
+                stale_m = SANDBOX_STALE_NOTE.match(without_sig)
+                clean_old = SANDBOX_STALE_NOTE.sub("", without_sig, count=1).rstrip()
+                expected_block_sha = state_tokens[0] if len(state_tokens) >= 1 and len(state_tokens[0]) == 16 else None
+                prev_stale_base = stale_m.group(1) if stale_m else (
+                    state_tokens[1]
+                    if len(state_tokens) >= 2 and len(state_tokens[1]) == 16 and state_tokens[1] != "0" * 16
+                    else None
+                )
+                tampered = bool(
+                    old_sha
+                    and (
+                        _sandbox_digest(clean_old) != old_sha
+                        or (expected_block_sha and _sandbox_digest(without_sig.rstrip()) != expected_block_sha)
+                        or (prev_stale_base and not stale_m)
+                    )
+                )
+                if tampered and not force:
                     die(f"{target} 的生成区块被手工修改过，防丢稿拒绝覆盖；请将修改移入区块外「出品人战前调优拍板」后加 --force 重刷")
                 outside = outside_block(old_raw).strip()
-                if old_sha and old_sha != new_sha and outside and outside != skeleton.strip():
-                    stale_prefix = f"> ⚠ 底层台账或场景卡已变更（快照 {old_sha} → {new_sha}），请复核下方「出品人战前调优拍板」是否仍适用。\n\n"
-        stamped = f"{stale_prefix}{pure_body}\n<!-- ncc:sandbox-sha {new_sha} -->"
+            has_signoff = bool(outside and outside != skeleton.strip())
+            cur_outside_sha = _sandbox_digest(outside) if has_signoff else "0" * 16
+            if ack_review and (old_sha is None or old_sha != new_sha) and not _has_explicit_digest_ack(outside, new_sha):
+                die(f"底层数据已变更为新快照 {new_sha}（当前文件快照 {old_sha or '缺失'}），请先不带 --ack-review 刷新查看新沙盘后再确认复核")
+            explicitly_acked = bool(
+                (ack_review and old_sha is not None and old_sha == new_sha)
+                or _has_explicit_digest_ack(outside, new_sha)
+            )
+            stale_base = None
+            if has_signoff and not explicitly_acked:
+                if prev_stale_base:
+                    stale_base = prev_stale_base
+                elif old_sha and old_sha != new_sha:
+                    stale_base = old_sha
+            if stale_base:
+                stale_prefix = (
+                    f"> ⚠ 底层台账或场景卡已变更（快照 {stale_base} → {new_sha}），当前处于待复核状态；"
+                    f"请复核当前沙盘并在下方拍板区写明「已复核：{new_sha}」，或确认当前文件无误后加 `--ack-review` 解除待复核。\n\n"
+                )
+            rendered = f"{stale_prefix}{pure_body}"
+            block_sha = _sandbox_digest(rendered)
+            state_part = f" state={block_sha}:{stale_base or '0' * 16}:{cur_outside_sha}"
+        else:
+            rendered = pure_body
+            block_sha = _sandbox_digest(rendered)
+            state_part = f" state={block_sha}:{'0' * 16}:{'0' * 16}"
+        stamped = f"{rendered}\n<!-- ncc:sandbox-sha {new_sha}{state_part} -->"
         write_block(dest, stamped, skeleton)
         print(f"OK 战前沙盘已写入 {target}（快照 {new_sha}）；请呈出品人预览优化后再正式开战写章")
         return

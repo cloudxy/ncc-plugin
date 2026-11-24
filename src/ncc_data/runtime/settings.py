@@ -10,6 +10,19 @@ from ncc_shared.http import validate_origin
 from ncc_shared.paths import project_root
 
 
+def resolve_profile(values, profile=None) -> str:
+    if profile is not None:
+        if profile not in {"local", "production", "test"}:
+            raise ValueError("数据库profile只支持local、production或test")
+        return profile
+    env = str((values or {}).get("NCC_ENV", "local") or "local").strip()
+    if env == "production":
+        return "production"
+    if env == "test":
+        return "test"
+    return "local"
+
+
 @dataclass(frozen=True)
 class Settings:
     database_url: str = field(repr=False)
@@ -28,16 +41,23 @@ class Settings:
     model_timeout: int = 120
     pg_bin: str = ""
     config_file: Path | None = None
-    profile: str = "production"
+    profile: str = "local"
+    credentials: dict[str, str] = field(default_factory=dict, repr=False)
 
     @classmethod
-    def load(cls, path=None, profile="production", environ=None):
+    def load(cls, path=None, profile=None, environ=None):
         values = configuration(path, environ)
-        url = DatabasePair(configured_url(values)).select(profile)
+        resolved = resolve_profile(values, profile)
+        url = DatabasePair(configured_url(values)).select(resolved)
         origin = validate_origin(
-            values["NCC_TEST_PUBLIC_ORIGIN"] if profile == "test" else values["NCC_PUBLIC_ORIGIN"]
+            values["NCC_TEST_PUBLIC_ORIGIN"] if resolved == "test" else values["NCC_PUBLIC_ORIGIN"]
         )
         secure = urlsplit(origin).scheme == "https"
+        resolved_creds = {
+            k: str(v)
+            for k, v in values.items()
+            if isinstance(k, str) and k.startswith("NCC_") and isinstance(v, str) and v
+        }
         return cls(
             database_url=url,
             public_origin=origin,
@@ -57,7 +77,8 @@ class Settings:
             second_judge_model=values.get("NCC_SECOND_JUDGE_MODEL", ""),
             pg_bin=values.get("NCC_PG_BIN", ""),
             config_file=Path(path) if path else None,
-            profile=profile,
+            profile=resolved,
+            credentials=resolved_creds,
         )
 
     @classmethod

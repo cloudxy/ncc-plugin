@@ -1,0 +1,70 @@
+.job-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.job-split > * {
+  min-width: 0;
+}
+.scope-note,
+.perm-note,
+.cap-note {
+  margin: 0;
+}
+.scope-note {
+  margin-bottom: 12px;
+}
+.perm-note,
+.cap-note {
+  margin-top: 8px;
+}
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.hit-44,
+.hit-44.ant-btn,
+.row-actions a {
+  min-height: 44px;
+}
+.hit-44.ant-btn {
+  height: auto;
+}
+.row-actions a {
+  display: inline-flex;
+  align-items: center;
+}
+.labeled-fields {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 8px 12px;
+  margin: 0;
+}
+.labeled-fields dt,
+.labeled-fields dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.plain-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.plain-table th,
+.plain-table td {
+  text-align: left;
+  padding: 8px 8px 8px 0;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.plain-table tr[aria-current="true"] {
+  outline: 2px solid CanvasText;
+}
+@media (min-width: 1280px) {
+  .job-split {
+    grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.9fr);
+  }
+}

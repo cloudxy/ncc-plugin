@@ -33,7 +33,9 @@ class FixtureProvider:
 
 
 async def test_login_csrf_scope_and_cli_token(store):
-    factory, _ = store
+    factory, ids = store
+    async with factory() as db:
+        actor_username = (await db.get(User, ids[0])).username
     settings = Settings(database_url="unused", public_origin="http://testserver")
     app = create_app(settings, factory)
     async with httpx.AsyncClient(
@@ -43,7 +45,7 @@ async def test_login_csrf_scope_and_cli_token(store):
         response = await client.post(
             "/api/v1/auth/login",
             headers={"x-ncc-client": "console"},
-            json={"username": "author", "password": "test-author-password"},
+            json={"username": actor_username, "password": factory.credentials[ids[0]]},
         )
         assert response.status_code == 200, response.text
         csrf = response.json()["csrf"]

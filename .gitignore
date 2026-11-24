@@ -17,6 +17,7 @@ playwright-report/
 test-results/
 .idea/
 .video_agent/
+.sdlc/
 
 # ===== 私有创作内容：书稿与素材是调试与完善 ncc-workflow 的数据，绝不进仓库 =====
 novels/

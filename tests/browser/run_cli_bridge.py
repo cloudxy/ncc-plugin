@@ -20,7 +20,7 @@ def main(runtime):
             client.post(
                 "/api/v1/auth/login",
                 headers={"x-ncc-client": "console"},
-                json={"username": "browser-author", "password": "synthetic-browser-password"},
+                json={"username": runtime.username, "password": runtime.password},
             )
             .raise_for_status()
             .json()

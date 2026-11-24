@@ -55,7 +55,7 @@ def build_router(service):
         require(
             not row.payload.get("requires_secret") or "secret" in actions, "not_found", "任务不可访问", 404
         )
-        return svc.job_json(row, details=bool({"edit", "assess"} & set(actions)))
+        return await svc.serialize_job(row, details=bool({"edit", "assess"} & set(actions)))
 
     @router.post("/api/v1/scopes/{sid}/jobs/{jid}/intervene")
     async def intervene(
@@ -73,7 +73,7 @@ def build_router(service):
     async def cancel_job(sid: str, jid: str, svc: Service = Depends(service, scope="function")):
         row = await svc.job(sid, jid, "edit", lock=True)
         row.cancel_requested, row.state, row.lease_token = True, "cancelled", None
-        return svc.job_json(row)
+        return await svc.serialize_job(row)
 
     @router.get("/api/v1/scopes/{sid}/assessments")
     async def assessments(sid: str, svc: Service = Depends(service, scope="function")):

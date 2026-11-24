@@ -13,14 +13,13 @@ from playwright.sync_api import expect, sync_playwright
 def main(runtime):
     origin = runtime.origin
     scope_name = "自动定稿合成验收-" + uuid4().hex[:8]
-    username = "auto-fixture-" + uuid4().hex[:8]
-    password = "synthetic-auto-password"
+    username, password = runtime.new_credentials("auto-fixture")
     with httpx.Client(base_url=origin, timeout=30) as client:
         auth = (
             client.post(
                 "/api/v1/auth/login",
                 headers={"x-ncc-client": "console"},
-                json={"username": "browser-author", "password": "synthetic-browser-password"},
+                json={"username": runtime.username, "password": runtime.password},
             )
             .raise_for_status()
             .json()

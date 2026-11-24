@@ -1,0 +1,49 @@
+=== build_registry --check ===
+REGISTRY OK
+=== check_plugin -v ===
+scout              6348 / 20000
+worldbuilder      19575 / 20000
+outliner          17161 / 20000
+story-editor      16725 / 20000
+scholar            8196 / 20000
+writer             6475 / 20000
+editor             1488 / 20000
+continuity         8323 / 20000
+pulse              9501 / 20000
+reader             4081 / 20000
+deconstructor      7903 / 20000
+manager:new       34550 / 35000
+manager:write     30751 / 35000
+manager:review    25702 / 35000
+manager:loop      25122 / 35000
+manager:prepare   24281 / 35000
+curator            6639 / 20000
+manager:deconstruct  15628 / 35000
+product-manager    9231 / 20000
+product-designer   9136 / 20000
+project-architect  11822 / 20000
+dba               13668 / 20000
+PLUGIN OK
+=== build_docs --check ===
+DOCS OK
+=== ncc_eval mech (6 traditional + 3 platinum = 9 anchors) ===
+PASS A01-古代时代错置与称谓
+PASS A02-月相与行程
+PASS A03-待核项写了数字
+PASS A04-视角越权与超前泄密
+PASS A05-场景卡翻转没发生
+PASS A06-干净对照
+PASS P01
+PASS P02
+PASS P03
+=== ncc_eval direct unit tests ===
+test_blind_packets_isolate_manifest_strip_headings_and_support_multi_anchor_dirs (scripts.tests.test_ncc_eval.TestNccEvalBlindAndPlatinum) ... ok
+test_legacy_unblinded_manifest_remains_scorable (scripts.tests.test_ncc_eval.TestNccEvalBlindAndPlatinum) ... ok
+test_story_noun_in_anchor_suffix_does_not_false_block_while_invalid_runs_fail (scripts.tests.test_ncc_eval.TestNccEvalBlindAndPlatinum) ... ok
+test_mech_regression (scripts.tests.test_ncc_state.TestEval) ... ok
+test_prepare_and_score (scripts.tests.test_ncc_state.TestEval) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.883s
+
+OK

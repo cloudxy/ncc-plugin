@@ -1,0 +1,50 @@
+.blueprint-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.blueprint-stack,
+.blueprint-tools,
+.blueprint-wall,
+.blueprint-columns {
+  min-width: 0;
+}
+.blueprint-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.blueprint-wall,
+.blueprint-columns {
+  display: grid;
+  gap: 12px;
+}
+.blueprint-wall {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.blueprint-card {
+  min-width: 0;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #e6eae7;
+}
+.blueprint-card h3 {
+  margin: 0 0 8px;
+}
+.blueprint-card .ant-input,
+.blueprint-card textarea {
+  margin-bottom: 8px;
+}
+@media (min-width: 1100px) {
+  .blueprint-columns {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+@media (max-width: 1099px) {
+  .blueprint-columns,
+  .blueprint-wall {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

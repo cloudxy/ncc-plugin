@@ -8,6 +8,7 @@ __pycache__/
 .ncc-runtime/
 .idea/
 .video_agent/
+.sdlc/
 
 # ===== 私有创作内容：书稿与素材绝不进仓库 =====
 novels/

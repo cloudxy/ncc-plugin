@@ -109,7 +109,7 @@ def load_settings(path=None, environ=None):
         Validator("SESSION_HOURS", cast=int, gte=1, lte=168),
         Validator("UPLOAD_LIMIT", cast=int, gte=1024, lte=100 * 1024 * 1024),
         Validator("MODEL_TIMEOUT", cast=int, gte=1, lte=3600),
-        Validator("API_PROFILE", is_in=["production", "test"]),
+        Validator("API_PROFILE", is_in=["", "local", "production", "test"]),
     )
     try:
         manager.validators.validate()

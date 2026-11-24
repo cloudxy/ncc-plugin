@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 import json
+import secrets
 import stat
 import subprocess
 import sys
@@ -17,37 +18,53 @@ from psycopg import sql
 from sqlalchemy import select
 from support.runtime import TestRuntime
 
+from ncc_data.application.security import password_hash
 from ncc_data.application.service import Service
 from ncc_data.cli.backup import pg_service, pg_tool
 from ncc_data.creation.scoring import evaluate
 from ncc_data.persistence.database import connection_parameters, database
-from ncc_data.persistence.models import Assessment, Base, Scope, User
+from ncc_data.persistence.models import Assessment, Base, Scope, User, uid
+from ncc_data.persistence.seeds import seed
 from ncc_shared.quality.policy import POLICY, POLICY_HASH
 from ncc_shared.serialization import digest
+
+
+def guard_nonempty_shared_database(runtime):
+    nonempty = runtime.has_existing_data()
+    if nonempty:
+        raise ValueError(
+            "ncc-dev为非空共用库，保护现有作品、账号、会话与历史，拒绝破坏性恢复重放："
+            + ", ".join(nonempty)
+        )
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=Path)
-    parser.add_argument("--confirm-reset-test", required=True, help="明确填写正式库-test；将重放测试数据")
+    parser.add_argument("--confirm-reset-test", required=True, help="明确填写ncc-dev；仅在空共用库上重放合成恢复数据")
     args = parser.parse_args()
     runtime = TestRuntime(args.config)
     name = connection_parameters(runtime.settings.database_url)["dbname"]
     if args.confirm_reset_test != name:
-        parser.error("确认库名必须与项目正式连接派生的唯一-test库完全相同")
+        parser.error("确认库名必须是同连接的ncc-dev")
     with runtime:
-        asyncio.run(runtime.seed_browser())
+        guard_nonempty_shared_database(runtime)
 
         async def seed_drill():
             engine, factory = database(runtime.settings.database_url)
             async with factory() as db, db.begin():
-                actor = await db.scalar(select(User).limit(1))
-                scope = await db.scalar(select(Scope).where(Scope.owner_id == actor.id).limit(1))
-                if scope is None:
-                    from ncc_data.domain.contracts import ScopeInput
+                await seed(db)
+                actor = User(
+                    username=f"recovery-drill-{uid()[:8]}",
+                    password_hash=password_hash(secrets.token_urlsafe(24)),
+                    admin=True,
+                )
+                db.add(actor)
+                await db.flush()
+                from ncc_data.domain.contracts import ScopeInput
 
-                    created = await Service(db, actor).create_scope(ScopeInput(name="合成恢复空间"))
-                    scope = await db.get(Scope, created["id"])
+                created = await Service(db, actor).create_scope(ScopeInput(name="合成恢复空间"))
+                scope = await db.get(Scope, created["id"])
                 svc = Service(db, actor)
                 await svc.upload(
                     scope.id, "recovery-fixture.bin", "application/octet-stream", bytes(range(256))

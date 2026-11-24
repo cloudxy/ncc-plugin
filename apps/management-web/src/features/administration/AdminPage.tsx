@@ -29,6 +29,7 @@ import {
 } from "../../shared/components/Feedback";
 import { useWorkspace } from "../../shared/WorkspaceContext";
 import { TrustControls } from "./components/TrustControls";
+import "./settings.css";
 
 export function AdminPage() {
   const { page } = useParams(),
@@ -127,7 +128,8 @@ export function AdminPage() {
             description="使用 ncc-data backup / restore 维护命令，在隔离目标完成对账后切换。导出文件与完整数据库备份分别管理。"
           />
           <Typography.Paragraph style={{ marginTop: 20 }}>
-            模型配置由服务端私有环境管理：NCC_MODEL_URL、NCC_MODEL_KEY、NCC_WRITER_MODEL、NCC_JUDGE_MODEL。未配置时任务保留待处理状态，不生成演示正文或分数。
+            写作、修订和评价可以在「AI
+            配置」分别绑定不同模型。密钥仍只留在服务端环境变量，未配置时任务保留待处理，不生成演示正文或分数。
           </Typography.Paragraph>
           <Typography.Paragraph>
             启动持久任务执行器：<code>ncc-data worker</code>
@@ -137,145 +139,147 @@ export function AdminPage() {
     );
   return (
     <Permission allowed={scope.actions.includes("admin")}>
-      <PageTitle
-        title="成员与设置"
-        note="真实用户权限与小说人物认知分别管理，范围凭据不能扩大账号现有权限。"
-        actions={
-          me.data?.admin && (
-            <Button icon={<PlusOutlined />} onClick={() => setUserOpen(true)}>
-              建立账号
-            </Button>
-          )
-        }
-      />
-      <Row gutter={24}>
-        <Col xs={24} lg={14}>
-          <Card title="范围成员">
-            <ErrorPanel error={members.error} />
-            <Table
-              rowKey="id"
-              dataSource={members.data}
-              pagination={false}
-              columns={[
-                { title: "账号", dataIndex: "username" },
-                {
-                  title: "权限",
-                  dataIndex: "actions",
-                  render: (v) => (
-                    <Space wrap>
-                      {v.map((x: string) => (
-                        <Tag key={x}>{x}</Tag>
-                      ))}
-                    </Space>
-                  ),
-                },
-              ]}
-            />
-            <Form
-              form={memberForm}
-              layout="vertical"
-              style={{ marginTop: 24 }}
-              onFinish={async (values) => {
-                try {
-                  await api(scoped(scope.id, "/members"), "POST", values);
-                  members.refetch();
-                  message.success("成员权限已更新");
-                } catch (e) {
-                  message.error((e as Error).message);
-                }
-              }}
-            >
-              <Form.Item
-                name="user_id"
-                label="账号ID"
-                rules={[{ required: true }]}
-              >
-                <Input />
-              </Form.Item>
-              <Form.Item
-                name="actions"
-                label="授权动作"
-                initialValue={["read"]}
-              >
-                <Checkbox.Group
-                  options={[
-                    "read",
-                    "edit",
-                    "adopt",
-                    "assess",
-                    "export",
-                    "secret",
-                    "admin",
-                    "operate",
-                  ]}
-                />
-              </Form.Item>
-              <Button type="primary" htmlType="submit">
-                更新权限
+      <div className="settings-page" data-component="settings-columns">
+        <PageTitle
+          title="成员与设置"
+          note="真实用户权限与小说人物认知分别管理，范围凭据不能扩大账号现有权限。"
+          actions={
+            me.data?.admin && (
+              <Button icon={<PlusOutlined />} onClick={() => setUserOpen(true)}>
+                建立账号
               </Button>
-            </Form>
-          </Card>
-        </Col>
-        <Col xs={24} lg={10}>
-          <Card title="本范围自动化凭据">
-            <Typography.Paragraph type="secondary">
-              令牌仅显示一次，保存到私有环境变量。不要放入小说、Git或浏览器持久存储。
-            </Typography.Paragraph>
-            <Form
-              form={tokenForm}
-              layout="vertical"
-              initialValues={{ actions: ["read"], hours: 24 }}
-              onFinish={async (values) => {
-                try {
-                  const result = await api<Json>(
-                    scoped(scope.id, "/tokens"),
-                    "POST",
-                    values,
-                  );
-                  setToken(result.token);
-                } catch (e) {
-                  message.error((e as Error).message);
-                }
-              }}
-            >
-              <Form.Item name="actions" label="动作">
-                <Checkbox.Group options={scope.actions} />
-              </Form.Item>
-              <Form.Item name="hours" label="有效小时">
-                <Select
-                  options={[1, 8, 24, 72, 168].map((value) => ({
-                    value,
-                    label: String(value),
-                  }))}
-                />
-              </Form.Item>
-              <Button htmlType="submit">生成范围凭据</Button>
-            </Form>
-            {token && (
-              <Input.Password
-                style={{ marginTop: 16 }}
-                value={token}
-                readOnly
-                addonAfter={
-                  <Button
-                    type="link"
-                    onClick={() => navigator.clipboard.writeText(token)}
-                  >
-                    复制
-                  </Button>
-                }
+            )
+          }
+        />
+        <div className="settings-columns">
+          <div className="settings-pane">
+            <Card title="范围成员">
+              <ErrorPanel error={members.error} />
+              <Table
+                rowKey="id"
+                dataSource={members.data}
+                pagination={false}
+                columns={[
+                  { title: "账号", dataIndex: "username" },
+                  {
+                    title: "权限",
+                    dataIndex: "actions",
+                    render: (v) => (
+                      <Space wrap>
+                        {v.map((x: string) => (
+                          <Tag key={x}>{x}</Tag>
+                        ))}
+                      </Space>
+                    ),
+                  },
+                ]}
               />
-            )}
-          </Card>
-          <Card style={{ marginTop: 24 }} title="自动定稿策略">
-            <Typography.Paragraph>
-              普通创作默认集中审核。托管需明确对象、时间与次数，并完成对应评分策略的留出校准；授权可随时撤销。
-            </Typography.Paragraph>
-            <Tag>质量线 85 · 最多修订 2 次</Tag>
-          </Card>
-          <TrustControls />
-        </Col>
-      </Row>
+              <Form
+                form={memberForm}
+                layout="vertical"
+                style={{ marginTop: 24 }}
+                onFinish={async (values) => {
+                  try {
+                    await api(scoped(scope.id, "/members"), "POST", values);
+                    members.refetch();
+                    message.success("成员权限已更新");
+                  } catch (e) {
+                    message.error((e as Error).message);
+                  }
+                }}
+              >
+                <Form.Item
+                  name="user_id"
+                  label="账号ID"
+                  rules={[{ required: true }]}
+                >
+                  <Input />
+                </Form.Item>
+                <Form.Item
+                  name="actions"
+                  label="授权动作"
+                  initialValue={["read"]}
+                >
+                  <Checkbox.Group
+                    options={[
+                      "read",
+                      "edit",
+                      "adopt",
+                      "assess",
+                      "export",
+                      "secret",
+                      "admin",
+                      "operate",
+                    ]}
+                  />
+                </Form.Item>
+                <Button type="primary" htmlType="submit">
+                  更新权限
+                </Button>
+              </Form>
+            </Card>
+          </div>
+          <div className="settings-pane">
+            <Card title="本范围自动化凭据">
+              <Typography.Paragraph type="secondary">
+                令牌仅显示一次，保存到私有环境变量。不要放入小说、Git或浏览器持久存储。
+              </Typography.Paragraph>
+              <Form
+                form={tokenForm}
+                layout="vertical"
+                initialValues={{ actions: ["read"], hours: 24 }}
+                onFinish={async (values) => {
+                  try {
+                    const result = await api<Json>(
+                      scoped(scope.id, "/tokens"),
+                      "POST",
+                      values,
+                    );
+                    setToken(result.token);
+                  } catch (e) {
+                    message.error((e as Error).message);
+                  }
+                }}
+              >
+                <Form.Item name="actions" label="动作">
+                  <Checkbox.Group options={scope.actions} />
+                </Form.Item>
+                <Form.Item name="hours" label="有效小时">
+                  <Select
+                    options={[1, 8, 24, 72, 168].map((value) => ({
+                      value,
+                      label: String(value),
+                    }))}
+                  />
+                </Form.Item>
+                <Button htmlType="submit">生成范围凭据</Button>
+              </Form>
+              {token && (
+                <Input.Password
+                  style={{ marginTop: 16 }}
+                  value={token}
+                  readOnly
+                  addonAfter={
+                    <Button
+                      type="link"
+                      onClick={() => navigator.clipboard.writeText(token)}
+                    >
+                      复制
+                    </Button>
+                  }
+                />
+              )}
+            </Card>
+            <Card style={{ marginTop: 24 }} title="自动定稿策略">
+              <Typography.Paragraph>
+                普通创作默认集中审核。托管需明确对象、时间与次数，并完成对应评分策略的留出校准；授权可随时撤销。
+              </Typography.Paragraph>
+              <Tag>质量线 85 · 最多修订 2 次</Tag>
+            </Card>
+            <TrustControls />
+          </div>
+        </div>
+      </div>
       <Modal
         title="建立本机账号"
         open={userOpen}

@@ -3,8 +3,8 @@
 import re
 import sys
 from pathlib import Path
-from .core import (BRIEF_DIR, HANDOFF_CFG, OPEN_STATES, ROLES, TECH_CFG, TRACK_PLAYBOOK, WRITER_GUARD, book_root, chars, current_chapter, ENTRY, ERAS, FACTS, KNOW_DIR, L, MATERIAL_HINT, PACK_BUDGET, PACK_DIR, PROMISES, SCENE_BATCH, SCENE_DIR, SCENE_KEY_REQUIRED, SCENE_REQUIRED, SEEDS, SNAPSHOT_DIR, STYLE_ANCHOR, WRITER_SEEDS, chapter_file, die, ensure_m3_fields, find_ch, han_words, knowledge_path, ledger, length_band, load, next_seq, normalize_domain, now, open_unit, plain, read_json, save, scene_path, section, sha16)
-from .ledgers import dark_line_cooling, focus_core, reader_now_lines
+from .core import (BRIEF_DIR, HANDOFF_CFG, OPEN_STATES, ROLES, TECH_CFG, TRACK_PLAYBOOK, WRITER_GUARD, as_int, book_root, chars, current_chapter, ENTRY, ERAS, FACTS, KNOW_DIR, L, MATERIAL_HINT, PACK_BUDGET, PACK_DIR, PROMISES, SCENE_BATCH, SCENE_DIR, SCENE_KEY_REQUIRED, SCENE_REQUIRED, SEEDS, SNAPSHOT_DIR, STYLE_ANCHOR, WRITER_SEEDS, chapter_file, die, ensure_m3_fields, find_ch, han_words, knowledge_path, ledger, length_band, load, next_seq, normalize_domain, now, open_unit, plain, read_json, save, scene_path, section, sha16, unit_for_chapter)
+from .ledgers import dark_line_cooling, dropped_ch, focus_core, is_dropped, is_paid, paid_ch, reader_now_lines
 from .materials import material_cards, material_refs
 from .memory import handoff_slice, memory_slice
 from .core import writer_input_problems
@@ -37,6 +37,7 @@ def scene_problems(book_dir: Path, seq: int, key: bool):
         lost = [r for r in trefs if r not in technique_cards(book_root(book_dir))]
         if lost:
             problems.append(f"引用的技法卡不存在: {'、'.join(lost)}（technique list 查编号）")
+    problems += reveal_problems(book_dir, seq, blocks, text)
     return problems, len(blocks)
 
 
@@ -223,27 +224,177 @@ def cmd_study(a):
     print("一书一深学：" + ("、".join(d["study"]) or "（未选）"))
 
 
-REVEAL_RE = re.compile(r"(?:伏笔回收|回收伏笔|揭晓伏笔|兑现承诺|本场兑现)[：:][^\n]*")
+REVEAL_LINE_RE = re.compile(
+    r"^[ \t]*(?:[-*][ \t]*)?(?:伏笔回收|回收伏笔|揭晓伏笔|兑现承诺|本场兑现)[：:][ \t]*([^\n]*)$",
+    re.M,
+)
+_REVEAL_NONE_HEAD = re.compile(
+    r"^(?:无|暂无|没有|空|待填|待定|待排|待议|可选|示例|举例|样例|占位|批注|备注|说明|注|——|--|—|-)(?:$|[（(\[【：:，,；;\s—\-])"
+)
+_REVEAL_DISQUALIFIER = re.compile(
+    r"(?:"
+    r"例如|比如|示例|样例|举例|类似|形如|占位|模板|备选|候选|待选|待定|待排|待议|待核|待确认|[?？]"
+    r"|模板说明|填写说明|格式说明|(?:^|[\s（(\[【，,：:])(?:批注|备注|注)(?:$|[：:\s—\-）)\]】，,；;])|(?:^|[\s（(\[【])说明(?:$|[：:\s—\-）)\]】])"
+    r"|不回收|不揭晓|不兑现|不披露|不点破|不挑明|不说破|不拆穿|不公开|不亮底|不暴露|不揭|不收|(?:本[章场轮次]|暂|先)不破|只埋不收|有埋无收"
+    r"|非本[章场轮次]|非(?:揭晓|回收|兑现|真义)|假揭晓|假回收|伪揭晓|伪回收|烟雾弹|障眼法|未触及真[义相]"
+    r"|未回收|未揭晓|未兑现|尚未|暂未|暂不|先不|先勿|先别|决不|绝不|并不|并非|不是|不算|不可|不能|不得(?!不|已)|不要|不用|不必"
+    r"|切勿|请勿|勿要|勿填|勿写|勿露|勿揭|勿收|切莫|莫要|莫写|莫露|莫揭|莫收"
+    r"|可别|千万别|别写|别露|别揭|别收|别破|别点破|禁止|严禁|禁写|禁露|禁揭|禁收|禁披露|禁揭晓"
+    r"|留到|留待|留给|留作|推迟|延后|延期|顺延|暂缓|搁置|押后|先压|先藏"
+    r"|下[一]?[章场卷回次]|后[文续面]|日后|以后|将来|稍后|改日|择机|另[一]?[章场]|他章|隔章|跨章|卷末|终局|大结局"
+    r"|(?:再|才|方|待|等)\s*(?:揭晓|回收|兑现|披露|点破|挑明|拆穿|亮底)"
+    r"|第\s*[零〇一二三四五六七八九十百\d]+\s*[章场卷回]\s*(?:再|才|方|始|揭晓|回收|兑现|披露)"
+    r"|(?:只|仅|先|只是|仅为)\s*(?:擦碰|推进|铺垫|暗示|露|写伪装|写明面)|擦碰(?:即可|不收|不揭|为主)"
+    r")"
+)
+_PROMISE_ID_RE = re.compile(r"\b([A-Z]{1,4}-\d{4})\b")
+_PAREN_SPAN_RE = re.compile(r"（[^（）]*）|\([^()]*\)|\[[^\[\]]*\]|【[^【】]*】")
 
 
-def revealing_ids(card: str) -> set:
-    ids = set()
-    for m in REVEAL_RE.finditer(card):
-        ids.update(re.findall(r"\b[A-Z]{1,4}-\d{4}\b", m.group(0)))
-    return ids
+def _strip_non_declarations(text: str) -> str:
+    cleaned = re.sub(r"```.*?```", "", text, flags=re.S)
+    cleaned = re.sub(r"<!--.*?-->", "", cleaned, flags=re.S)
+    return cleaned
+
+
+def _mask_parens(s: str) -> str:
+    prev = None
+    cur = s
+    while prev != cur:
+        prev = cur
+        cur = _PAREN_SPAN_RE.sub(lambda m: " " * len(m.group(0)), cur)
+    return cur
+
+
+def _split_top_level(s: str, seps: set) -> list:
+    masked = _mask_parens(s)
+    parts = []
+    start = 0
+    for idx, ch in enumerate(masked):
+        if ch in seps:
+            parts.append(s[start:idx])
+            start = idx + 1
+    parts.append(s[start:])
+    return parts
+
+
+def _has_reveal_disqualifier(text: str) -> bool:
+    if not text:
+        return False
+    if _REVEAL_DISQUALIFIER.search(text):
+        return True
+    if re.search(r"(?:^|[\s（(\[【，,：:])如\s*[\"“「『']?\s*$", text):
+        return True
+    return False
+
+
+def declared_reveal_ids(card: str) -> list:
+    """提取场景卡或章纲里显式、正向声明的本场有效回收承诺编号；忽略批注、占位、示例、否定与延后描述。"""
+    cleaned = _strip_non_declarations(card)
+    found = []
+    for m in REVEAL_LINE_RE.finditer(cleaned):
+        raw = re.sub(r"<[^>]*>", "", m.group(1)).strip()
+        if not raw or _REVEAL_NONE_HEAD.match(raw):
+            continue
+        for clause in _split_top_level(raw, set("；;。｜|")):
+            clause = clause.strip()
+            if not clause or _REVEAL_NONE_HEAD.match(clause):
+                continue
+            for seg in _split_top_level(clause, set("，,")):
+                seg = seg.strip()
+                if not seg or _REVEAL_NONE_HEAD.match(seg):
+                    continue
+                masked_seg = _mask_parens(seg)
+                matches = list(_PROMISE_ID_RE.finditer(masked_seg))
+                if not matches:
+                    continue
+                group_prefix = seg[:matches[0].start()]
+                group_suffix = seg[matches[-1].end():]
+                if _has_reveal_disqualifier(group_prefix):
+                    continue
+                if len(matches) > 1 and _has_reveal_disqualifier(_mask_parens(group_suffix)):
+                    continue
+                for idx, hit in enumerate(matches):
+                    pid = hit.group(1)
+                    if pid.endswith("-0000"):
+                        continue
+                    prev_end = matches[idx - 1].end() if idx > 0 else 0
+                    next_start = matches[idx + 1].start() if idx + 1 < len(matches) else len(seg)
+                    before = seg[prev_end:hit.start()]
+                    if idx > 0:
+                        parts = _split_top_level(before, {"、"})
+                        before = parts[-1] if parts else before
+                    after = seg[hit.end():next_start]
+                    if idx + 1 < len(matches):
+                        after = _split_top_level(after, {"、"})[0]
+                    if _has_reveal_disqualifier(before) or _has_reveal_disqualifier(after):
+                        continue
+                    if pid not in found:
+                        found.append(pid)
+    return found
+
+
+def revealing_ids(card: str, items=None, seq: int = None) -> set:
+    declared = set(declared_reveal_ids(card))
+    if items is None:
+        return declared
+    by_id = {p["id"]: p for p in items if p.get("id")}
+    valid = set()
+    for pid in declared:
+        p = by_id.get(pid)
+        if not p or is_dropped(p):
+            continue
+        if seq is not None:
+            if (as_int(p.get("created_ch")) or 0) > seq:
+                continue
+            if paid_ch(p) is not None and paid_ch(p) != seq:
+                continue
+        valid.add(pid)
+    return valid
+
+
+def reveal_problems(book_dir: Path, seq: int, blocks: list, full_text: str) -> list:
+    items = ledger(book_dir, PROMISES)["items"]
+    by_id = {p["id"]: p for p in items if p.get("id")}
+    problems = []
+    for i, b in enumerate(blocks, 1):
+        for pid in declared_reveal_ids(b):
+            p = by_id.get(pid)
+            if not p:
+                problems.append(f"场景 {i} 伏笔回收引用的承诺不存在: {pid}（promise list 查编号）")
+            elif is_dropped(p):
+                problems.append(f"场景 {i} 伏笔回收引用了已作废承诺: {pid}（作废承诺只写公开补偿，禁揭晓里层真相）")
+            elif (as_int(p.get("created_ch")) or 0) > seq:
+                problems.append(f"场景 {i} 伏笔回收编号 {pid} 在第 {p.get('created_ch')} 章才建立，不能提前回收")
+            elif paid_ch(p) is not None and paid_ch(p) != seq:
+                problems.append(f"场景 {i} 伏笔回收编号 {pid} 已在第 {paid_ch(p)} 章兑现，不能重复回收")
+    for p in items:
+        if is_dropped(p):
+            truth = (p.get("true_meaning") or "").strip()
+            if len(truth) >= 2 and truth in full_text:
+                problems.append(f"承诺 {p['id']} 已作废，场景卡不得写入其未揭晓里层真相：{truth}")
+    return problems
 
 
 def truth_leaks(book_dir: Path, seq: int, text: str, allowed_ids: set = None) -> list:
-    """铁律 9 延伸：未在本章揭晓（或晚于本章才兑现）的伏笔，里层真相禁止混入写手包，防止剧透式笔法。"""
+    """铁律 9 延伸：未在本章揭晓（含已作废或晚于本章才兑现）的伏笔，里层真相禁止混入写手包，防止剧透式笔法。"""
     allowed = allowed_ids or set()
     items = ledger(book_dir, PROMISES)["items"]
     leaks = []
     for p in items:
         truth = (p.get("true_meaning") or "").strip()
-        if len(truth) < 2 or p["id"] in allowed or p.get("resolved_ch") == seq:
+        if len(truth) < 2:
             continue
-        unrevealed_at_seq = p.get("status") in OPEN_STATES or ((p.get("resolved_ch") or 0) > seq)
-        if unrevealed_at_seq and truth in text:
+        if is_dropped(p):
+            if truth in text:
+                leaks.append(f"已作废伏笔未揭晓真相（{p['id']}）：{truth}")
+            continue
+        pch = paid_ch(p)
+        created = as_int(p.get("created_ch")) or 0
+        revealed_by_seq = (pch is not None and pch <= seq) or (
+            p["id"] in allowed and created <= seq and (pch is None or pch == seq)
+        )
+        if not revealed_by_seq and truth in text:
             leaks.append(f"未揭晓伏笔真相（{p['id']}）：{truth}")
     return leaks
 
@@ -312,7 +463,7 @@ def cmd_pack(a):
 
     out += ["## 人物声音", ""]
     names = []
-    u = open_unit(d)
+    u = unit_for_chapter(d, a.seq)
     is_arc_beat = bool(c.get("key") or (u and u.get("arc_ch") == a.seq))
     arc_stage = (d.get("soul") or {}).get("arc_stage") or ""
     for p in sorted((book_dir / L("characters")).glob("*.md")):
@@ -355,13 +506,19 @@ def cmd_pack(a):
             m = mats[r]
             out.append(f"- 素材 {r}：{m['内容']}（可用在：{m['可用处']}）{MATERIAL_HINT.get(m.get('可信级'), '')}")
     out += writer_lines(book_dir, card)
-    rev_ids = revealing_ids(card)
-    for p in ledger(book_dir, PROMISES)["items"]:
-        revealing_here = (p.get("resolved_ch") == a.seq) or (p["id"] in rev_ids)
+    promise_items = ledger(book_dir, PROMISES)["items"]
+    rev_ids = revealing_ids(card, items=promise_items, seq=a.seq)
+    for p in promise_items:
+        if is_dropped(p):
+            if (dropped_ch(p) == a.seq or p["id"] in card) and p.get("compensation"):
+                out.append(f"- 承诺作废补偿交代（仅写公开替代交代，切勿透露作废前的原里层设定）：{p['compensation']}")
+            continue
+        pch = paid_ch(p)
+        revealing_here = (pch == a.seq) or (p["id"] in rev_ids)
         touched_here = (p.get("created_ch") == a.seq
                         or any(e.get("ch") == a.seq for e in p.get("progress", []))
                         or p["id"] in card)
-        unrevealed_at_seq = p.get("status") in OPEN_STATES or ((p.get("resolved_ch") or 0) > a.seq)
+        unrevealed_at_seq = p.get("status") in OPEN_STATES or ((pch or 0) > a.seq)
         if revealing_here and p.get("true_meaning"):
             rev_ids.add(p["id"])
             out.append(f"- 伏笔回收揭晓：{p['true_meaning']}（呼应第{p.get('created_ch')}章埋下的明面细节「{p.get('surface_cover') or p.get('content')}」）")
@@ -483,7 +640,7 @@ def cmd_review(a):
     snap = book_dir / SNAPSHOT_DIR / f"ch-{a.seq:04d}.md"
     if a.action == "plan":
         items = ledger(book_dir, PROMISES)["items"]
-        payoff = [p["id"] for p in items if p.get("resolved_ch") == a.seq and p.get("type") in ("爽点欠账", "名场面")]
+        payoff = [p["id"] for p in items if paid_ch(p) == a.seq and p.get("type") in ("爽点欠账", "名场面")]
         reasons = []
         if c.get("key"):
             reasons.append("关键章（另做成对比较）")

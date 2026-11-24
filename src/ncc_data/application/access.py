@@ -132,6 +132,12 @@ class DataAccess:
             change = await service.create_change(
                 scope_id, ChangeInput.model_validate(value.model_dump(exclude={"request_id"}))
             )
+            extra = {
+                "request_id": value.request_id,
+                "direct_input_hash": original_hash,
+                "entity_ids": [op["entity_id"] for op in change["operations"] if op.get("entity_id")],
+            }
+            service._receipt_extra = extra
             result = await service.adopt(scope_id, change["id"], value.request_id)
             receipt = await db.scalar(
                 select(Receipt).where(
@@ -140,11 +146,7 @@ class DataAccess:
                     Receipt.key == value.request_id,
                 )
             )
-            result = {
-                **result,
-                "request_id": value.request_id,
-                "direct_input_hash": original_hash,
-                "entity_ids": [op["entity_id"] for op in change["operations"] if op.get("entity_id")],
-            }
-            receipt.result = result
+            result = {**result, **extra}
+            if receipt is not None and receipt.result != result:
+                receipt.result = result
             return jsonable(result)

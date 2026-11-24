@@ -2,6 +2,7 @@
 
 import asyncio
 import functools
+import secrets
 import sys
 import threading
 import time
@@ -12,20 +13,26 @@ from urllib.parse import urlsplit
 import httpx
 import psycopg
 import uvicorn
-from sqlalchemy import select
+from sqlalchemy import or_, select, update
 
 from ncc_data.api import create_app
 from ncc_data.application.security import password_hash
 from ncc_data.persistence.database import connection_parameters, database
-from ncc_data.persistence.models import Base, User
+from ncc_data.persistence.models import Base, Delegation, Job, Session, User
 from ncc_data.persistence.seeds import seed
 from ncc_data.runtime.settings import Settings
 from ncc_shared.configuration import configuration
 from ncc_shared.database import DatabasePair, configured_url
 
 LOCK_KEY = 0x4E434354455354
-USERNAME = "browser-author"
-PASSWORD = "synthetic-browser-password"
+EPHEMERAL_USER_PREFIXES = (
+    "browser-author-",
+    "studio-author-",
+    "auto-fixture-",
+    "access-fixture-",
+    "cli-author-",
+    "test-",
+)
 
 
 def test_settings(path=None, override=None):
@@ -44,9 +51,22 @@ class TestRuntime(AbstractContextManager):
         self.settings = test_settings(path, override)
         self.origin = self.settings.public_origin
         self.with_server = server
+        self.username = f"browser-author-{secrets.token_urlsafe(8)}"
+        self.password = secrets.token_urlsafe(24)
+        self.user_id: str | None = None
+        self._pre_user_ids: set[str] = set()
+        self._ephemeral_user_ids: set[str] = set()
+        self._ephemeral_usernames: set[str] = {self.username}
+        self._seeded_browser = False
         self.connection = None
         self.server = None
         self.thread = None
+
+    def new_credentials(self, prefix: str = "studio-author") -> tuple[str, str]:
+        username = f"{prefix}-{secrets.token_urlsafe(8)}"
+        password = secrets.token_urlsafe(24)
+        self._ephemeral_usernames.add(username)
+        return username, password
 
     def __enter__(self):
         self.connection = psycopg.connect(
@@ -89,9 +109,44 @@ class TestRuntime(AbstractContextManager):
         }
         if tables - set(Base.metadata.tables) - {"alembic_version"}:
             raise ValueError("测试库存在非NCC表，拒绝清理或恢复；请先人工核查")
+        return tables
+
+    def has_existing_data(self, existing_tables=None):
+        from psycopg import sql
+        from ncc_data.domain.definitions import SYSTEM_SCOPE
+
+        present = (
+            existing_tables
+            if existing_tables is not None
+            else {
+                r[0]
+                for r in self.connection.execute("SELECT tablename FROM pg_tables WHERE schemaname='public'")
+            }
+        )
+        nonempty = []
+        for table in sorted(set(Base.metadata.tables) & present):
+            if table == "ncc_definition":
+                query = sql.SQL("SELECT 1 FROM {} WHERE scope_id NOT IN ('system', {}) LIMIT 1").format(
+                    sql.Identifier("public", table), sql.Literal(SYSTEM_SCOPE)
+                )
+            elif table == "ncc_scope":
+                query = sql.SQL("SELECT 1 FROM {} WHERE id NOT IN ('system', {}) LIMIT 1").format(
+                    sql.Identifier("public", table), sql.Literal(SYSTEM_SCOPE)
+                )
+            else:
+                query = sql.SQL("SELECT 1 FROM {} LIMIT 1").format(sql.Identifier("public", table))
+            if self.connection.execute(query).fetchone():
+                nonempty.append(table)
+        return nonempty
 
     def reset(self):
-        self.check_schema()
+        existing_tables = self.check_schema()
+        nonempty = self.has_existing_data(existing_tables)
+        if nonempty:
+            raise ValueError(
+                "ncc-dev为共用本地与测试库，检测到现有作品、身份或历史记录，拒绝执行清库："
+                + ", ".join(nonempty)
+            )
         from psycopg import sql
 
         tables = sql.SQL(", ").join(sql.Identifier("public", t) for t in Base.metadata.tables)
@@ -102,11 +157,55 @@ class TestRuntime(AbstractContextManager):
         try:
             async with factory() as db, db.begin():
                 await seed(db)
-                actor = await db.scalar(select(User).where(User.username == USERNAME))
-                if actor is None:
-                    db.add(User(username=USERNAME, password_hash=password_hash(PASSWORD), admin=True))
-                elif not actor.admin:
-                    raise ValueError("合成验收账号已存在且权限不符，请检查测试库")
+                self._pre_user_ids = set((await db.scalars(select(User.id))).all())
+                actor = User(
+                    username=self.username,
+                    password_hash=password_hash(self.password),
+                    admin=True,
+                    active=True,
+                )
+                db.add(actor)
+                await db.flush()
+                self.user_id = actor.id
+                self._ephemeral_user_ids.add(actor.id)
+                self._seeded_browser = True
+        finally:
+            await engine.dispose()
+
+    async def teardown_browser(self):
+        engine, factory = database(self.settings.database_url)
+        try:
+            async with factory() as db, db.begin():
+                cleanup_ids = set(self._ephemeral_user_ids)
+                prefix_clauses = [User.username.startswith(p) for p in EPHEMERAL_USER_PREFIXES]
+                match_clauses = [*prefix_clauses]
+                if self._ephemeral_usernames:
+                    match_clauses.append(User.username.in_(self._ephemeral_usernames))
+                stmt = select(User.id).where(or_(*match_clauses))
+                if self._pre_user_ids:
+                    stmt = stmt.where(User.id.notin_(self._pre_user_ids))
+                cleanup_ids.update((await db.scalars(stmt)).all())
+                if not cleanup_ids:
+                    return
+                await db.execute(
+                    update(Session).where(Session.user_id.in_(cleanup_ids)).values(revoked=True)
+                )
+                await db.execute(
+                    update(Delegation).where(Delegation.actor_id.in_(cleanup_ids)).values(revoked=True)
+                )
+                await db.execute(
+                    update(Job)
+                    .where(Job.actor_id.in_(cleanup_ids), Job.state.in_(["queued", "running"]))
+                    .values(state="cancelled", cancel_requested=True, lease_token=None, lease_until=None)
+                )
+                await db.execute(
+                    update(User)
+                    .where(User.id.in_(cleanup_ids))
+                    .values(
+                        active=False,
+                        password_hash=password_hash(secrets.token_urlsafe(32)),
+                    )
+                )
         finally:
             await engine.dispose()
 
@@ -148,8 +247,12 @@ class TestRuntime(AbstractContextManager):
             self.server.should_exit = True
         if self.thread:
             self.thread.join(timeout=15)
-        if self.connection:
-            self.connection.close()
+        try:
+            if getattr(self, "_seeded_browser", False):
+                asyncio.run(self.teardown_browser())
+        finally:
+            if self.connection:
+                self.connection.close()
         return False
 
 
