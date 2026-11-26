@@ -1,6 +1,6 @@
 """Authenticated same-origin FastAPI application. Schema changes are an explicit CLI step."""
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import select
 
 from ncc_data.api.schemas import FeedbackInput
@@ -26,13 +26,18 @@ def build_router(service):
 
     @router.get("/api/v1/scopes/{sid}/author-drafts/{key}")
     async def get_draft(sid: str, key: str, svc: Service = Depends(service, scope="function")):
-        return await svc.author_draft(sid, key)
+        result = await svc.author_draft(sid, key)
+        if result.get("version", 0) > 0:
+            result.setdefault("chapter_status", "")
+        return result
 
     @router.put("/api/v1/scopes/{sid}/author-drafts/{key}")
     async def save_draft(
         sid: str, key: str, value: AuthorDraft, svc: Service = Depends(service, scope="function")
     ):
-        return await svc.author_draft(sid, key, value)
+        result = await svc.author_draft(sid, key, value)
+        result.setdefault("chapter_status", value.chapter_status)
+        return result
 
     @router.delete("/api/v1/scopes/{sid}/author-drafts/{key}")
     async def clear_draft(
@@ -45,8 +50,25 @@ def build_router(service):
         return await create_task(svc, sid, value)
 
     @router.get("/api/v1/scopes/{sid}/jobs")
-    async def jobs(sid: str, svc: Service = Depends(service, scope="function")):
-        return await svc.jobs(sid)
+    async def jobs(
+        sid: str,
+        kind: str | None = None,
+        state: str | None = None,
+        entity_id: str | None = None,
+        limit: int = Query(default=50, ge=1, le=100),
+        offset: int = Query(default=0, ge=0, le=100_000),
+        summary: bool = False,
+        svc: Service = Depends(service, scope="function"),
+    ):
+        return await svc.jobs(
+            sid,
+            kind=kind,
+            state=state,
+            entity_id=entity_id,
+            limit=limit,
+            offset=offset,
+            summary=summary,
+        )
 
     @router.get("/api/v1/scopes/{sid}/jobs/{jid}")
     async def job(sid: str, jid: str, svc: Service = Depends(service, scope="function")):
@@ -55,7 +77,8 @@ def build_router(service):
         require(
             not row.payload.get("requires_secret") or "secret" in actions, "not_found", "任务不可访问", 404
         )
-        return await svc.serialize_job(row, details=bool({"edit", "assess"} & set(actions)))
+        details = bool({"edit", "assess"} & set(actions)) or (row.kind == "export" and "export" in actions)
+        return await svc.serialize_job(row, details=details)
 
     @router.post("/api/v1/scopes/{sid}/jobs/{jid}/intervene")
     async def intervene(
@@ -71,9 +94,11 @@ def build_router(service):
 
     @router.post("/api/v1/scopes/{sid}/jobs/{jid}/cancel")
     async def cancel_job(sid: str, jid: str, svc: Service = Depends(service, scope="function")):
-        row = await svc.job(sid, jid, "edit", lock=True)
-        row.cancel_requested, row.state, row.lease_token = True, "cancelled", None
-        return await svc.serialize_job(row)
+        return await svc.cancel_job(sid, jid)
+
+    @router.post("/api/v1/scopes/{sid}/jobs/{jid}/retry")
+    async def retry_job(sid: str, jid: str, svc: Service = Depends(service, scope="function")):
+        return await svc.retry_job(sid, jid)
 
     @router.get("/api/v1/scopes/{sid}/assessments")
     async def assessments(sid: str, svc: Service = Depends(service, scope="function")):
@@ -149,10 +174,19 @@ def build_router(service):
 
     @router.delete("/api/v1/scopes/{sid}/delegations/{did}")
     async def revoke_delegation(sid: str, did: str, svc: Service = Depends(service, scope="function")):
-        await authorize(svc.db, svc.actor, sid, "adopt", lock=True)
+        scope, _ = await authorize(svc.db, svc.actor, sid, "adopt", lock=True)
         row = await svc.db.get(Delegation, did)
         require(row and row.scope_id == sid and row.actor_id == svc.actor.id, "not_found", "授权不存在", 404)
         row.revoked = True
+        svc.db.add(
+            Audit(
+                scope_id=sid,
+                actor_id=svc.actor.id,
+                action="delegation.revoke",
+                version=scope.version,
+                detail={"delegation_id": did},
+            )
+        )
         return {"revoked": True}
 
     return router

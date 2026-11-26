@@ -15,10 +15,11 @@ import {
   Upload,
 } from "antd";
 import { useState } from "react";
-import { useCreationPolicy } from "../../../shared/useCreationPolicy";
 import { api, scoped, type Json } from "../../../shared/api";
 import { ErrorPanel } from "../../../shared/components/Feedback";
 import { ReferenceInput } from "../../../shared/inputs/ReferenceInput";
+import { queryKeys } from "../../../shared/queryKeys";
+import { useCreationPolicy } from "../../../shared/useCreationPolicy";
 import { useWorkspace } from "../../../shared/WorkspaceContext";
 
 export function TrustControls() {
@@ -31,7 +32,7 @@ export function TrustControls() {
     [error, setError] = useState<unknown>();
   const authorizationMode = Form.useWatch("mode", form);
   const delegations = useQuery({
-    queryKey: ["scope", scope.id, "delegations"],
+    queryKey: queryKeys.delegations(scope.id),
     queryFn: () => api<Json[]>(scoped(scope.id, "/delegations")),
   });
   const calibrations = useQuery({
@@ -39,16 +40,11 @@ export function TrustControls() {
     enabled: scope.actions.includes("secret"),
     queryFn: () => api<Json[]>(scoped(scope.id, "/calibrations")),
   });
-  const tokens = useQuery({
-    queryKey: ["scope", scope.id, "tokens"],
-    queryFn: () => api<Json[]>(scoped(scope.id, "/tokens")),
-  });
   async function revoke(kind: string, id: string) {
     try {
       await api(scoped(scope.id, `/${kind}/${id}`), "DELETE");
       delegations.refetch();
       calibrations.refetch();
-      tokens.refetch();
       message.success("已撤销，后续执行会重新检查");
     } catch (e) {
       setError(e);
@@ -62,6 +58,7 @@ export function TrustControls() {
           可选择作者授权试运行，或使用完成校准的策略。试运行由作品所有者启用，仍须通过评分、硬伤、证据和版本检查；开篇与关键章由作者选定。
         </Typography.Paragraph>
         <Form
+          name="delegationForm"
           form={form}
           layout="vertical"
           initialValues={{
@@ -276,34 +273,6 @@ export function TrustControls() {
           />
         </Card>
       )}
-      <Card title="范围凭据管理" style={{ marginTop: 24 }}>
-        <Table<Json>
-          rowKey="id"
-          size="small"
-          dataSource={tokens.data}
-          pagination={{ pageSize: 5 }}
-          columns={[
-            {
-              title: "动作",
-              dataIndex: "actions",
-              render: (v) => v.join(" / "),
-            },
-            {
-              title: "到期",
-              dataIndex: "expires_at",
-              render: (v) => new Date(v).toLocaleString(),
-            },
-            {
-              title: "操作",
-              render: (_, r) => (
-                <Button type="link" onClick={() => revoke("tokens", r.id)}>
-                  撤销
-                </Button>
-              ),
-            },
-          ]}
-        />
-      </Card>
     </>
   );
 }

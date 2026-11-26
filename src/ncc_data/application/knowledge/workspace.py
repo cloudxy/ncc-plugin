@@ -2,12 +2,46 @@
 
 import base64
 import json
-import re
 from pathlib import PurePosixPath
 from uuid import NAMESPACE_URL, uuid5
 
 from sqlalchemy import select
 
+from ncc_data.application.knowledge.workspace_sync import (
+    CATEGORIES_DIR,
+    CATEGORY_ALIASES,
+    CHAPTER_OUTLINE_DIR,
+    CHARACTERS_DIR,
+    CORE_SETTING_PATH_KINDS,
+    EXCLUDED_SETTING_KINDS,
+    MASTER_OUTLINE_PATH,
+    PROMISES_PATH,
+    PROSE_DIR,
+    SCENE_DIR,
+    SETTINGS_DIR,
+    STRUCTURAL_KINDS,
+    STYLE_ANCHOR_PATH,
+    WORKSPACE_BOUNDARIES,
+    _cli_chapter_status_from_studio,
+    _cli_status_from_studio,
+    _extract_founding_from_files,
+    _has_nonempty_founding,
+    _infer_setting_kind,
+    _is_setting_md_path,
+    _next_promise_id,
+    _parse_setting_markdown,
+    _promise_code_from_note,
+    _render_setting_markdown,
+    _safe_segment,
+    _studio_chapter_status_from_cli,
+    _studio_status_from_cli,
+    apply_founding_to_state,
+    collect_promise_operations,
+    collect_setting_operations,
+    project_foreshadows_to_promises,
+    project_settings_to_files,
+    safe_path,
+)
 from ncc_data.application.security import authorize
 from ncc_data.domain.contracts import ChangeInput, Query
 from ncc_data.domain.studio_catalog import count_han_chars, ordered_book_chapters
@@ -15,83 +49,37 @@ from ncc_data.persistence.models import Receipt
 from ncc_shared.errors import DomainError, require
 from ncc_shared.serialization import digest
 
-PROMISES_PATH = "06-台账/承诺台账.json"
-MASTER_OUTLINE_PATH = "02-大纲/总纲.md"
-SCENE_DIR = "02-大纲/场景卡"
-CHAPTER_OUTLINE_DIR = "02-大纲/章纲"
-PROSE_DIR = "04-正文"
-
-WORKSPACE_BOUNDARIES = {
-    "bidirectional": [
-        "章节身份、全书顺序（含多卷与调序）、标题、正文、关键章标记、章尾钩文本",
-        "章节细纲（CLI 场景卡/章纲 <-> 工作台 beat_outline；后台新增或非场景卡细纲输出至 02-大纲/章纲/ch-NNNN.md）",
-        "总纲（02-大纲/总纲.md <-> 工作台 outline 实体）",
-        "伏笔与明暗灰线（06-台账/承诺台账.json <-> 工作台 伏笔 实体，里层真义入私有字段 secret_note）",
-    ],
-    "cli_file_only": [
-        "book.json 中的 soul 书魂四问、plight 四维处境历史、units 倒计时与复盘门禁、chapter.length/mood/end 硬检细节",
-        "06-台账/知情台账.json、知识台账.json、状态事件.json 原件保留但不在看板投影为伏笔",
-        "06-台账/承诺台账.json 中的暂定决策（内部流程项，不投影为读者向伏笔）",
-    ],
-    "studio_only": [
-        "跨范围公共陈列卡挂载（commons_refs）、在线 AI 拆合工序候选与校准授权（Delegation/Calibration）",
-    ],
-}
-
-
-def safe_path(value):
-    p = PurePosixPath(value)
-    require(
-        value
-        and not p.is_absolute()
-        and ".." not in p.parts
-        and "\\" not in value
-        and not any(
-            part in {".git", ".env", ".ncc-database.json", ".ncc-database-state.json"} for part in p.parts
-        ),
-        "workspace_path",
-        "工作副本路径无效",
-    )
-    return p.as_posix()
-
-
-def _promise_code_from_note(data: dict) -> str | None:
-    note = str((data or {}).get("note") or "").strip()
-    m = re.match(r"^((?:P|FS)-\d{4,})\b", note)
-    return m.group(1) if m else None
-
-
-def _next_promise_id(items: list[dict], prefix: str = "FS") -> str:
-    hi = 0
-    for it in items:
-        m = re.fullmatch(rf"{prefix}-(\d+)", str(it.get("id") or ""))
-        if m:
-            hi = max(hi, int(m.group(1)))
-    return f"{prefix}-{hi + 1:04d}"
-
-
-def _cli_status_from_studio(studio_status: str, existing_status: str = "悬置") -> str:
-    s = (studio_status or "").strip()
-    if s in {"resolved", "已兑现", "兑现", "已回收", "完全兑现"}:
-        return "已兑现"
-    if s in {"dropped", "abandoned", "作废", "已作废", "放弃"}:
-        return "作废"
-    if existing_status in {"悬置", "推进中"}:
-        return existing_status
-    if s in {"推进中", "active"}:
-        return "推进中"
-    return "悬置"
-
-
-def _studio_status_from_cli(cli_status: str, has_progress: bool = False) -> str:
-    s = (cli_status or "").strip()
-    if s == "已兑现":
-        return "已兑现"
-    if s == "作废":
-        return "作废"
-    if s == "推进中" or has_progress:
-        return "推进中"
-    return "已埋设"
+__all__ = [
+    "CATEGORIES_DIR",
+    "CATEGORY_ALIASES",
+    "CHAPTER_OUTLINE_DIR",
+    "CHARACTERS_DIR",
+    "CORE_SETTING_PATH_KINDS",
+    "EXCLUDED_SETTING_KINDS",
+    "MASTER_OUTLINE_PATH",
+    "PROMISES_PATH",
+    "PROSE_DIR",
+    "SCENE_DIR",
+    "SETTINGS_DIR",
+    "STRUCTURAL_KINDS",
+    "STYLE_ANCHOR_PATH",
+    "WORKSPACE_BOUNDARIES",
+    "WorkspaceMixin",
+    "_cli_chapter_status_from_studio",
+    "_cli_status_from_studio",
+    "_extract_founding_from_files",
+    "_has_nonempty_founding",
+    "_infer_setting_kind",
+    "_is_setting_md_path",
+    "_next_promise_id",
+    "_parse_setting_markdown",
+    "_promise_code_from_note",
+    "_render_setting_markdown",
+    "_safe_segment",
+    "_studio_chapter_status_from_cli",
+    "_studio_status_from_cli",
+    "safe_path",
+]
 
 
 class WorkspaceMixin:
@@ -99,7 +87,7 @@ class WorkspaceMixin:
         scope, actions = await authorize(self.db, self.actor, scope_id, "export")
         require("secret" in actions, "workspace_permission", "完整CLI工作副本需要秘密内容与导出权限", 403)
         files, offset = {}, 0
-        volumes, chapters, outlines, foreshadows = [], [], [], []
+        volumes, chapters, outlines, foreshadows, settings_entities = [], [], [], [], []
         while True:
             page = await self.entities(scope_id, Query(limit=200, offset=offset))
             for item in page["items"]:
@@ -121,6 +109,8 @@ class WorkspaceMixin:
                     outlines.append(full)
                 elif kind in {"foreshadow", "伏笔", "暗线", "悬念"}:
                     foreshadows.append(full)
+                elif kind not in EXCLUDED_SETTING_KINDS:
+                    settings_entities.append(full)
             if page["next_offset"] is None:
                 break
             offset = page["next_offset"]
@@ -138,19 +128,33 @@ class WorkspaceMixin:
             used_paths.add(chosen)
             chapter_paths[chapter["id"]] = chosen
             text = chapter.get("text") or ""
-            # Only write prose file if it existed before or has prose or is registered in book.json/studio
             files[chosen] = text.encode("utf-8")
 
-        if "book.json" in files or ordered:
+        project_settings_to_files(files, settings_entities, scope.config, actions)
+
+        founding = (scope.config or {}).get("founding") or {}
+        has_founding = _has_nonempty_founding(founding)
+
+        if "book.json" in files or ordered or has_founding:
             state = (
                 json.loads(files["book.json"].decode("utf-8"))
                 if "book.json" in files
                 else {
-                    "schema_version": 3,
+                    "schema_version": 4,
                     "title": scope.name,
-                    "mode": "serial",
+                    "mode": "混合",
+                    "writing_mode": "serial",
                     "stage": "serial",
-                    "soul": {},
+                    "soul": {
+                        "question": "",
+                        "answer": "",
+                        "injustice": "",
+                        "ending": "",
+                        "status": "未填",
+                        "deadline": "",
+                        "arc": "",
+                    },
+                    "contract": {"main": "", "extras": [], "poison": [], "signing": {}, "audience": ""},
                     "chapters": [],
                     "units": [],
                     "volumes": [{"n": 1, "start": 1, "end": None, "status": "open"}],
@@ -175,12 +179,12 @@ class WorkspaceMixin:
                 text_sha = digest(text.encode("utf-8"))[:16] if text.strip() else ""
                 data = obj.get("data") or {}
                 studio_status = str(data.get("status") or "")
-                if studio_status == "done":
-                    ch_status = "done"
-                elif old.get("status") in {"planned", "drafted", "done"} and old.get("sha", "") == text_sha:
-                    ch_status = old["status"]
-                else:
-                    ch_status = "drafted" if text.strip() else (old.get("status") or "planned")
+                ch_status = _cli_chapter_status_from_studio(studio_status, text, old)
+                word_cnt = (
+                    count_han_chars(text)
+                    if text.strip()
+                    else int(old.get("words") or old.get("word_count") or 0)
+                )
                 entry = {
                     "origin": old.get("origin") or "author",
                     **old,
@@ -188,10 +192,15 @@ class WorkspaceMixin:
                     "title": obj["name"],
                     "file": path,
                     "studio_id": obj["id"],
-                    "key": bool(data.get("key_chapter")) if "key_chapter" in data else bool(old.get("key", seq <= 3)),
+                    "key": (
+                        bool(data.get("key_chapter"))
+                        if "key_chapter" in data
+                        else bool(old.get("key", seq <= 3))
+                    ),
                     "status": ch_status,
                     "sha": text_sha,
-                    "words": count_han_chars(text) if text.strip() else int(old.get("words") or 0),
+                    "words": word_cnt,
+                    "word_count": word_cnt,
                 }
                 hook_val = str(data.get("hook") or "").strip()
                 if hook_val:
@@ -220,9 +229,12 @@ class WorkspaceMixin:
                         body = beat if beat.startswith("#") else (header + beat)
                         files[outline_rel] = (body.rstrip() + "\n").encode("utf-8")
 
-            state["chapters"] = synced_chapters
+            if ordered or "chapters" in state:
+                state["chapters"] = synced_chapters
             if volumes:
-                sorted_vols = sorted(volumes, key=lambda v: (int((v.get("data") or {}).get("position", 0)), v["id"]))
+                sorted_vols = sorted(
+                    volumes, key=lambda v: (int((v.get("data") or {}).get("position", 0)), v["id"])
+                )
                 vol_entries = []
                 for v_idx, vol in enumerate(sorted_vols, 1):
                     v_chs = [
@@ -230,7 +242,15 @@ class WorkspaceMixin:
                         for idx, ch in enumerate(ordered, 1)
                         if (ch.get("data") or {}).get("parent_id") == vol["id"]
                     ]
-                    v_start = min(v_chs) if v_chs else (vol_entries[-1]["end"] + 1 if vol_entries and vol_entries[-1].get("end") else 1)
+                    v_start = (
+                        min(v_chs)
+                        if v_chs
+                        else (
+                            vol_entries[-1]["end"] + 1
+                            if vol_entries and vol_entries[-1].get("end")
+                            else 1
+                        )
+                    )
                     v_end = max(v_chs) if v_chs and v_idx < len(sorted_vols) else None
                     vol_entries.append(
                         {
@@ -243,6 +263,10 @@ class WorkspaceMixin:
                         }
                     )
                 state["volumes"] = vol_entries
+
+            if has_founding:
+                apply_founding_to_state(state, files, founding)
+
             files["book.json"] = (json.dumps(state, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
 
         if outlines:
@@ -250,78 +274,14 @@ class WorkspaceMixin:
                 (o for o in outlines if (o.get("data") or {}).get("legacy_path") == MASTER_OUTLINE_PATH),
                 outlines[0],
             )
-            outline_body = str((primary.get("data") or {}).get("beat_outline") or primary.get("text") or "").strip()
+            outline_body = str(
+                (primary.get("data") or {}).get("beat_outline") or primary.get("text") or ""
+            ).strip()
             if outline_body:
                 files[MASTER_OUTLINE_PATH] = (outline_body + "\n").encode("utf-8")
 
         if PROMISES_PATH in files or foreshadows:
-            p_doc = (
-                json.loads(files[PROMISES_PATH].decode("utf-8"))
-                if PROMISES_PATH in files
-                else {"items": []}
-            )
-            p_items = list(p_doc.get("items") or [])
-            by_pid = {str(it.get("id")): it for it in p_items if it.get("id")}
-            by_studio_id = {str(it.get("studio_id")): it for it in p_items if it.get("studio_id")}
-            mapped_promises = scope.config.get("legacy_promises", {})
-            inv_promises = {v: k for k, v in mapped_promises.items()}
-            max_seq = len(ordered) or 1
-
-            for fs in sorted(foreshadows, key=lambda x: (int((x.get("data") or {}).get("position", 0)), x["id"])):
-                fdata = fs.get("data") or {}
-                pid = (
-                    inv_promises.get(fs["id"])
-                    or _promise_code_from_note(fdata)
-                    or (by_studio_id[fs["id"]]["id"] if fs["id"] in by_studio_id else None)
-                )
-                target = by_pid.get(pid) if pid else by_studio_id.get(fs["id"])
-                line_type = fdata.get("line_type") or ("暗线" if fs["kind"] in {"暗线", "伏笔", "foreshadow"} else "明线")
-                planted = fdata.get("planted_chapter")
-                expected = fdata.get("expected_chapter")
-                secret_truth = str(fdata.get("secret_note") or "").strip()
-                clean_title = re.sub(r"^(?:P|FS)-\d{4,}\s*·\s*", "", fs["name"]).strip() or fs["name"]
-                public_desc = (fs.get("text") or "").strip() or clean_title
-                if target is not None:
-                    new_status = _cli_status_from_studio(fdata.get("status", ""), target.get("status", "悬置"))
-                    target["status"] = new_status
-                    target["studio_id"] = fs["id"]
-                    if line_type in {"明线", "暗线", "灰线"}:
-                        target["line"] = line_type
-                    if isinstance(planted, int) and planted >= 1:
-                        target["created_ch"] = planted
-                    if isinstance(expected, int) and expected >= 1:
-                        low = int(target["window"][0]) if isinstance(target.get("window"), list) and target["window"] else (planted or 1)
-                        target["window"] = [min(low, expected), expected]
-                    if secret_truth:
-                        target["true_meaning"] = secret_truth
-                    if new_status == "已兑现" and not target.get("resolved_ch"):
-                        target["resolved_ch"] = expected or max_seq
-                else:
-                    prefix = "FS" if line_type in {"暗线", "灰线"} or fs["kind"] in {"伏笔", "暗线", "foreshadow"} else "P"
-                    new_id = pid or _next_promise_id(p_items, prefix)
-                    c_ch = planted if isinstance(planted, int) and planted >= 1 else 1
-                    win = [c_ch, max(c_ch, expected)] if isinstance(expected, int) and expected >= 1 else None
-                    new_status = _cli_status_from_studio(fdata.get("status", ""), "悬置")
-                    rec = {
-                        "id": new_id,
-                        "studio_id": fs["id"],
-                        "type": "伏笔" if prefix == "FS" else "悬念",
-                        "line": line_type if line_type in {"明线", "暗线", "灰线"} else "暗线",
-                        "content": clean_title,
-                        "surface_cover": public_desc if public_desc != clean_title else "",
-                        "true_meaning": secret_truth,
-                        "strength": int(fdata["strength"]) if isinstance(fdata.get("strength"), int) and 1 <= fdata["strength"] <= 5 else 3,
-                        "created_ch": c_ch,
-                        "window": win,
-                        "desire": None,
-                        "status": new_status,
-                        "progress": [],
-                        "resolved_ch": (expected or max_seq) if new_status == "已兑现" else None,
-                    }
-                    p_items.append(rec)
-                    by_pid[new_id] = rec
-            p_doc["items"] = p_items
-            files[PROMISES_PATH] = (json.dumps(p_doc, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+            project_foreshadows_to_promises(files, foreshadows, scope.config, len(ordered) or 1)
 
         return {
             "format": "ncc.workspace/1",
@@ -363,10 +323,17 @@ class WorkspaceMixin:
         current = await self.workspace_snapshot(scope_id)
         old_files = {x["path"]: base64.b64decode(x["base64"]) for x in current["files"]}
         raw_files, operations = dict(old_files), []
+        changed_paths: set[str] = set()
+        deleted_paths: set[str] = set()
+
         for item in value["files"]:
             path = safe_path(item.get("path", ""))
             if item.get("deleted"):
+                was_present = path in old_files
                 raw_files.pop(path, None)
+                deleted_paths.add(path)
+                if was_present:
+                    changed_paths.add(path)
             else:
                 try:
                     raw = base64.b64decode(item["base64"], validate=True)
@@ -379,6 +346,9 @@ class WorkspaceMixin:
                 )
                 require(digest(raw) == item.get("sha256"), "workspace_digest", "工作副本内容摘要不符")
                 raw_files[path] = raw
+                if old_files.get(path) != raw:
+                    changed_paths.add(path)
+
             identity = str(uuid5(NAMESPACE_URL, scope.id + ":file:" + path))
             previous = None
             try:
@@ -391,6 +361,15 @@ class WorkspaceMixin:
                     operations.append(
                         {"op": "retire", "entity_id": identity, "expected": previous["version"]}
                     )
+                continue
+            # If the submitted bytes match the current workspace_snapshot, skip redundant legacy-file churn
+            if path not in changed_paths and (
+                previous is None
+                or (
+                    not previous.get("deleted")
+                    and (previous.get("data") or {}).get("content_hash") == digest(raw)
+                )
+            ):
                 continue
             try:
                 content = raw.decode("utf-8")
@@ -419,6 +398,9 @@ class WorkspaceMixin:
                 operation["reactivate"] = bool(previous.get("deleted"))
             operations.append(operation)
 
+        if not changed_paths and not operations:
+            return {"version": scope.version, "unchanged": True, "boundaries": WORKSPACE_BOUNDARIES}
+
         all_existing = await self.all_entities(scope_id, include_deleted=True)
         existing_by_id = {e["id"]: e for e in all_existing}
         existing_chapters_by_path = {
@@ -426,22 +408,68 @@ class WorkspaceMixin:
             for c in all_existing
             if c["kind"] in {"chapter", "章节"} and c["data"].get("legacy_path")
         }
+        existing_settings_by_path = {
+            s["data"]["legacy_path"]: s
+            for s in all_existing
+            if s["kind"] not in EXCLUDED_SETTING_KINDS and (s.get("data") or {}).get("legacy_path")
+        }
+        defined_keys = {
+            d["key"]
+            for d in await self.definitions(scope_id)
+            if not (d.get("spec") or {}).get("relation")
+        }
 
         legacy = json.loads(raw_files.get("book.json", b"{}"))
         mapping = dict(scope.config.get("legacy_chapters", {}))
         promise_mapping = dict(scope.config.get("legacy_promises", {}))
-        declared = {c.get("file") for c in legacy.get("chapters", []) if c.get("file")}
-        declared_studio_ids = {c.get("studio_id") for c in legacy.get("chapters", []) if c.get("studio_id")}
-        changed_paths = {safe_path(i["path"]) for i in value["files"]}
-        deleted_paths = {safe_path(i["path"]) for i in value["files"] if i.get("deleted")}
+        setting_mapping = dict(scope.config.get("legacy_settings", {}))
+        for p_key, s_row in existing_settings_by_path.items():
+            if not s_row.get("deleted") and _is_setting_md_path(p_key):
+                setting_mapping.setdefault(p_key, s_row["id"])
+
         metadata_changed = "book.json" in changed_paths
+        active_declared_paths = set()
+        active_declared_studio_ids = set()
+        for c in legacy.get("chapters", []):
+            c_path = (
+                safe_path(c["file"])
+                if c.get("file")
+                else f"{PROSE_DIR}/第{int(c['seq']):04d}章.md"
+            )
+            if c_path in deleted_paths:
+                continue
+            active_declared_paths.add(c_path)
+            if c.get("studio_id"):
+                active_declared_studio_ids.add(c["studio_id"])
+
+        if not metadata_changed:
+            book_file_id = str(uuid5(NAMESPACE_URL, scope.id + ":file:book.json"))
+            book_file_row = existing_by_id.get(book_file_id)
+            if book_file_row and not book_file_row.get("deleted") and book_file_row.get("text"):
+                try:
+                    stored_book = json.loads(book_file_row["text"])
+                except ValueError:
+                    stored_book = {}
+                for stored_ch in stored_book.get("chapters") or []:
+                    s_path = safe_path(stored_ch["file"]) if stored_ch.get("file") else ""
+                    if (
+                        s_path
+                        and s_path in changed_paths
+                        and s_path in raw_files
+                        and s_path not in deleted_paths
+                        and s_path not in active_declared_paths
+                    ):
+                        legacy.setdefault("chapters", []).append(stored_ch)
+                        active_declared_paths.add(s_path)
+                        if stored_ch.get("studio_id"):
+                            active_declared_studio_ids.add(stored_ch["studio_id"])
 
         for path, old in existing_chapters_by_path.items():
             explicitly_deleted = path in deleted_paths
             if (
                 not old.get("deleted")
-                and old["id"] not in declared_studio_ids
-                and (explicitly_deleted or (metadata_changed and path not in declared))
+                and old["id"] not in active_declared_studio_ids
+                and (explicitly_deleted or (metadata_changed and path not in active_declared_paths))
             ):
                 operations.append({"op": "retire", "entity_id": old["id"], "expected": old["version"]})
 
@@ -467,7 +495,7 @@ class WorkspaceMixin:
                     v_op = {
                         "op": "update" if old_vol else "create",
                         "entity_id": vid,
-                        "kind": "volume",
+                        "kind": old_vol["kind"] if old_vol else "volume",
                         "name": v_name,
                         "data": v_data,
                         "text": old_vol["text"] if old_vol else "",
@@ -483,11 +511,11 @@ class WorkspaceMixin:
         for chapter in legacy.get("chapters", []):
             seq = int(chapter["seq"])
             path = safe_path(chapter.get("file", "")) if chapter.get("file") else f"{PROSE_DIR}/第{seq:04d}章.md"
+            if path in deleted_paths:
+                continue
             scene_rel = f"{SCENE_DIR}/ch-{seq:04d}.md"
             outline_rel = f"{CHAPTER_OUTLINE_DIR}/ch-{seq:04d}.md"
-            relevant_changed = bool(
-                metadata_changed or {path, scene_rel, outline_rel} & changed_paths
-            )
+            relevant_changed = bool(metadata_changed or {path, scene_rel, outline_rel} & changed_paths)
             old_by_path = existing_chapters_by_path.get(path)
             eid = (
                 chapter.get("studio_id")
@@ -508,13 +536,16 @@ class WorkspaceMixin:
                 text = old["text"] if old and not metadata_changed else ""
 
             scene_txt = raw_files[scene_rel].decode("utf-8-sig").strip() if scene_rel in raw_files else ""
-            outline_txt = raw_files[outline_rel].decode("utf-8-sig").strip() if outline_rel in raw_files else ""
+            outline_txt = (
+                raw_files[outline_rel].decode("utf-8-sig").strip() if outline_rel in raw_files else ""
+            )
             prev_data = dict(old["data"]) if old else {}
+            mapped_status = _studio_chapter_status_from_cli(chapter.get("status", "draft"))
             data = {
                 **prev_data,
                 "position": seq if not volume_id_for_seq else prev_data.get("position", seq - 1),
                 "legacy_path": path,
-                "status": chapter.get("status", "draft"),
+                "status": mapped_status,
                 "key_chapter": bool(chapter.get("key", seq <= 3)),
             }
             for (v_lo, v_hi), vid in volume_id_for_seq.items():
@@ -547,7 +578,7 @@ class WorkspaceMixin:
             operation = {
                 "op": "update" if old else "create",
                 "entity_id": eid,
-                "kind": "chapter",
+                "kind": old["kind"] if old else "chapter",
                 "name": name,
                 "data": data,
                 "text": text,
@@ -556,6 +587,20 @@ class WorkspaceMixin:
                 operation["expected"] = old["version"]
                 operation["reactivate"] = bool(old.get("deleted"))
             operations.append(operation)
+
+        operations.extend(
+            collect_setting_operations(
+                scope_id=scope.id,
+                changed_paths=changed_paths,
+                deleted_paths=deleted_paths,
+                raw_files=raw_files,
+                old_files=old_files,
+                existing_by_id=existing_by_id,
+                existing_settings_by_path=existing_settings_by_path,
+                setting_mapping=setting_mapping,
+                defined_keys=defined_keys,
+            )
+        )
 
         # Project master outline 02-大纲/总纲.md -> Studio outline entity
         if MASTER_OUTLINE_PATH in changed_paths and MASTER_OUTLINE_PATH in raw_files:
@@ -578,11 +623,16 @@ class WorkspaceMixin:
                     "position": (old_out["data"].get("position", 0) if old_out else 0),
                 }
                 out_name = old_out["name"] if old_out else "全书总纲"
-                if not old_out or old_out.get("deleted") or old_out["text"] != out_raw or old_out["data"] != out_data:
+                if (
+                    not old_out
+                    or old_out.get("deleted")
+                    or old_out["text"] != out_raw
+                    or old_out["data"] != out_data
+                ):
                     out_op = {
                         "op": "update" if old_out else "create",
                         "entity_id": oid,
-                        "kind": "outline",
+                        "kind": old_out["kind"] if old_out else "outline",
                         "name": out_name,
                         "data": out_data,
                         "text": out_raw,
@@ -592,79 +642,33 @@ class WorkspaceMixin:
                         out_op["reactivate"] = bool(old_out.get("deleted"))
                     operations.append(out_op)
 
-        # Project CLI promise ledger 06-台账/承诺台账.json -> Studio 伏笔 entities
-        typed_foreshadows = 0
-        if PROMISES_PATH in raw_files and (PROMISES_PATH in changed_paths or not promise_mapping):
-            p_doc = json.loads(raw_files[PROMISES_PATH].decode("utf-8-sig"))
-            seen_promise_eids = set()
-            for idx, p in enumerate(p_doc.get("items") or []):
-                pid = str(p.get("id") or "").strip()
-                if not pid or p.get("type") == "暂定决策":
-                    continue
-                fid = (
-                    p.get("studio_id")
-                    or promise_mapping.get(pid)
-                    or str(uuid5(NAMESPACE_URL, scope.id + ":promise:" + pid))
-                )
-                promise_mapping[pid] = fid
-                seen_promise_eids.add(fid)
-                typed_foreshadows += 1
-                old_fs = existing_by_id.get(fid)
-                line = p.get("line") or (
-                    "灰线" if p.get("type") in {"期权", "母题"} else "暗线" if p.get("type") == "伏笔" else "明线"
-                )
-                status = _studio_status_from_cli(p.get("status") or "悬置", bool(p.get("progress")))
-                cover = str(p.get("surface_cover") or "").strip()
-                content = str(p.get("content") or "").strip()
-                comp = str(p.get("compensation") or "").strip()
-                truth = str(p.get("true_meaning") or "").strip()
-                fname = f"{pid} · {(cover or content)[:60]}" if (cover or content) else pid
-                ftext = cover or content
-                if status == "作废" and comp:
-                    ftext = f"{ftext}\n补偿交代：{comp}".strip()
-                fdata = {
-                    **(old_fs["data"] if old_fs else {}),
-                    "position": idx,
-                    "status": status,
-                    "line_type": line,
-                    "note": pid,
-                }
-                if isinstance(p.get("created_ch"), int) and p["created_ch"] >= 0:
-                    fdata["planted_chapter"] = p["created_ch"]
-                if isinstance(p.get("window"), list) and len(p["window"]) >= 2 and isinstance(p["window"][1], int):
-                    fdata["expected_chapter"] = p["window"][1]
-                if isinstance(p.get("strength"), int) and 0 <= p["strength"] <= 5:
-                    fdata["strength"] = p["strength"]
-                if truth:
-                    fdata["secret_note"] = truth
-                if (
-                    old_fs
-                    and not old_fs.get("deleted")
-                    and old_fs["name"] == fname
-                    and old_fs["text"] == ftext
-                    and old_fs["data"] == fdata
-                ):
-                    continue
-                fs_op = {
-                    "op": "update" if old_fs else "create",
-                    "entity_id": fid,
-                    "kind": "伏笔",
-                    "name": fname,
-                    "data": fdata,
-                    "text": ftext,
-                }
-                if old_fs:
-                    fs_op["expected"] = old_fs["version"]
-                    fs_op["reactivate"] = bool(old_fs.get("deleted"))
-                operations.append(fs_op)
-        else:
-            typed_foreshadows = len(promise_mapping)
+        promise_ops, typed_foreshadows = collect_promise_operations(
+            scope_id=scope.id,
+            raw_files=raw_files,
+            changed_paths=changed_paths,
+            existing_by_id=existing_by_id,
+            promise_mapping=promise_mapping,
+        )
+        operations.extend(promise_ops)
 
-        scope.config = {
+        next_config = {
             **scope.config,
             "legacy_chapters": mapping,
             "legacy_promises": promise_mapping,
+            "legacy_settings": setting_mapping,
         }
+        if (
+            metadata_changed
+            or STYLE_ANCHOR_PATH in changed_paths
+            or "founding" not in (scope.config or {})
+        ) and ("book.json" in raw_files or STYLE_ANCHOR_PATH in raw_files):
+            extracted_founding = _extract_founding_from_files(
+                legacy, raw_files, (scope.config or {}).get("founding")
+            )
+            if _has_nonempty_founding(extracted_founding) or "founding" in next_config:
+                next_config["founding"] = extracted_founding
+
+        scope.config = next_config
         require(len(operations) <= 500, "workspace_size", "语义变化超过单批预算，请拆分文件批次")
         if not operations:
             return {"version": scope.version, "unchanged": True, "boundaries": WORKSPACE_BOUNDARIES}
@@ -682,9 +686,10 @@ class WorkspaceMixin:
             "coverage": {
                 "raw_files": len(raw_files),
                 "typed_chapters": len(mapping),
+                "typed_settings": len(setting_mapping),
                 "typed_foreshadows": typed_foreshadows,
                 "boundaries": WORKSPACE_BOUNDARIES,
-                "other_semantics": "章节、场景卡/章纲、总纲与承诺伏笔已双向结构化映射；其余台账原件完整保留，详见 boundaries",
+                "other_semantics": "章节、状态、立书档案、01-设定、场景卡/章纲、总纲与承诺伏笔已双向结构化映射；其余台账原件完整保留",
             },
         }
         self.db.add(

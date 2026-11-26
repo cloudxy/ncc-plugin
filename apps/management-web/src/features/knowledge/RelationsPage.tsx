@@ -10,10 +10,12 @@ import {
   Input,
   InputNumber,
   Modal,
+  Popconfirm,
   Select,
   Skeleton,
   Space,
   Table,
+  Tag,
 } from "antd";
 import { Suspense, useMemo, useRef, useState } from "react";
 import {
@@ -26,13 +28,42 @@ import {
 } from "../../shared/api";
 import { NoData, PageTitle } from "../../shared/components/Feedback";
 import { ReferenceInput } from "../../shared/inputs/ReferenceInput";
+import { queryKeys } from "../../shared/queryKeys";
 import { scopeLine } from "../../shared/scopeLabel";
 import { useWorkspace } from "../../shared/WorkspaceContext";
 import { effectDetail } from "../creation/effectDetail";
 import { Graph } from "./components/KnowledgeVisuals";
 import "./visuals/boards.css";
-import { useViewportWidth } from "./visuals/useViewportWidth";
 import type { GraphEdge, GraphNode } from "./visuals/GraphCanvas";
+import { useViewportWidth } from "./visuals/useViewportWidth";
+
+const STANCE_LABELS: Record<string, string> = {
+  knows: "知道",
+  suspects: "怀疑",
+  misbelieves: "误信",
+  unaware: "不知",
+  denies: "否认",
+};
+
+function formatFactValue(val: unknown): string {
+  if (val === undefined || val === null || val === "") return "-";
+  if (typeof val === "string" || typeof val === "number") return String(val);
+  if (typeof val === "object") {
+    const obj = val as Json;
+    if (typeof obj.proposition === "string") {
+      const stance = obj.stance
+        ? STANCE_LABELS[String(obj.stance)] || String(obj.stance)
+        : "";
+      const attitude = obj.attitude ? ` · 态度：${obj.attitude}` : "";
+      return `${obj.proposition}${stance ? `（${stance}）` : ""}${attitude}`;
+    }
+    if (typeof obj.text === "string") {
+      return obj.text || "-";
+    }
+    return JSON.stringify(obj);
+  }
+  return String(val);
+}
 
 export function RelationsPage() {
   const { scope, refresh } = useWorkspace(),
@@ -53,20 +84,32 @@ export function RelationsPage() {
   }
   const canEdit = scope.actions.includes("edit");
   const [transferForm] = Form.useForm();
+
   const defs = useQuery({
-    queryKey: ["scope", scope.id, "definitions"],
+    queryKey: queryKeys.definitions(scope.id),
     queryFn: () => api<Definition[]>(scoped(scope.id, "/definitions")),
     retry: false,
   });
+
+  const predicateLabels = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const d of defs.data || []) {
+      if (d.spec?.relation) {
+        const cleanKey = d.key.replace(/^rel:/, "");
+        map.set(cleanKey, d.spec.label || cleanKey);
+        map.set(d.key, d.spec.label || d.key);
+      }
+    }
+    return map;
+  }, [defs.data]);
+
   const entities = useQuery({
     queryKey: ["scope", scope.id, "relation-labels"],
     queryFn: () =>
       api<Json>(scoped(scope.id, "/entities/search"), "POST", { limit: 200 }),
     retry: false,
   });
-  const labels = new Map<string, string>(
-    entities.data?.items.map((e: Entity) => [e.id, e.name]),
-  );
+
   const query = useQuery({
     queryKey: ["scope", scope.id, "facts", category, calendar, worldAt, asOf],
     retry: false,
@@ -79,6 +122,56 @@ export function RelationsPage() {
         limit: 200,
       }),
   });
+
+  const factItems: Json[] = query.isSuccess ? (query.data?.items ?? []) : [];
+
+  const baseLabels = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const e of (entities.data?.items || []) as Entity[]) {
+      map.set(e.id, e.name);
+    }
+    return map;
+  }, [entities.data]);
+
+  const missingIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const r of factItems) {
+      if (typeof r.subject_id === "string" && !baseLabels.has(r.subject_id)) {
+        ids.add(r.subject_id);
+      }
+      if (typeof r.object_id === "string" && !baseLabels.has(r.object_id)) {
+        ids.add(r.object_id);
+      }
+    }
+    return [...ids].slice(0, 25);
+  }, [factItems, baseLabels]);
+
+  const extraNames = useQuery({
+    queryKey: ["scope", scope.id, "relation-extra-labels", missingIds],
+    enabled: missingIds.length > 0,
+    queryFn: async () => {
+      const pairs = await Promise.all(
+        missingIds.map(async (id) => {
+          try {
+            const ent = await api<Entity>(scoped(scope.id, `/entities/${id}`));
+            return [id, ent.name] as const;
+          } catch {
+            return [id, `${id.slice(0, 8)}…`] as const;
+          }
+        }),
+      );
+      return Object.fromEntries(pairs);
+    },
+  });
+
+  const labels = useMemo(() => {
+    const map = new Map(baseLabels);
+    for (const [k, v] of Object.entries(extraNames.data || {})) {
+      map.set(k, v);
+    }
+    return map;
+  }, [baseLabels, extraNames.data]);
+
   const graphQuery = useQuery({
     queryKey: ["scope", scope.id, "graph", graph ?? ""],
     enabled: Boolean(graph),
@@ -86,7 +179,7 @@ export function RelationsPage() {
     queryFn: () => api<Json>(scoped(scope.id, `/graph/${graph}`)),
   });
   const graphData = graphQuery.isSuccess ? graphQuery.data : undefined;
-  const factItems: Json[] = query.isSuccess ? (query.data?.items ?? []) : [];
+
   const graphNodes = useMemo<GraphNode[]>(() => {
     const rows = Array.isArray(graphData?.nodes) ? graphData.nodes : [];
     return rows.map((node: Json) => ({
@@ -94,20 +187,27 @@ export function RelationsPage() {
       name: typeof node.name === "string" ? node.name : "",
     }));
   }, [graphData]);
+
   const graphEdges = useMemo<GraphEdge[]>(() => {
     const rows = Array.isArray(graphData?.edges) ? graphData.edges : [];
     return rows
       .filter((edge: Json) => edge.id && edge.subject_id && edge.object_id)
-      .map((edge: Json) => ({
-        id: String(edge.id),
-        subject_id: String(edge.subject_id),
-        object_id: String(edge.object_id),
-        predicate: typeof edge.predicate === "string" ? edge.predicate : "",
-      }));
-  }, [graphData]);
+      .map((edge: Json) => {
+        const rawPred =
+          typeof edge.predicate === "string" ? edge.predicate : "";
+        return {
+          id: String(edge.id),
+          subject_id: String(edge.subject_id),
+          object_id: String(edge.object_id),
+          predicate: predicateLabels.get(rawPred) || rawPred,
+        };
+      });
+  }, [graphData, predicateLabels]);
+
   const nodeName = new Map(graphNodes.map((node) => [node.id, node.name]));
   const centerName = graph ? (nodeName.get(graph) ?? "") : "";
   const mountCanvas = width > 768 && graphQuery.isSuccess;
+
   async function save(values: Json) {
     if (!canEdit) return;
     try {
@@ -146,6 +246,7 @@ export function RelationsPage() {
       message.error((e as Error).message);
     }
   }
+
   async function move(values: Json) {
     if (!canEdit) return;
     try {
@@ -184,6 +285,29 @@ export function RelationsPage() {
       message.error((e as Error).message);
     }
   }
+
+  async function retractFact(r: Json) {
+    if (!canEdit) return;
+    try {
+      await adopt(
+        scope,
+        [
+          {
+            op: "retract",
+            entity_id: r.subject_id,
+            fact_id: r.id,
+          },
+        ],
+        "撤回事实记录",
+      );
+      query.refetch();
+      refresh();
+      message.success("记录已撤回，历史记录仍保留可查");
+    } catch (e) {
+      message.error((e as Error).message);
+    }
+  }
+
   return (
     <>
       <PageTitle
@@ -261,7 +385,8 @@ export function RelationsPage() {
         {query.data?.uncertain_time_count > 0 && (
           <Alert
             type="info"
-            title={`${query.data?.uncertain_time_count}项历法不明确，未伪造精确时点`}
+            showIcon
+            title={`${query.data?.uncertain_time_count} 项历法不明确，未伪造精确时点`}
           />
         )}
         <Table<Json>
@@ -281,19 +406,31 @@ export function RelationsPage() {
             {
               title: "对象",
               dataIndex: "subject_id",
-              render: (v) => (
+              render: (v: string) => (
                 <Button type="link" onClick={() => setGraph(v)}>
-                  {labels.get(v) || v.slice(0, 8)}
+                  {labels.get(v) || `${v.slice(0, 8)}…`}
                 </Button>
               ),
             },
-            { title: "关系/命题", dataIndex: "predicate" },
             {
-              title: "关联对象 / 值",
+              title: "关系 / 命题",
+              dataIndex: "predicate",
+              render: (v: string) => <Tag>{predicateLabels.get(v) || v}</Tag>,
+            },
+            {
+              title: "关联对象 / 说明",
               render: (_, r) =>
-                r.object_id
-                  ? labels.get(r.object_id) || r.object_id.slice(0, 8)
-                  : JSON.stringify(r.value),
+                r.object_id ? (
+                  <Button
+                    type="link"
+                    onClick={() => setGraph(String(r.object_id))}
+                  >
+                    {labels.get(String(r.object_id)) ||
+                      `${String(r.object_id).slice(0, 8)}…`}
+                  </Button>
+                ) : (
+                  formatFactValue(r.value)
+                ),
             },
             {
               title: "世界有效区间",
@@ -302,45 +439,36 @@ export function RelationsPage() {
                   ? `${r.calendar} [${r.world_from ?? "未知"}, ${r.world_to ?? "持续"})`
                   : "未知 / 未定时",
             },
-            { title: "记录版本", dataIndex: "recorded_from" },
+            { title: "记录版本", dataIndex: "recorded_from", width: 96 },
             {
               title: "操作",
+              width: 140,
               render: (_, r) => (
                 <Space>
                   {["owns", "custody"].includes(r.predicate) &&
                     r.calendar &&
-                    scope.actions.includes("edit") && (
+                    canEdit && (
                       <Button type="link" onClick={() => setTransfer(r)}>
                         流转
                       </Button>
                     )}
-                  <Button
-                    type="link"
-                    className="hit-44"
+                  <Popconfirm
+                    title="确认撤回这条关系/事实记录？"
+                    description="撤回会生成新修订关闭当前有效记录，历史记录仍保留可查。"
+                    okText="确认撤回"
+                    cancelText="取消"
                     disabled={!canEdit}
-                    onClick={async () => {
-                      if (!canEdit) return;
-                      try {
-                        await adopt(
-                          scope,
-                          [
-                            {
-                              op: "retract",
-                              entity_id: r.subject_id,
-                              fact_id: r.id,
-                            },
-                          ],
-                          "撤回事实记录",
-                        );
-                        query.refetch();
-                        refresh();
-                      } catch (e) {
-                        message.error((e as Error).message);
-                      }
-                    }}
+                    onConfirm={() => void retractFact(r)}
                   >
-                    撤回
-                  </Button>
+                    <Button
+                      type="link"
+                      danger
+                      className="hit-44"
+                      disabled={!canEdit}
+                    >
+                      撤回
+                    </Button>
+                  </Popconfirm>
                 </Space>
               ),
             },
@@ -406,13 +534,9 @@ export function RelationsPage() {
                 rules={[{ required: true }]}
               >
                 <Select
-                  options={[
-                    ["knows", "知道"],
-                    ["suspects", "怀疑"],
-                    ["misbelieves", "误信"],
-                    ["unaware", "不知"],
-                    ["denies", "否认"],
-                  ].map(([value, label]) => ({ value, label }))}
+                  options={Object.entries(STANCE_LABELS).map(
+                    ([value, label]) => ({ value, label }),
+                  )}
                 />
               </Form.Item>
               <Form.Item name="attitude" label="对外态度">
@@ -424,7 +548,7 @@ export function RelationsPage() {
               <Input.TextArea />
             </Form.Item>
           )}
-          <Space align="start">
+          <Space align="start" wrap>
             <Form.Item name="calendar" label="历法">
               <Input />
             </Form.Item>
@@ -452,6 +576,7 @@ export function RelationsPage() {
         onCancel={() => setTransfer(undefined)}
         okButtonProps={{ disabled: !canEdit }}
         onOk={() => transferForm.submit()}
+        destroyOnHidden
       >
         <Form form={transferForm} layout="vertical" onFinish={move}>
           <Form.Item name="owner" label="新的主体" rules={[{ required: true }]}>
@@ -471,6 +596,7 @@ export function RelationsPage() {
       </Modal>
       {graph && (
         <Card
+          style={{ marginTop: 20 }}
           title="局部关系图"
           extra={
             <Button className="hit-44" onClick={() => setGraph(undefined)}>
@@ -494,7 +620,7 @@ export function RelationsPage() {
           {graphQuery.isSuccess && (
             <div className="rel-split">
               <div>
-                {centerName && <p>中心 {centerName}</p>}
+                {centerName && <p>中心：{centerName}</p>}
                 {graphData?.truncated === true && (
                   <p>图谱已限定范围，请按节点继续查询；未加载不代表不存在</p>
                 )}
@@ -518,7 +644,7 @@ export function RelationsPage() {
                 <table className="plain-table">
                   <thead>
                     <tr>
-                      <th>谓词</th>
+                      <th>关系</th>
                       <th>从</th>
                       <th>到</th>
                     </tr>

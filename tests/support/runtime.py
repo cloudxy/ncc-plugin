@@ -113,6 +113,7 @@ class TestRuntime(AbstractContextManager):
 
     def has_existing_data(self, existing_tables=None):
         from psycopg import sql
+
         from ncc_data.domain.definitions import SYSTEM_SCOPE
 
         present = (
@@ -213,18 +214,27 @@ class TestRuntime(AbstractContextManager):
         origin = urlsplit(self.origin)
         if origin.hostname not in {"127.0.0.1", "localhost", "::1"}:
             raise ValueError("浏览器验收只启动本机测试服务")
-        # Never reuse an existing service: it may belong to a production session.
+        # Never reuse an existing live service: it may belong to a production session.
         import socket
 
-        with socket.socket(socket.AF_INET6 if origin.hostname == "::1" else socket.AF_INET) as probe:
-            probe.bind((origin.hostname, origin.port or 8788))
+        family = socket.AF_INET6 if origin.hostname == "::1" else socket.AF_INET
+        host = origin.hostname
+        port = origin.port or 8788
+        with socket.socket(family, socket.SOCK_STREAM) as check_sock:
+            check_sock.settimeout(0.5)
+            if check_sock.connect_ex((host, port)) == 0:
+                raise OSError(f"测试端口 {host}:{port} 已有活动监听服务，拒绝复用")
+        with socket.socket(family, socket.SOCK_STREAM) as probe:
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            probe.bind((host, port))
         self.server = uvicorn.Server(
             uvicorn.Config(
                 create_app(self.settings),
-                host=origin.hostname,
-                port=origin.port or 8788,
+                host=host,
+                port=port,
                 log_level="warning",
                 access_log=False,
+                timeout_graceful_shutdown=2,
             )
         )
         self.thread = threading.Thread(target=self.server.run, daemon=True)

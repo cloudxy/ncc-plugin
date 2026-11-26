@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import {
+  Alert,
   Button,
   Checkbox,
   Form,
@@ -8,6 +9,7 @@ import {
   Select,
   Switch,
   Tabs,
+  Tag,
 } from "antd";
 import { useState, type ReactNode } from "react";
 import {
@@ -18,6 +20,7 @@ import {
   type Json,
 } from "../../../shared/api";
 import { ReferenceInput } from "../../../shared/inputs/ReferenceInput";
+import { queryKeys } from "../../../shared/queryKeys";
 import {
   STAGE_LABELS,
   fetchStudioCatalog,
@@ -51,6 +54,28 @@ const ALERT_LABEL: Record<string, string> = {
   resolved: "已兑现",
   dropped: "已作废",
 };
+
+const CODEX_EXCLUDE_STRUCTURAL = [
+  "chapter",
+  "章节",
+  "volume",
+  "卷",
+  "outline",
+  "大纲",
+  "细纲",
+  "scene",
+  "场景",
+  "主线",
+  "支线",
+  "剧情",
+  "foreshadow",
+  "伏笔",
+  "暗线",
+  "悬念",
+  "legacy-file",
+  "公共母本",
+  "市场风向",
+];
 
 export function StudioCockpit({
   scheme,
@@ -88,6 +113,9 @@ export function StudioCockpit({
   onTabChange,
   hasCandidate,
   jobRunning,
+  jobQueued = false,
+  viewRole = "author",
+  chapterId,
   score,
   onCollapse,
 }: {
@@ -126,13 +154,34 @@ export function StudioCockpit({
   onTabChange: (tab: string) => void;
   hasCandidate: boolean;
   jobRunning: boolean;
+  jobQueued?: boolean;
+  viewRole?: "author" | "reader";
+  chapterId?: string;
   score: ReactNode;
   onCollapse: () => void;
 }) {
+  const { scope } = useWorkspace();
+  const operations = useQuery({
+    queryKey: queryKeys.operations(scope.id),
+    queryFn: () => api<Json>(scoped(scope.id, "/operations")),
+    enabled:
+      jobQueued &&
+      scope.actions.some((a) =>
+        ["operate", "edit", "assess", "export"].includes(a),
+      ),
+    refetchInterval: 10000,
+  });
+  const workerOffline = jobQueued && operations.data?.worker?.online === false;
   const blockedStages =
     Boolean(stageError) ||
     (!delegationId && stages !== null && stages.length === 0);
   const blockedSelection = selectionOnly && !selectionReady;
+  const judgeOnly =
+    !delegationId &&
+    stages !== null &&
+    stages.length === 1 &&
+    stages[0] === "judge";
+
   return (
     <aside className="studio-cockpit" aria-label="出品人工作舱">
       <div className="studio-rail-head">
@@ -206,7 +255,11 @@ export function StudioCockpit({
                   autoSize={{ minRows: 3, maxRows: 8 }}
                   value={objective}
                   onChange={(event) => onObjective(event.target.value)}
-                  placeholder="例如：续写渡河这一章，让主角在救人和保住身份之间做出选择。"
+                  placeholder={
+                    judgeOnly
+                      ? "可选：留空将自动按当前章节执行独立质量审评与硬伤排查"
+                      : "例如：续写渡河这一章，让主角在救人和保住身份之间做出选择。"
+                  }
                 />
                 <Input.TextArea
                   aria-label="出品人方向指引"
@@ -216,7 +269,11 @@ export function StudioCockpit({
                   placeholder="出品人方向指引"
                 />
                 <div className="studio-switch">
-                  <Switch checked={selectionOnly} onChange={onSelectionOnly} />
+                  <Switch
+                    aria-label="只改选中的段"
+                    checked={selectionOnly}
+                    onChange={onSelectionOnly}
+                  />
                   <span>只改选中的段</span>
                 </div>
                 {blockedSelection ? <p>先在稿纸里选中要改的段</p> : null}
@@ -295,35 +352,83 @@ export function StudioCockpit({
                       : "已有候选结果 · 去质量把控裁定"}
                   </Button>
                 )}
+                {workerOffline && (
+                  <Alert
+                    type="warning"
+                    showIcon
+                    title="当前任务处于排队中，但后台 Worker 离线"
+                    description="请在终端使用 ./start.py 一键同启 Web 与后台 Worker，否则排队任务不会开始执行。"
+                  />
+                )}
               </div>
             ),
           },
           {
             key: "lookup",
             label: "设定速查",
-            children: <CodexLookup onMount={onMountSource} />,
+            children: (
+              <CodexLookup
+                onMount={onMountSource}
+                viewRole={viewRole}
+                chapterId={chapterId}
+              />
+            ),
           },
           {
             key: "lines",
             label: "伏笔暗线",
             children: (
               <div className="studio-tab">
-                {foreshadows.length === 0 ? <p>还没有伏笔</p> : null}
-                {foreshadows.map((item) => (
-                  <article key={item.id} className="studio-line">
-                    <b>{item.name}</b>
-                    <span>
-                      {item.line_type || "未标线"} ·{" "}
-                      {ALERT_LABEL[item.alert_state] || item.alert_state}
-                    </span>
-                    {item.alert_state === "overdue" ? (
-                      <span>超期未回收</span>
-                    ) : null}
-                    <Button onClick={() => onMountSource(item.id, item.name)}>
-                      挂载给 AI
-                    </Button>
-                  </article>
-                ))}
+                {viewRole === "reader" && (
+                  <Alert
+                    type="info"
+                    showIcon
+                    title="读者此刻视角：已隐藏暗线、作者秘密及本章之后才埋设的伏笔。"
+                  />
+                )}
+                {foreshadows.length === 0 ? (
+                  <p>
+                    {viewRole === "reader"
+                      ? "截至本章还没有公开可见的伏笔"
+                      : "还没有伏笔"}
+                  </p>
+                ) : null}
+                {foreshadows.map((item) => {
+                  const spanText = [
+                    item.planted_chapter != null
+                      ? `埋设第 ${item.planted_chapter} 章`
+                      : null,
+                    item.expected_chapter != null
+                      ? `预期第 ${item.expected_chapter} 章回收`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ");
+                  return (
+                    <article key={item.id} className="studio-line">
+                      <div>
+                        <b>{item.name}</b>{" "}
+                        <Tag>
+                          {item.line_type || "未标线"} ·{" "}
+                          {ALERT_LABEL[item.alert_state] || item.alert_state}
+                        </Tag>
+                      </div>
+                      {spanText ? <small>{spanText}</small> : null}
+                      {item.text ? <p>{item.text}</p> : null}
+                      {viewRole === "author" && item.secret_note ? (
+                        <small className="studio-secret-note">
+                          作者秘密：{item.secret_note}
+                        </small>
+                      ) : null}
+                      <Button
+                        size="small"
+                        onClick={() => onMountSource(item.id, item.name)}
+                      >
+                        挂载给 AI
+                      </Button>
+                    </article>
+                  );
+                })}
                 <Button onClick={onOpenBlueprint}>去大纲管理</Button>
               </div>
             ),
@@ -350,40 +455,66 @@ function sameStages(
 
 function CodexLookup({
   onMount,
+  viewRole = "author",
+  chapterId,
 }: {
   onMount: (id: string, title: string) => void;
+  viewRole?: "author" | "reader";
+  chapterId?: string;
 }) {
   const { scope, refresh } = useWorkspace();
   const catalog = useQuery({
-    queryKey: ["studio-catalog"],
+    queryKey: queryKeys.studioCatalog(),
     queryFn: fetchStudioCatalog,
   });
   const [q, setQ] = useState("");
   const [groupId, setGroupId] = useState("全部");
   const [open, setOpen] = useState(false);
   const group = catalog.data?.codex_groups.find((item) => item.id === groupId);
+  const canQuery = viewRole === "author" || Boolean(chapterId);
+
   const search = useQuery({
-    queryKey: ["scope", scope.id, "codex-search", q],
+    queryKey: queryKeys.codexSearch(scope.id, q, groupId, viewRole, chapterId),
     queryFn: () =>
       api<Json>(scoped(scope.id, "/entities/search"), "POST", {
         q,
         limit: 30,
+        role: viewRole,
+        ...(viewRole !== "author" && chapterId
+          ? { chapter_id: chapterId }
+          : {}),
+        ...(group
+          ? { kinds: group.kinds.slice(0, 64) }
+          : { exclude_kinds: CODEX_EXCLUDE_STRUCTURAL }),
       }),
-    enabled: q.trim().length > 0,
+    enabled: canQuery,
   });
-  const items = ((search.data?.items || []) as Entity[]).filter((item) =>
-    group ? group.kinds.includes(item.kind) : true,
-  );
+
+  const items = (search.data?.items || []) as Entity[];
+
   return (
     <div className="studio-tab">
+      {viewRole === "reader" && (
+        <Alert
+          type="info"
+          showIcon
+          title={
+            chapterId
+              ? "读者此刻视角：仅展示截至本章可见的公开设定，自动过滤作者秘密。"
+              : "请先选择具体章节作为读者阅读截止点。"
+          }
+        />
+      )}
       <Input
         aria-label="搜索设定"
-        placeholder="搜索人物、功法、丹药、场景"
+        allowClear
+        placeholder="搜索人物、功法、丹药、场景（留空可按分类浏览）"
         value={q}
         onChange={(event) => setQ(event.target.value)}
       />
       <div className="studio-presets">
         <Button
+          size="small"
           type={groupId === "全部" ? "primary" : "default"}
           onClick={() => setGroupId("全部")}
         >
@@ -391,6 +522,7 @@ function CodexLookup({
         </Button>
         {(catalog.data?.codex_groups || []).map((item) => (
           <Button
+            size="small"
             key={item.id}
             type={groupId === item.id ? "primary" : "default"}
             onClick={() => setGroupId(item.id)}
@@ -400,21 +532,33 @@ function CodexLookup({
         ))}
       </div>
       {search.isError ? <p>设定没有载入</p> : null}
+      {search.isSuccess && items.length === 0 ? (
+        <p>{q.trim() ? "没有符合的设定" : "当前分类还没有设定条目"}</p>
+      ) : null}
       {items.map((item) => (
         <article key={item.id} className="studio-line">
-          <b>{item.name}</b>
-          <span>{item.kind}</span>
-          <p>{item.text_preview || item.text.slice(0, 80)}</p>
-          <Button onClick={() => onMount(item.id, item.name)}>挂载给 AI</Button>
+          <div>
+            <b>{item.name}</b> <Tag>{item.kind}</Tag>
+          </div>
+          <p>{item.text_preview || (item.text || "").slice(0, 80)}</p>
+          <Button size="small" onClick={() => onMount(item.id, item.name)}>
+            挂载给 AI
+          </Button>
         </article>
       ))}
-      <Button onClick={() => setOpen(true)}>快建新设定</Button>
+      <Button
+        disabled={!scope.actions.includes("edit") || viewRole !== "author"}
+        onClick={() => setOpen(true)}
+      >
+        快建新设定
+      </Button>
       <QuickCodex
         open={open}
         groups={catalog.data?.codex_groups || []}
         onClose={() => setOpen(false)}
         onCreated={(createdName) => {
           setOpen(false);
+          setGroupId("全部");
           setQ(createdName);
           refresh();
           search.refetch();

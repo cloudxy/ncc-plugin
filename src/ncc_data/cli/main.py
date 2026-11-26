@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 from pydantic import ValidationError
 from sqlalchemy import select, text
 
+from ncc_data.application.model_settings import snapshot_model_route
 from ncc_data.application.security import ensure_default_admin, password_hash
 from ncc_data.cli.backup import pg_tool
 from ncc_data.persistence.database import connection_parameters, database
@@ -22,6 +23,33 @@ from ncc_shared.configuration import configuration, initialize, template
 from ncc_shared.errors import DomainError
 from ncc_shared.http import APIClient, is_loopback_host
 from ncc_shared.paths import config_path
+
+
+def _slot_configured(slot) -> bool:
+    if not isinstance(slot, dict) or not slot.get("model_key"):
+        return False
+    if slot.get("transport") == "cli_oauth":
+        return bool(slot.get("cli_provider"))
+    return bool(slot.get("base_url"))
+
+
+async def is_model_configured(db, settings) -> bool:
+    if settings.model_url and settings.writer_model:
+        return True
+    has_scope = await db.scalar(
+        text(
+            "SELECT 1 FROM information_schema.tables "
+            "WHERE table_schema = current_schema() AND table_name = 'ncc_scope'"
+        )
+    )
+    if not has_scope:
+        return False
+    route = await snapshot_model_route(db, settings)
+    by_purpose = route.get("by_purpose") or {}
+    write_slot = by_purpose.get("write") or {}
+    if _slot_configured(write_slot):
+        return True
+    return any(_slot_configured(slot) for slot in by_purpose.values())
 
 
 def cli_profile(args):
@@ -255,6 +283,7 @@ def main(argv=None):
                             if has_col
                             else False
                         )
+                        model_configured = await is_model_configured(db, settings)
                 finally:
                     await engine.dispose()
                 print(
@@ -266,7 +295,7 @@ def main(argv=None):
                             "postgresql": version,
                             "migration": migration,
                             "frontend_built": (settings.web_dist / "index.html").is_file(),
-                            "model_configured": bool(settings.model_url and settings.writer_model),
+                            "model_configured": model_configured,
                             "default_admin_active": default_admin_active,
                             "origin": settings.public_origin,
                         },

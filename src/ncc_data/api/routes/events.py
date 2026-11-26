@@ -58,9 +58,13 @@ def build_router(factory, settings=None, bind_host=None):
                     if current_access != access_cursor:
                         yield "event: permissions\ndata: " + json.dumps({"actions": sorted(actions)}) + "\n\n"
                     access_cursor = current_access
-                    latest = await db.scalar(
-                        select(func.max(Job.updated_at)).where(Job.scope_id == sid, Job.actor_id == user.id)
+                    job_stmt = select(func.max(Job.updated_at)).where(
+                        Job.scope_id == sid,
+                        Job.kind.not_in(["author-draft", "index"]),
                     )
+                    if not {"admin", "secret"} <= set(actions):
+                        job_stmt = job_stmt.where(Job.actor_id == user.id)
+                    latest = await db.scalar(job_stmt)
                     current = f"{scope.version}:{latest}"
                     if current != cursor:
                         cursor = current

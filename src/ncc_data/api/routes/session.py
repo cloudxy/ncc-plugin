@@ -19,7 +19,8 @@ from ncc_data.domain.contracts import (
     CredentialChangeInput,
     Login,
 )
-from ncc_data.persistence.models import LoginAttempt, Session, User, utcnow
+from ncc_data.domain.definitions import SYSTEM_SCOPE
+from ncc_data.persistence.models import Audit, LoginAttempt, Session, User, utcnow
 from ncc_shared.errors import require
 from ncc_shared.serialization import digest
 
@@ -148,9 +149,20 @@ def build_router(service, settings, factory, dummy_hash, bind_host=None):
             )
             require(conflict is None, "duplicate_user", "账号名已存在", 409)
 
+        old_username = user.username
         user.username = new_username
         user.password_hash = password_hash(value.new_password)
         user.must_change_credentials = False
+
+        svc.db.add(
+            Audit(
+                scope_id=SYSTEM_SCOPE,
+                actor_id=user.id,
+                action="auth.credentials_change",
+                version=0,
+                detail={"old_username": old_username, "new_username": new_username},
+            )
+        )
 
         await svc.db.execute(update(Session).where(Session.user_id == user.id).values(revoked=True))
         token, csrf = await create_session(svc.db, user, settings.session_hours)

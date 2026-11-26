@@ -12,6 +12,26 @@ import { useState } from "react";
 import { type Definition, type Json } from "../../../shared/api";
 import { ReferenceInput } from "../../../shared/inputs/ReferenceInput";
 
+export const SUPPORTED_PROPERTY_TYPES = new Set([
+  "boolean",
+  "integer",
+  "enum",
+  "tags",
+  "reference",
+  "references",
+  "ratio",
+  "quantity",
+  "coordinate",
+  "soft_reference",
+  "decimal",
+  "attachment",
+  "text",
+]);
+
+export function isSupportedPropertyType(type: unknown): boolean {
+  return typeof type === "string" && SUPPORTED_PROPERTY_TYPES.has(type);
+}
+
 function StructuredInput({
   value = {},
   onChange,
@@ -141,8 +161,9 @@ export function PropertyFields({
           return (
             <Alert
               key={key}
-              type="warning"
-              title={`旧属性 ${key} 未被当前定义识别，保存前需明确升级或映射`}
+              type="info"
+              showIcon
+              title={`扩展属性「${key}」未纳入当前类型定义，保存修订时这些扩展字段将原样保留，不会被清空。`}
             />
           );
         return (

@@ -1,9 +1,11 @@
 import { EditOutlined, PauseOutlined } from "@ant-design/icons";
+import { useQuery } from "@tanstack/react-query";
 import { Alert, Button, Card, Tag } from "antd";
 import { Fragment, useState } from "react";
 import { api, scoped, type Json } from "../../../shared/api";
 import { Status } from "../../../shared/components/Feedback";
 import { stages } from "../../../shared/jobStages";
+import { queryKeys } from "../../../shared/queryKeys";
 import { useCreationPolicy } from "../../../shared/useCreationPolicy";
 import { useWorkspace } from "../../../shared/WorkspaceContext";
 import { effectDetail } from "../effectDetail";
@@ -74,6 +76,18 @@ export function ScoreCard({
   const secondEval = candidate?.second_evaluation;
   const revisionEval = candidate?.revision_evaluation;
   const running = job?.state === "running" || job?.state === "queued";
+  const jobQueued = job?.state === "queued";
+  const operations = useQuery({
+    queryKey: queryKeys.operations(scope.id),
+    queryFn: () => api<Json>(scoped(scope.id, "/operations")),
+    enabled:
+      jobQueued &&
+      scope.actions.some((a) =>
+        ["operate", "edit", "assess", "export"].includes(a),
+      ),
+    refetchInterval: 10000,
+  });
+  const workerOffline = jobQueued && operations.data?.worker?.online === false;
   const assess = job?.payload?.mode === "assess";
   const verdict = candidate?.evaluation?.verdict;
   const secondVerdict = secondEval?.verdict;
@@ -235,6 +249,15 @@ export function ScoreCard({
           </div>
         ) : running && job ? (
           <div data-component="labeled-fields">
+            {workerOffline && (
+              <Alert
+                type="warning"
+                showIcon
+                style={{ marginBottom: 12 }}
+                title="当前任务处于排队中，但后台 Worker 离线"
+                description="请使用 ./start.py 一键同启 Web 与后台 Worker，否则排队任务不会开始执行。"
+              />
+            )}
             <dl className="creation-fields">
               {taskName && (
                 <>

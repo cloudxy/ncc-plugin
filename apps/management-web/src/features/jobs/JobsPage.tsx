@@ -1,12 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
-import { Alert, App, Button, Card, Skeleton } from "antd";
+import { Alert, App, Button, Card, Select, Skeleton, Space } from "antd";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ApiError, api, scoped, type Json } from "../../shared/api";
 import { NoData, PageTitle, Status } from "../../shared/components/Feedback";
 import { stages } from "../../shared/jobStages";
+import { queryKeys } from "../../shared/queryKeys";
 import { scopeLine } from "../../shared/scopeLabel";
 import { buildWorkTaskPath } from "../../shared/studioApi";
+import { useDelayed } from "../../shared/useDelayed";
 import { useWorkspace } from "../../shared/WorkspaceContext";
 import { effectDetail } from "../creation/effectDetail";
 import "./jobs.css";
@@ -18,18 +20,25 @@ const KINDS: Record<string, string> = {
   export: "数据导出",
 };
 
-function useDelayed(active: boolean, delay: number) {
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    if (!active) {
-      setReady(false);
-      return;
-    }
-    const timer = window.setTimeout(() => setReady(true), delay);
-    return () => window.clearTimeout(timer);
-  }, [active, delay]);
-  return ready;
-}
+const KIND_OPTIONS = [
+  { value: "", label: "全部类型" },
+  { value: "creation", label: "创作任务" },
+  { value: "import", label: "批量导入" },
+  { value: "export", label: "数据导出" },
+];
+
+const STATE_OPTIONS = [
+  { value: "", label: "全部状态" },
+  { value: "queued", label: "排队中" },
+  { value: "running", label: "处理中" },
+  { value: "qualified", label: "达标待采用" },
+  { value: "waiting", label: "需要你决定" },
+  { value: "paused", label: "已暂停" },
+  { value: "succeeded", label: "已完成" },
+  { value: "applied", label: "已采用" },
+  { value: "failed", label: "执行失败" },
+  { value: "cancelled", label: "已取消" },
+];
 
 function kindLabel(kind: unknown) {
   if (typeof kind !== "string" || !kind) return "";
@@ -37,7 +46,7 @@ function kindLabel(kind: unknown) {
 }
 
 function jobName(job: Json) {
-  const name = job.payload?.name;
+  const name = job.payload?.name || job.result?.target_name;
   if (typeof name === "string" && name) return name;
   return kindLabel(job.kind) || "任务";
 }
@@ -51,8 +60,23 @@ function progressText(job: Json) {
       ? `${committed} / ${progress.total}`
       : String(progress.total);
   }
-  const stage = progress?.stage;
+  const stage = progress?.stage || job.stage || job.result?.stage;
   if (typeof stage === "string" && stage) return stages[stage] || stage;
+  return "";
+}
+
+function extractJobError(job: Json): string {
+  if (typeof job?.error === "string" && job.error) return job.error;
+  if (typeof job?.error?.detail === "string" && job.error.detail)
+    return job.error.detail;
+  if (typeof job?.result?.error === "string" && job.result.error)
+    return job.result.error;
+  if (
+    typeof job?.result?.error?.detail === "string" &&
+    job.result.error.detail
+  ) {
+    return job.result.error.detail;
+  }
   return "";
 }
 
@@ -75,6 +99,8 @@ export function JobsPage() {
     : undefined;
   const fromOrigin = validParamScope ? searchParams.get("from") : null;
   const [picked, setPicked] = useState<string | undefined>(targetJobId);
+  const [kindFilter, setKindFilter] = useState("");
+  const [stateFilter, setStateFilter] = useState("");
   const [busy, setBusy] = useState<string>();
   const [pinned, setPinned] = useState<{ id: string; state: string }>();
   const [actionError, setActionError] = useState<{
@@ -85,6 +111,8 @@ export function JobsPage() {
   if (scopeSeen.current !== scope.id) {
     scopeSeen.current = scope.id;
     setPicked(targetJobId);
+    setKindFilter("");
+    setStateFilter("");
     setPinned(undefined);
     setActionError(undefined);
   }
@@ -105,10 +133,28 @@ export function JobsPage() {
       <Button onClick={() => navigate(-1)}>返回创作台</Button>
     ) : undefined;
   const jobs = useQuery({
-    queryKey: ["scope", scope.id, "jobs"],
-    queryFn: () => api<Json[]>(scoped(scope.id, "/jobs")),
+    queryKey: queryKeys.jobs(scope.id, {
+      kind: kindFilter || undefined,
+      state: stateFilter || undefined,
+      summary: true,
+    }),
+    queryFn: () => {
+      const qs = new URLSearchParams({ summary: "true" });
+      if (kindFilter) qs.set("kind", kindFilter);
+      if (stateFilter) qs.set("state", stateFilter);
+      return api<Json[]>(scoped(scope.id, `/jobs?${qs.toString()}`));
+    },
     retry: false,
     refetchInterval: (query) => (query.state.status === "error" ? false : 2500),
+  });
+  const canCheckOperations = scope.actions.some((a) =>
+    ["operate", "edit", "assess", "export"].includes(a),
+  );
+  const operations = useQuery({
+    queryKey: queryKeys.operations(scope.id),
+    queryFn: () => api<Json>(scoped(scope.id, "/operations")),
+    enabled: canCheckOperations,
+    refetchInterval: 10000,
   });
   const loading = jobs.isPending;
   const showSkeleton = useDelayed(loading, 200);
@@ -117,31 +163,58 @@ export function JobsPage() {
   const selected =
     rows.find((job) => job.id === picked) || (picked ? undefined : rows[0]);
   const canEdit = scope.actions.includes("edit");
-  const canReadBody =
-    scope.actions.includes("edit") || scope.actions.includes("assess");
+  const canAssess = scope.actions.includes("assess");
+  const canExport = scope.actions.includes("export");
+
+  function canReadJobBody(job: Json) {
+    return canEdit || canAssess || (job.kind === "export" && canExport);
+  }
 
   function shownState(job: Json) {
     return pinned && pinned.id === job.id ? pinned.state : job.state;
   }
 
-  async function act(job: Json, action: "cancel" | "resume") {
-    if (!canEdit || busy) return;
+  function canCancelJob(job: Json) {
+    if (job.kind === "export") return canExport;
+    if (job.kind === "creation") return canEdit || canAssess;
+    return canEdit;
+  }
+
+  function canRetryJob(job: Json) {
+    if (job.kind === "export") return canExport;
+    return canEdit;
+  }
+
+  async function act(job: Json, action: "cancel" | "resume" | "retry") {
+    const allowed =
+      action === "cancel"
+        ? canCancelJob(job)
+        : action === "retry"
+          ? canRetryJob(job)
+          : canEdit;
+    if (!allowed || busy) return;
     const before = shownState(job);
     setBusy(job.id);
     setActionError(undefined);
     try {
+      const endpoint =
+        action === "cancel"
+          ? "cancel"
+          : action === "retry"
+            ? "retry"
+            : "intervene";
       await api(
-        scoped(
-          scope.id,
-          `/jobs/${job.id}/${action === "cancel" ? "cancel" : "intervene"}`,
-        ),
+        scoped(scope.id, `/jobs/${job.id}/${endpoint}`),
         "POST",
-        action === "cancel" ? {} : { action: "resume" },
+        action === "resume" ? { action: "resume" } : {},
       );
       setPinned(undefined);
       await jobs.refetch();
-      if (action === "cancel")
+      if (action === "cancel") {
         message.success("已提交的批次保留，取消不撤回。");
+      } else if (action === "retry") {
+        message.success("任务已重新排入队列");
+      }
     } catch (error) {
       if (error instanceof ApiError && error.status === 409)
         setPinned({ id: job.id, state: before });
@@ -154,17 +227,24 @@ export function JobsPage() {
   function notes(job: Json, state: string) {
     const lines: string[] = [];
     if (state === "cancelled") lines.push("已提交的批次保留，取消不撤回。");
-    const detail = job.result?.error?.detail;
-    if (canReadBody && typeof detail === "string" && detail) lines.push(detail);
-    if (!canReadBody) lines.push("当前权限不包含任务正文");
+    const detail = extractJobError(job);
+    const readable = canReadJobBody(job);
+    if (readable && detail) lines.push(detail);
+    if (!readable) lines.push("当前权限不包含任务正文");
     return lines;
   }
+
+  const hasQueuedJobs =
+    rows.some((job) => shownState(job) === "queued") ||
+    Number(operations.data?.jobs?.queued || 0) > 0;
+  const workerOffline = operations.data?.worker?.online === false;
+  const hasFilters = Boolean(kindFilter || stateFilter);
 
   const cap =
     jobs.isSuccess && rows.length === 100
       ? "只显示最近 100 条"
       : jobs.isSuccess
-        ? `当前 ${rows.length} 条。接口最多返回最近 100 条。`
+        ? `当前 ${rows.length} 条 · 轻量摘要轮询`
         : "";
 
   return (
@@ -177,7 +257,48 @@ export function JobsPage() {
       <p className="scope-note" data-component="scope-line">
         {scopeLine(scope.name, scope.kind, scope.version)}
       </p>
-      {cap && <p className="cap-note">{cap}</p>}
+      {hasQueuedJobs && workerOffline && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          title="检测到排队任务，但后台任务 Worker 当前离线"
+          description={
+            <span>
+              队列中的任务暂不会自动执行。请在终端运行 <code>./start.py</code>
+              （Windows 运行 <code>python start.py</code>）一键同启 Web
+              服务与后台 Worker。
+            </span>
+          }
+        />
+      )}
+      <Space wrap style={{ marginBottom: 12 }}>
+        <Select
+          aria-label="任务类型"
+          value={kindFilter}
+          style={{ width: 150 }}
+          options={KIND_OPTIONS}
+          onChange={setKindFilter}
+        />
+        <Select
+          aria-label="任务状态"
+          value={stateFilter}
+          style={{ width: 160 }}
+          options={STATE_OPTIONS}
+          onChange={setStateFilter}
+        />
+        {hasFilters && (
+          <Button
+            onClick={() => {
+              setKindFilter("");
+              setStateFilter("");
+            }}
+          >
+            清除筛选
+          </Button>
+        )}
+        {cap && <span className="cap-note">{cap}</span>}
+      </Space>
       {slow && <p>这一页读得比较久。</p>}
       {showSkeleton && loading && (
         <Skeleton active title={false} paragraph={{ rows: 4 }} />
@@ -194,7 +315,21 @@ export function JobsPage() {
         />
       )}
       {jobs.isSuccess && rows.length === 0 && (
-        <NoData text="当前范围没有任务" />
+        <NoData
+          text={hasFilters ? "没有符合筛选条件的任务" : "当前范围没有任务"}
+          action={
+            hasFilters ? (
+              <Button
+                onClick={() => {
+                  setKindFilter("");
+                  setStateFilter("");
+                }}
+              >
+                清除筛选
+              </Button>
+            ) : undefined
+          }
+        />
       )}
       {rows.length > 0 && (
         <div className="job-split">
@@ -218,13 +353,28 @@ export function JobsPage() {
                     (state === "paused" ||
                       state === "failed" ||
                       state === "waiting");
+                  const retryable =
+                    (job.kind === "export" || job.kind === "import") &&
+                    (state === "failed" ||
+                      state === "paused" ||
+                      state === "waiting" ||
+                      state === "cancelled");
+                  const allowCancel = canCancelJob(job);
+                  const allowRetry = canRetryJob(job);
                   return (
                     <tr
                       key={job.id}
+                      tabIndex={0}
                       aria-current={
                         selected?.id === job.id ? "true" : undefined
                       }
                       onClick={() => selectJobRow(String(job.id))}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          selectJobRow(String(job.id));
+                        }
+                      }}
                     >
                       <td>{jobName(job)}</td>
                       <td>{kindLabel(job.kind)}</td>
@@ -237,7 +387,7 @@ export function JobsPage() {
                           {cancelable && (
                             <Button
                               className="hit-44"
-                              disabled={!canEdit || busy === job.id}
+                              disabled={!allowCancel || busy === job.id}
                               onClick={(event) => {
                                 event.stopPropagation();
                                 void act(job, "cancel");
@@ -258,8 +408,22 @@ export function JobsPage() {
                               恢复
                             </Button>
                           )}
-                          {(cancelable || resumable) && !canEdit && (
-                            <p className="perm-note">需要编辑权限</p>
+                          {retryable && (
+                            <Button
+                              className="hit-44"
+                              disabled={!allowRetry || busy === job.id}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void act(job, "retry");
+                              }}
+                            >
+                              重试
+                            </Button>
+                          )}
+                          {((cancelable && !allowCancel) ||
+                            (resumable && !canEdit) ||
+                            (retryable && !allowRetry)) && (
+                            <p className="perm-note">需要对应操作权限</p>
                           )}
                           {job.kind === "creation" && (
                             <Link
@@ -284,7 +448,9 @@ export function JobsPage() {
                 job={selected}
                 state={shownState(selected)}
                 canEdit={canEdit}
-                canReadBody={canReadBody}
+                canCancel={canCancelJob(selected)}
+                canRetry={canRetryJob(selected)}
+                canReadBody={canReadJobBody(selected)}
                 busy={busy === selected.id}
                 error={
                   actionError && actionError.id === selected.id
@@ -293,6 +459,7 @@ export function JobsPage() {
                 }
                 onCancel={() => void act(selected, "cancel")}
                 onResume={() => void act(selected, "resume")}
+                onRetry={() => void act(selected, "retry")}
                 notes={notes(selected, shownState(selected))}
               />
             </Card>
@@ -308,28 +475,40 @@ function JobDetail({
   job,
   state,
   canEdit,
+  canCancel,
+  canRetry,
   canReadBody,
   busy,
   error,
   onCancel,
   onResume,
+  onRetry,
   notes,
 }: {
   scopeId: string;
   job: Json;
   state: string;
   canEdit: boolean;
+  canCancel: boolean;
+  canRetry: boolean;
   canReadBody: boolean;
   busy: boolean;
   error?: string;
   onCancel: () => void;
   onResume: () => void;
+  onRetry: () => void;
   notes: string[];
 }) {
   const cancelable = state === "queued" || state === "running";
   const resumable =
     job.kind === "creation" &&
     (state === "paused" || state === "failed" || state === "waiting");
+  const retryable =
+    (job.kind === "export" || job.kind === "import") &&
+    (state === "failed" ||
+      state === "paused" ||
+      state === "waiting" ||
+      state === "cancelled");
   const created = localTime(job.created_at);
   const updated = localTime(job.updated_at);
   const progress = progressText(job);
@@ -394,7 +573,7 @@ function JobDetail({
         {cancelable && (
           <Button
             className="hit-44"
-            disabled={!canEdit || busy}
+            disabled={!canCancel || busy}
             onClick={onCancel}
           >
             取消
@@ -409,14 +588,25 @@ function JobDetail({
             恢复
           </Button>
         )}
+        {retryable && (
+          <Button
+            className="hit-44"
+            disabled={!canRetry || busy}
+            onClick={onRetry}
+          >
+            重试
+          </Button>
+        )}
         {job.kind === "creation" && (
           <Link className="hit-44" to={buildWorkTaskPath(scopeId, job, "jobs")}>
             到创作台查看
           </Link>
         )}
       </div>
-      {(cancelable || resumable) && !canEdit && (
-        <p className="perm-note">需要编辑权限</p>
+      {((cancelable && !canCancel) ||
+        (resumable && !canEdit) ||
+        (retryable && !canRetry)) && (
+        <p className="perm-note">需要对应操作权限</p>
       )}
       {!canReadBody && <p>当前权限不包含任务正文</p>}
       {error && <p>{error}</p>}

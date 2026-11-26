@@ -1,6 +1,6 @@
 # AI内容评分与自动处理
 
-作者要求AI创作成果有分数、流程自动处理复杂工作。当前使用共享标准库内核 `src/ncc_data/quality_core.py`，唯一量表源为 `src/ncc_data/resources/policy.json`。正文P1、纲要/场景P2、设定P3、抽取P4、修订执行P5，权重由 `quality plan` 输出，不凭记忆重写。
+作者要求AI创作成果有分数、流程自动处理复杂工作。当前使用共享标准库内核 `src/ncc_shared/quality/scoring.py`，唯一量表源为 `src/ncc_shared/quality/resources/policy.json`。正文P1、纲要/场景P2、设定P3、抽取P4、修订执行P5，权重由 `quality plan` 输出，不凭记忆重写。
 
 ## 执行
 

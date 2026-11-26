@@ -50,6 +50,7 @@ import {
 } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { api, scoped, setCSRF, type Json, type Scope } from "../shared/api";
+import { queryKeys } from "../shared/queryKeys";
 import { SCOPE_KINDS, kindLabel, scopeTag } from "../shared/scopeLabel";
 import {
   bindStudioSessionOwner,
@@ -141,19 +142,42 @@ const DAILY: [string, string, ReactNode][] = [
   ["/market", "市场与风向", <FundOutlined />],
   ["/inbox", "我的待办", <InboxOutlined />],
 ];
-const ADVANCED: [string, string, ReactNode][] = [
-  ["/admin/maintenance", "身份与历史维护", <HistoryOutlined />],
-  ["/admin/definitions", "定义中心", <DatabaseOutlined />],
-  ["/admin/relations", "关系与时间", <BranchesOutlined />],
-  ["/admin/maps", "地图与地点", <EnvironmentOutlined />],
-  ["/admin/quality", "质量与评分", <StarOutlined />],
-  ["/admin/exchange", "导入与导出", <ImportOutlined />],
-  ["/admin/jobs", "任务中心", <ClockCircleOutlined />],
-  ["/admin/audit", "操作审计", <SafetyCertificateOutlined />],
-  ["/admin/settings", "成员与设置", <SettingOutlined />],
-  ["/admin/models", "AI 配置", <RobotOutlined />],
-  ["/admin/operations", "运行管理", <CloudServerOutlined />],
+
+const ADVANCED_GROUPS: {
+  title: string;
+  items: [string, string, ReactNode][];
+}[] = [
+  {
+    title: "世界深描",
+    items: [
+      ["/admin/relations", "关系与时间", <BranchesOutlined />],
+      ["/admin/maps", "地图与地点", <EnvironmentOutlined />],
+      ["/admin/quality", "质量与评分", <StarOutlined />],
+    ],
+  },
+  {
+    title: "成稿与历史",
+    items: [
+      ["/admin/exchange", "导入与导出", <ImportOutlined />],
+      ["/admin/jobs", "任务中心", <ClockCircleOutlined />],
+      ["/admin/maintenance", "身份与历史维护", <HistoryOutlined />],
+      ["/admin/definitions", "定义中心", <DatabaseOutlined />],
+    ],
+  },
+  {
+    title: "空间与系统",
+    items: [
+      ["/admin/settings", "成员与设置", <SettingOutlined />],
+      ["/admin/audit", "操作审计", <SafetyCertificateOutlined />],
+      ["/admin/operations", "运行管理", <CloudServerOutlined />],
+      ["/admin/models", "AI 配置", <RobotOutlined />],
+    ],
+  },
 ];
+
+const ADVANCED: [string, string, ReactNode][] = ADVANCED_GROUPS.flatMap(
+  (group) => group.items,
+);
 const NAV_KEYS = new Set([...DAILY, ...ADVANCED].map(([key]) => key));
 
 type ScrollShot = { side: number; main: number };
@@ -188,7 +212,7 @@ export function Shell() {
     gestureScroll = useRef<ScrollShot | null>(null),
     scrollPlan = useRef<ScrollPlan | null>(null);
   const me = useQuery({
-    queryKey: ["me"],
+    queryKey: queryKeys.me(),
     queryFn: () => api<Json>("/me"),
     enabled: authenticated,
     retry: false,
@@ -196,21 +220,31 @@ export function Shell() {
   const mustChangeCredentials = Boolean(me.data?.must_change_credentials);
   const credentialChangeEnforced =
     mustChangeCredentials && Boolean(me.data?.credential_change_enforced);
+  const currentUsername =
+    typeof me.data?.username === "string" && me.data.username.trim()
+      ? me.data.username.trim()
+      : "admin";
+  const isDefaultAdmin =
+    mustChangeCredentials && currentUsername.toLowerCase() === "admin";
   const credentialChangeReminder =
     typeof me.data?.credential_change_reminder === "string" &&
     me.data.credential_change_reminder.trim()
       ? me.data.credential_change_reminder
-      : credentialChangeEnforced
-        ? "当前通过真实地址访问且正在使用默认管理员账号，请先修改账号和密码后再继续使用。"
-        : "首次使用默认管理员账号（admin），请及时修改账号名和密码。";
+      : isDefaultAdmin
+        ? credentialChangeEnforced
+          ? `当前通过真实地址访问且正在使用默认管理员账号（${currentUsername}），请先修改账号和密码后再继续使用。`
+          : `首次使用默认管理员账号（${currentUsername}），请及时修改账号名和密码。`
+        : credentialChangeEnforced
+          ? `当前监听或访问非回环地址，账号（${currentUsername}）使用的是初始或已重置临时密码，请先修改密码后再继续使用。`
+          : `当前账号（${currentUsername}）使用的是初始或已重置临时密码，请及时修改密码。`;
   const scopes = useQuery({
-    queryKey: ["scopes", me.data?.id],
+    queryKey: queryKeys.scopes(me.data?.id),
     queryFn: () => api<Scope[]>("/scopes"),
     enabled: !!me.data && authenticated && !credentialChangeEnforced,
   });
-  const scope = scopeId
-    ? scopes.data?.find((x) => x.id === scopeId)
-    : scopes.data?.[0];
+  const scope =
+    (scopeId ? scopes.data?.find((x) => x.id === scopeId) : undefined) ??
+    scopes.data?.[0];
   const sessionKey =
     authenticated && !me.error && me.data?.id
       ? `${me.data.id}:${me.data.csrf || "cookie"}:${loginEpoch}`
@@ -227,8 +261,8 @@ export function Shell() {
   activeScope.current = scope?.id || "";
   function resetAccess(sid: string) {
     clearScopeStudioDrafts(sid);
-    cache.removeQueries({ queryKey: ["scope", sid] });
-    cache.invalidateQueries({ queryKey: ["scopes"] });
+    cache.removeQueries({ queryKey: queryKeys.scopeRoot(sid) });
+    cache.invalidateQueries({ queryKey: queryKeys.scopesRoot() });
     if (activeScope.current === sid) {
       setDirty(false);
       setAccessEpoch((x) => x + 1);
@@ -315,8 +349,10 @@ export function Shell() {
     accessStamp.current = currentStamp;
   }, [currentStamp]);
   function refresh() {
-    cache.invalidateQueries({ queryKey: ["scope", scope?.id] });
-    cache.invalidateQueries({ queryKey: ["scopes"] });
+    if (scope?.id) {
+      cache.invalidateQueries({ queryKey: queryKeys.scopeRoot(scope.id) });
+    }
+    cache.invalidateQueries({ queryKey: queryKeys.scopesRoot() });
   }
   useEffect(() => {
     if (me.data) setCSRF(me.data.csrf);
@@ -401,9 +437,9 @@ export function Shell() {
       setCSRF(updatedMe.csrf);
     }
     setCredentialModalOpen(false);
-    cache.setQueryData(["me"], updatedMe);
-    cache.invalidateQueries({ queryKey: ["me"] });
-    cache.invalidateQueries({ queryKey: ["scopes"] });
+    cache.setQueryData(queryKeys.me(), updatedMe);
+    cache.invalidateQueries({ queryKey: queryKeys.me() });
+    cache.invalidateQueries({ queryKey: queryKeys.scopesRoot() });
     message.success("账号与密码已更新");
   }
   function navigate(key: string) {
@@ -470,7 +506,7 @@ export function Shell() {
       <div className="fullscreen">
         <div className="brand-mark">N</div>
         <Typography.Title level={3} style={{ margin: 0 }}>
-          首次登录安全要求
+          {isDefaultAdmin ? "首次登录安全要求" : "临时密码更新要求"}
         </Typography.Title>
         <Typography.Text type="secondary">
           {credentialChangeReminder}
@@ -478,10 +514,9 @@ export function Shell() {
         <CredentialChangeModal
           open
           enforced
-          currentUsername={
-            typeof me.data?.username === "string" ? me.data.username : "admin"
-          }
-          mustChangeDefault
+          currentUsername={currentUsername}
+          mustChangeDefault={isDefaultAdmin}
+          mustChangePassword={mustChangeCredentials}
           onSuccess={handleCredentialChanged}
           onLogout={handleLogout}
         />
@@ -550,7 +585,14 @@ export function Shell() {
           </button>
           {advancedOpen ? (
             <div id="advanced-nav">
-              {ADVANCED.map(([key, label, icon]) => item(key, label, icon))}
+              {ADVANCED_GROUPS.map((group) => (
+                <div key={group.title}>
+                  <div className="nav-group">{group.title}</div>
+                  {group.items.map(([key, label, icon]) =>
+                    item(key, label, icon),
+                  )}
+                </div>
+              ))}
             </div>
           ) : null}
         </nav>
@@ -564,10 +606,10 @@ export function Shell() {
         <header className="topbar">
           <Space>
             <Select
+              className="scope-select"
               aria-label="当前作品或资料库"
               value={scopeFailed ? undefined : scope?.id}
               disabled={scopeFailed}
-              style={{ width: 240 }}
               options={
                 scopeFailed
                   ? []
@@ -613,7 +655,11 @@ export function Shell() {
             )}
           </Space>
           <Space>
-            <Typography.Text type="secondary">
+            <Typography.Text
+              type="secondary"
+              className="topbar-username"
+              title={currentUsername}
+            >
               {me.data?.username}
             </Typography.Text>
             <Button
@@ -649,7 +695,11 @@ export function Shell() {
             banner
             showIcon
             style={{ marginBottom: 0 }}
-            title={`${credentialChangeReminder}（第一次使用时必须修改默认账号与密码）`}
+            title={
+              isDefaultAdmin
+                ? `${credentialChangeReminder}（第一次使用时必须修改默认账号与密码）`
+                : credentialChangeReminder
+            }
             action={
               <Button
                 size="small"
@@ -763,11 +813,14 @@ export function Shell() {
                 "PATCH",
                 values,
               );
-              cache.setQueriesData<Scope[]>({ queryKey: ["scopes"] }, (old) =>
-                (old || []).map((item) =>
-                  item.id === updated.id ? { ...item, ...updated } : item,
-                ),
+              cache.setQueriesData<Scope[]>(
+                { queryKey: queryKeys.scopesRoot() },
+                (old) =>
+                  (old || []).map((item) =>
+                    item.id === updated.id ? { ...item, ...updated } : item,
+                  ),
               );
+              cache.invalidateQueries({ queryKey: queryKeys.scopesRoot() });
               setRenameOpen(false);
               message.success("名称已更新");
             } catch (e) {
@@ -803,14 +856,17 @@ export function Shell() {
             setCreating(true);
             try {
               const created = await api<Scope>("/scopes", "POST", values);
-              cache.setQueriesData<Scope[]>({ queryKey: ["scopes"] }, (old) => [
-                ...(old || []).filter((s) => s.id !== created.id),
-                created,
-              ]);
+              cache.setQueriesData<Scope[]>(
+                { queryKey: queryKeys.scopes(me.data?.id) },
+                (old) => [
+                  ...(old || []).filter((s) => s.id !== created.id),
+                  created,
+                ],
+              );
               setScopeId(created.id);
               setNewScope(false);
               form.resetFields();
-              cache.invalidateQueries({ queryKey: ["scopes"] });
+              cache.invalidateQueries({ queryKey: queryKeys.scopesRoot() });
               message.success("创作空间已建立");
             } catch (e) {
               message.error((e as Error).message);
@@ -861,7 +917,8 @@ export function Shell() {
         currentUsername={
           typeof me.data?.username === "string" ? me.data.username : ""
         }
-        mustChangeDefault={mustChangeCredentials}
+        mustChangeDefault={isDefaultAdmin}
+        mustChangePassword={mustChangeCredentials}
         onClose={() => setCredentialModalOpen(false)}
         onSuccess={handleCredentialChanged}
         onLogout={handleLogout}

@@ -9,6 +9,7 @@ export type CredentialChangeModalProps = {
   enforced?: boolean;
   currentUsername?: string;
   mustChangeDefault?: boolean;
+  mustChangePassword?: boolean;
   onClose?: () => void;
   onSuccess: (updatedMe: Json) => void;
   onLogout?: () => void | Promise<void>;
@@ -26,6 +27,7 @@ export function CredentialChangeModal({
   enforced = false,
   currentUsername = "",
   mustChangeDefault = false,
+  mustChangePassword = false,
   onClose,
   onSuccess,
   onLogout,
@@ -33,6 +35,9 @@ export function CredentialChangeModal({
   const [form] = Form.useForm<CredentialFormValues>();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<unknown>();
+
+  const requirePasswordUpdate =
+    enforced || mustChangeDefault || mustChangePassword;
 
   useEffect(() => {
     if (!open) return;
@@ -48,15 +53,19 @@ export function CredentialChangeModal({
 
   const canDismiss = !enforced && !submitting;
 
+  const modalTitle = enforced
+    ? mustChangeDefault
+      ? "首次登录安全要求：修改默认管理员账号与密码"
+      : `首次登录安全要求：修改账号（${currentUsername}）的临时密码`
+    : mustChangeDefault
+      ? "修改默认管理员账号与密码"
+      : mustChangePassword
+        ? `请修改临时密码（${currentUsername}）`
+        : "修改账号与密码";
+
   return (
     <Modal
-      title={
-        enforced
-          ? "首次登录安全要求：修改默认管理员账号与密码"
-          : mustChangeDefault
-            ? "修改默认管理员账号与密码"
-            : "修改账号与密码"
-      }
+      title={modalTitle}
       open={open}
       closable={canDismiss}
       keyboard={canDismiss}
@@ -100,7 +109,11 @@ export function CredentialChangeModal({
         <Alert
           type="warning"
           showIcon
-          title="当前通过真实地址访问且正在使用默认管理员账号，必须先修改账号名和密码后才能继续使用工作台。"
+          title={
+            mustChangeDefault
+              ? "当前通过真实地址访问且正在使用默认管理员账号，必须先修改账号名和密码后才能继续使用工作台。"
+              : `当前监听或访问非回环地址，账号（${currentUsername}）正在使用初始或已重置临时密码，必须先设置至少 12 位的新密码后才能继续使用。`
+          }
         />
       ) : mustChangeDefault ? (
         <Alert
@@ -108,9 +121,16 @@ export function CredentialChangeModal({
           showIcon
           title="首次使用默认管理员账号（admin），请修改为专属账号名并设置至少 12 位的新密码。"
         />
+      ) : mustChangePassword ? (
+        <Alert
+          type="info"
+          showIcon
+          title={`当前账号（${currentUsername}）使用的是初始或已重置临时密码，请设置至少 12 位的新密码（账号名可保持不变，也可一并修改）。`}
+        />
       ) : null}
       <ErrorPanel error={error} />
       <Form<CredentialFormValues>
+        name="credentialChangeForm"
         form={form}
         layout="vertical"
         onFinish={async (values) => {
@@ -177,7 +197,7 @@ export function CredentialChangeModal({
             placeholder={
               mustChangeDefault
                 ? "请输入新账号名（不能继续使用 admin）"
-                : "请输入新账号名（2–128 个字符）"
+                : "可保持原账号名或修改（2–128 个字符）"
             }
           />
         </Form.Item>
@@ -192,7 +212,7 @@ export function CredentialChangeModal({
             ({ getFieldValue }) => ({
               validator: async (_, value) => {
                 if (
-                  mustChangeDefault &&
+                  requirePasswordUpdate &&
                   value &&
                   value === getFieldValue("current_password")
                 ) {

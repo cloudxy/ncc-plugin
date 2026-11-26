@@ -19,7 +19,10 @@ class ImportApply(Strict):
 
 class ExportInput(Strict):
     format: str = "json"
-    as_of: int | None = None
+    as_of: int | None = Field(default=None, ge=0)
+    volume_id: str | None = Field(default=None, max_length=64)
+    only_done: bool = False
+    author: str = Field(default="", max_length=128)
 
 
 class FeedbackInput(Strict):

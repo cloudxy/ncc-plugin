@@ -2,13 +2,18 @@
 
 import os
 import re
+import shutil
+import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 from urllib.parse import urlsplit
 
 from ncc_data.domain.contracts import ModelConfigurationInput
 from ncc_shared.errors import require
 
 ENV_REF = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,127}$")
+CLI_MODEL_ID = re.compile(r"^[A-Za-z0-9_.:/-]{1,128}$")
+CLI_PROVIDERS = ("grok", "codex", "agy")
 SECRET_HINT = re.compile(r"(bearer\s+|api[_-]?key\s*=|sk-[A-Za-z0-9]{8,})", re.I)
 PURPOSES = ("plan", "write", "revise", "judge", "judge_secondary")
 PURPOSE_LABELS = (
@@ -35,6 +40,8 @@ class ResolvedRoute:
     base_url: str
     api_key: str
     model: str
+    transport: str = "http"
+    cli_provider: str = ""
 
 
 def _clean(value) -> str:
@@ -54,11 +61,13 @@ def stored_route(raw) -> dict | None:
 def normalize_configuration(value: ModelConfigurationInput) -> dict:
     name = _clean(value.name)
     supplier = _clean(value.supplier) or "兼容接口"
+    transport = _clean(getattr(value, "transport", "http")) or "http"
+    cli_provider = _clean(getattr(value, "cli_provider", ""))
     base = _clean(value.base_url).rstrip("/")
     auth = _clean(value.auth_ref) or "NCC_MODEL_KEY"
     model = _clean(value.model_key)
     require(1 <= len(name) <= 80, "name", "配置名称需要 1 到 80 个字")
-    require(ENV_REF.match(auth) is not None, "auth_ref", "凭证只填写环境变量名，例如 NCC_MODEL_KEY，不要填写密钥")
+    require(transport in {"http", "cli_oauth"}, "transport", "未知的模型传输方式")
     for field, text in (("name", name), ("supplier", supplier), ("base_url", base), ("model_key", model)):
         require(SECRET_HINT.search(text) is None, field, "不要填写密钥，只填写地址、模型标识或环境变量名")
     purposes = []
@@ -67,6 +76,31 @@ def normalize_configuration(value: ModelConfigurationInput) -> dict:
         if item not in purposes:
             purposes.append(item)
     require(purposes, "purposes", "至少选择一个用途")
+    if transport == "cli_oauth":
+        require(cli_provider in CLI_PROVIDERS, "cli_provider", "CLI 订阅通道只能是 grok、codex 或 agy")
+        if model:
+            require(
+                CLI_MODEL_ID.fullmatch(model) is not None
+                and "token" not in model.lower()
+                and "secret" not in model.lower(),
+                "model_key",
+                "不要填写密钥，只填写公开的模型标识",
+            )
+        if value.enabled:
+            require(bool(model), "model_registry", "启用 CLI 订阅路由时需要模型标识")
+        effective_supplier = supplier if supplier != "兼容接口" else f"{cli_provider.upper()} 订阅"
+        return {
+            "name": name,
+            "supplier": effective_supplier,
+            "transport": "cli_oauth",
+            "cli_provider": cli_provider,
+            "base_url": "",
+            "auth_ref": "NCC_MODEL_KEY",
+            "model_key": model,
+            "purposes": purposes,
+            "enabled": bool(value.enabled),
+        }
+    require(ENV_REF.match(auth) is not None, "auth_ref", "凭证只填写环境变量名，例如 NCC_MODEL_KEY，不要填写密钥")
     if value.enabled:
         require(base and model, "model_registry", "启用时需要网关地址和模型标识")
     if base:
@@ -74,6 +108,8 @@ def normalize_configuration(value: ModelConfigurationInput) -> dict:
     return {
         "name": name,
         "supplier": supplier,
+        "transport": "http",
+        "cli_provider": "",
         "base_url": base,
         "auth_ref": auth,
         "model_key": model,
@@ -97,7 +133,11 @@ def _clean_stored(row) -> dict | None:
         return None
     name = (_clean(row.get("name")) or cid)[:80]
     supplier = (_clean(row.get("supplier")) or "兼容接口")[:64]
-    base = _clean(row.get("base_url")).rstrip("/")[:512]
+    transport = "cli_oauth" if _clean(row.get("transport")) == "cli_oauth" else "http"
+    cli_provider = _clean(row.get("cli_provider")) if transport == "cli_oauth" else ""
+    if transport == "cli_oauth" and cli_provider not in CLI_PROVIDERS:
+        return None
+    base = "" if transport == "cli_oauth" else _clean(row.get("base_url")).rstrip("/")[:512]
     auth = _clean(row.get("auth_ref")) or "NCC_MODEL_KEY"
     if ENV_REF.match(auth) is None:
         auth = "NCC_MODEL_KEY"
@@ -111,12 +151,17 @@ def _clean_stored(row) -> dict | None:
     if not purposes:
         return None
     enabled = bool(row.get("enabled"))
-    if enabled and not (base and model):
+    if transport == "cli_oauth":
+        if enabled and not (cli_provider and model):
+            enabled = False
+    elif enabled and not (base and model):
         enabled = False
     return {
         "id": cid,
         "name": name,
         "supplier": supplier,
+        "transport": transport,
+        "cli_provider": cli_provider,
         "base_url": base,
         "auth_ref": auth,
         "model_key": model,
@@ -266,7 +311,14 @@ def apply_enabled(registry, cid, enabled) -> dict:
     row = _find(reg, cid)
     require(row is not None, "not_found", "模型配置不存在", 404)
     if enabled:
-        require(row.get("base_url") and row.get("model_key"), "model_registry", "启用时需要网关地址和模型标识")
+        if row.get("transport") == "cli_oauth":
+            require(
+                row.get("cli_provider") in CLI_PROVIDERS and row.get("model_key"),
+                "model_registry",
+                "启用 CLI 订阅路由时需要订阅通道和模型标识",
+            )
+        else:
+            require(row.get("base_url") and row.get("model_key"), "model_registry", "启用时需要网关地址和模型标识")
     row["enabled"] = bool(enabled)
     _clear_invalid_defaults(reg)
     return reg
@@ -297,13 +349,17 @@ def apply_delete(registry, cid) -> dict:
 
 
 def _slot(row) -> dict:
-    return {
+    slot = {
         "configuration_id": row["id"],
         "name": row.get("name") or "",
         "base_url": _clean(row.get("base_url")).rstrip("/"),
         "auth_ref": _clean(row.get("auth_ref")) or "NCC_MODEL_KEY",
         "model_key": _clean(row.get("model_key")),
     }
+    if row.get("transport") == "cli_oauth":
+        slot["transport"] = "cli_oauth"
+        slot["cli_provider"] = _clean(row.get("cli_provider"))
+    return slot
 
 
 def _env_model(purpose, settings) -> str:
@@ -403,13 +459,17 @@ def ensure_job_route(stored) -> dict:
             model = _clean(slot.get("model_key"))
             if purpose == "judge_secondary" and not model:
                 continue
-            by[purpose] = {
+            entry = {
                 "configuration_id": _clean(slot.get("configuration_id")),
                 "name": _clean(slot.get("name")),
                 "base_url": _clean(slot.get("base_url")).rstrip("/"),
                 "auth_ref": _clean(slot.get("auth_ref")) or "NCC_MODEL_KEY",
                 "model_key": model,
             }
+            if slot.get("transport") == "cli_oauth":
+                entry["transport"] = "cli_oauth"
+                entry["cli_provider"] = _clean(slot.get("cli_provider"))
+            by[purpose] = entry
         source = stored.get("source") if stored.get("source") in {"registry", "environment", "saved"} else "saved"
         second = (by.get("judge_secondary") or {}).get("model_key") or ""
         return {"source": source, "by_purpose": by, "second_judge_model": second}
@@ -443,7 +503,48 @@ def key_present(row, settings) -> bool:
     return bool(resolve_credential(ref, settings))
 
 
+def _cli_oauth_connection(row, settings) -> dict:
+    from ncc_data.creation.subscription_auth import agy_status, codex_status, grok_status
+
+    provider = _clean(row.get("cli_provider"))
+    model = _clean(row.get("model_key"))
+    if provider not in CLI_PROVIDERS or not model:
+        return {
+            "status": "not_configured",
+            "credential": "absent",
+            "message": "未选择 CLI 订阅通道或模型标识。不会生成演示内容。",
+        }
+    home = getattr(settings, "cli_home", None) or Path.home()
+    which = getattr(settings, "cli_which", None) or shutil.which
+    run = getattr(settings, "cli_run", None) or subprocess.run
+    if provider == "grok":
+        sub = grok_status(Path(home), which)
+    elif provider == "codex":
+        sub = codex_status(which, run)
+    else:
+        sub = agy_status(Path(home), which)
+    if not sub.get("cli_installed"):
+        return {
+            "status": "not_configured",
+            "credential": "absent",
+            "message": sub.get("message") or f"未检测到本机 {provider} CLI。",
+        }
+    if sub.get("ready") or (provider == "agy" and sub.get("status") == "file_detected"):
+        return {
+            "status": "loaded",
+            "credential": "present",
+            "message": sub.get("message") or f"本机 {provider} CLI 订阅通道已就绪。",
+        }
+    return {
+        "status": "not_configured",
+        "credential": "absent",
+        "message": sub.get("message") or f"本机 {provider} CLI 尚未完成订阅授权。",
+    }
+
+
 def connection(row, settings) -> dict:
+    if row.get("transport") == "cli_oauth":
+        return _cli_oauth_connection(row, settings)
     if not row.get("base_url") or not row.get("model_key"):
         return {
             "status": "not_configured",
@@ -463,6 +564,14 @@ def connection(row, settings) -> dict:
 
 
 def materialize_one(slot, settings) -> ResolvedRoute:
+    if slot.get("transport") == "cli_oauth":
+        return ResolvedRoute(
+            base_url="",
+            api_key="",
+            model=_clean(slot.get("model_key")),
+            transport="cli_oauth",
+            cli_provider=_clean(slot.get("cli_provider")),
+        )
     ref = _clean(slot.get("auth_ref")) or "NCC_MODEL_KEY"
     key = resolve_credential(ref, settings)
     return ResolvedRoute(
@@ -477,6 +586,8 @@ def _public(row, settings) -> dict:
         "id": row["id"],
         "name": row["name"],
         "supplier": row["supplier"],
+        "transport": row.get("transport", "http"),
+        "cli_provider": row.get("cli_provider", ""),
         "base_url": row["base_url"],
         "auth_ref": row["auth_ref"],
         "model_key": row["model_key"],
@@ -493,12 +604,19 @@ def presets(settings) -> list[dict]:
         ("ark", "火山方舟", "火山方舟", "https://ark.cn-beijing.volces.com/api/v3", "ARK_API_KEY"),
         ("deepseek", "DeepSeek", "DeepSeek", "https://api.deepseek.com", "DEEPSEEK_API_KEY"),
     ]
+    cli_presets = [
+        ("cli-grok", "Grok CLI 订阅", "xAI Grok 订阅", "grok", "grok-4"),
+        ("cli-codex", "Codex CLI 订阅", "ChatGPT Codex 订阅", "codex", "gpt-5"),
+        ("cli-agy", "AGY CLI 订阅", "Google AGY 订阅", "agy", "gemini-2.5-pro"),
+    ]
     purposes = ["plan", "write", "revise", "judge"]
     rows = [
         {
             "id": "environment",
             "name": "当前进程环境",
             "supplier": "环境变量",
+            "transport": "http",
+            "cli_provider": "",
             "base_url": _clean(getattr(settings, "model_url", "")).rstrip("/"),
             "auth_ref": "NCC_MODEL_KEY",
             "model_key": _clean(getattr(settings, "writer_model", "")),
@@ -511,9 +629,25 @@ def presets(settings) -> list[dict]:
                 "id": pid,
                 "name": name,
                 "supplier": supplier,
+                "transport": "http",
+                "cli_provider": "",
                 "base_url": base,
                 "auth_ref": auth,
                 "model_key": "",
+                "purposes": list(purposes),
+            }
+        )
+    for pid, name, supplier, provider, default_model in cli_presets:
+        rows.append(
+            {
+                "id": pid,
+                "name": name,
+                "supplier": supplier,
+                "transport": "cli_oauth",
+                "cli_provider": provider,
+                "base_url": "",
+                "auth_ref": "NCC_MODEL_KEY",
+                "model_key": default_model,
                 "purposes": list(purposes),
             }
         )

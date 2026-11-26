@@ -1,47 +1,49 @@
-/* The two boards fill the workspace under the top bar and scroll on their own. */
 .settings-page {
   display: flex;
   flex-direction: column;
-  height: calc(100dvh - 76px - 60px);
-  max-height: calc(100dvh - 76px - 60px);
-  min-height: 0;
+  gap: 8px;
+  min-width: 0;
 }
 .settings-columns {
-  flex: 1 1 auto;
-  min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
   gap: 24px;
+  align-items: start;
 }
 .settings-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
   min-width: 0;
-  min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding-bottom: 8px;
 }
-@media (max-width: 1100px) {
-  .settings-page {
-    height: calc(100dvh - 76px - 48px);
-    max-height: calc(100dvh - 76px - 48px);
-  }
+.perm-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+.perm-option {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.45;
+}
+.perm-option small {
+  color: #3e5147;
+  font-size: 12px;
+}
+.audit-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin-bottom: 16px;
 }
 @media (max-width: 991px) {
-  .settings-page {
-    height: auto;
-    max-height: none;
-  }
   .settings-columns {
     grid-template-columns: minmax(0, 1fr);
   }
-  .settings-pane {
-    max-height: 70dvh;
-  }
 }
-@media (max-width: 760px) {
-  .settings-page {
-    height: auto;
-    max-height: none;
+@media (max-width: 640px) {
+  .perm-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

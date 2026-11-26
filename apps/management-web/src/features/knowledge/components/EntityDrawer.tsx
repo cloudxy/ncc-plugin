@@ -1,6 +1,7 @@
 import { CopyOutlined, SaveOutlined } from "@ant-design/icons";
 import { useQuery } from "@tanstack/react-query";
 import {
+  Alert,
   App,
   Button,
   Checkbox,
@@ -25,9 +26,10 @@ import {
 } from "../../../shared/api";
 import { ErrorPanel } from "../../../shared/components/Feedback";
 import { TextEditor } from "../../../shared/components/TextEditor";
+import { queryKeys } from "../../../shared/queryKeys";
 import { useWorkspace } from "../../../shared/WorkspaceContext";
 import { Graph } from "./KnowledgeVisuals";
-import { PropertyFields } from "./PropertyFields";
+import { isSupportedPropertyType, PropertyFields } from "./PropertyFields";
 
 export function EntityDrawer({
   id,
@@ -45,17 +47,18 @@ export function EntityDrawer({
     [editingBaseline, setEditingBaseline] = useState<Entity>(),
     [snapshot, setSnapshot] = useState<Json>();
   const entity = useQuery({
-    queryKey: ["scope", scope.id, "entity", id],
+    queryKey: queryKeys.entity(scope.id, id),
     queryFn: () =>
       api<Entity>(scoped(scope.id, `/entities/${id}?include_deleted=true`)),
     enabled: !!id,
   });
   const defs = useQuery({
-    queryKey: ["scope", scope.id, "definitions"],
+    queryKey: queryKeys.definitions(scope.id),
     queryFn: () => api<Definition[]>(scoped(scope.id, "/definitions")),
+    enabled: !!id,
   });
   const history = useQuery({
-    queryKey: ["scope", scope.id, "history", id],
+    queryKey: queryKeys.entityHistory(scope.id, id),
     queryFn: () => api<Json[]>(scoped(scope.id, `/entities/${id}/history`)),
     enabled: !!id,
   });
@@ -66,7 +69,11 @@ export function EntityDrawer({
         version: 0,
         spec: entity.data.definition_spec,
       }
-    : defs.data?.find((d) => d.id === entity.data?.definition_id);
+    : defs.data?.find(
+        (d) =>
+          d.id === entity.data?.definition_id || d.key === entity.data?.kind,
+      );
+  const definitionUnavailable = defs.isPending || defs.isError || !currentDef;
   useEffect(() => {
     if (entity.data && !dirty) {
       form.setFieldsValue(entity.data);
@@ -75,13 +82,20 @@ export function EntityDrawer({
     }
   }, [entity.data]);
   async function save(values: Json) {
-    if (!editingBaseline) return;
+    if (!editingBaseline || definitionUnavailable) return;
     setSaving(true);
     try {
+      const declaredProps = currentDef.spec.properties || {};
+      const isEditableKey = (key: string) =>
+        Object.prototype.hasOwnProperty.call(declaredProps, key) &&
+        isSupportedPropertyType(declaredProps[key]?.type);
       const data = Object.fromEntries(
         Object.entries(values.data || {}).filter(
-          ([, v]) => v !== undefined && v !== null,
+          ([key, v]) => isEditableKey(key) && v !== undefined && v !== null,
         ),
+      );
+      const unset = Object.keys(editingBaseline.data || {}).filter(
+        (key) => isEditableKey(key) && !(key in data),
       );
       await adopt(
         scope,
@@ -92,9 +106,7 @@ export function EntityDrawer({
             expected: editingBaseline.version,
             name: values.name,
             data,
-            unset: Object.keys(editingBaseline.data).filter(
-              (k) => !(k in data),
-            ),
+            ...(unset.length > 0 ? { unset } : {}),
             text,
             secret: !!values.secret,
           },
@@ -159,12 +171,39 @@ export function EntityDrawer({
                         type="primary"
                         loading={saving}
                         htmlType="submit"
-                        disabled={!scope.actions.includes("edit")}
+                        disabled={
+                          !scope.actions.includes("edit") ||
+                          definitionUnavailable
+                        }
                         icon={<SaveOutlined />}
                       >
                         保存新修订
                       </Button>
                     </Space>
+                    {defs.isPending ? (
+                      <Alert
+                        type="info"
+                        showIcon
+                        title="正在加载对象类型定义，完成后即可保存新修订。"
+                      />
+                    ) : defs.isError ? (
+                      <Alert
+                        type="error"
+                        showIcon
+                        title="类型定义加载失败，暂不可保存修订以防丢失属性。"
+                        action={
+                          <Button size="small" onClick={() => defs.refetch()}>
+                            重试
+                          </Button>
+                        }
+                      />
+                    ) : !currentDef ? (
+                      <Alert
+                        type="warning"
+                        showIcon
+                        title="当前对象的类型定义未就绪，暂不可保存修订以防丢失扩展字段。"
+                      />
+                    ) : null}
                     <Form.Item
                       name="name"
                       label="名称"

@@ -188,6 +188,9 @@ class CliArchitectureTest(unittest.TestCase):
         self.assertEqual(violations, [])
 
     def test_no_loose_python_files_piled_in_root_containers(self):
+        allowed_entries = {
+            SCRIPTS_ROOT / 'dev': {'run_browser_suite.py'},
+        }
         for container in (
             SCRIPTS_ROOT,
             SCRIPTS_ROOT / 'ncclib',
@@ -197,10 +200,11 @@ class CliArchitectureTest(unittest.TestCase):
             REPO_ROOT / 'tests' / 'backend',
             REPO_ROOT / 'tests' / 'browser',
         ):
+            allowed = {'__init__.py', 'conftest.py'} | allowed_entries.get(container, set())
             loose = [
                 p.name
                 for p in container.glob('*.py')
-                if p.name not in {'__init__.py', 'conftest.py'}
+                if p.name not in allowed
             ]
             self.assertEqual(loose, [], f'{container} has ungrouped loose files: {loose}')
 

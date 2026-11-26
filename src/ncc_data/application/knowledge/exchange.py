@@ -4,6 +4,7 @@ import base64
 import csv
 import io
 import json
+import re
 from pathlib import PurePosixPath
 from uuid import NAMESPACE_URL, uuid5
 
@@ -11,19 +12,44 @@ from sqlalchemy import select
 
 from ncc_data.application.security import authorize
 from ncc_data.domain.contracts import ChangeInput, Query, StateQuery
+from ncc_data.domain.studio_catalog import count_han_chars, ordered_book_chapters
 from ncc_data.persistence.models import Attachment, ImportRun, Job, Revision
 from ncc_shared.errors import DomainError, require
-from ncc_shared.serialization import canonical, digest
+from ncc_shared.manuscript import (
+    build_epub_bytes,
+    parse_chapter_paragraphs,
+    render_manuscript_md,
+    render_manuscript_txt,
+)
+from ncc_shared.serialization import canonical, digest, jsonable
+
+EXCHANGE_FORMATS = frozenset({"json", "csv", "markdown"})
+MANUSCRIPT_FORMATS = frozenset({"manuscript_md", "txt", "epub"})
+
+
+def _safe_export_stem(name: str) -> str:
+    cleaned = re.sub(r'[\\/:*?"<>|\r\n\t]+', "_", (name or "").strip()).strip(" ._")
+    return cleaned[:80] or "manuscript"
 
 
 class ExchangeMixin:
-    async def upload(self, scope_id, name, media_type, data, purpose="source", limit=20 * 1024 * 1024):
+    async def upload(
+        self,
+        scope_id,
+        name,
+        media_type,
+        data,
+        purpose="source",
+        limit=20 * 1024 * 1024,
+        requires_secret: bool | None = None,
+    ):
         _, actions = await authorize(
             self.db, self.actor, scope_id, "export" if purpose == "export" else "edit"
         )
         require(len(data) <= limit, "upload_size", "附件超过允许大小", 413)
         name = PurePosixPath(name.replace("\\", "/")).name[:256]
         require(name and "\r" not in name and "\n" not in name, "filename", "文件名无效")
+        secret_flag = ("secret" in actions) if requires_secret is None else bool(requires_secret)
         row = Attachment(
             scope_id=scope_id,
             actor_id=self.actor.id,
@@ -32,16 +58,42 @@ class ExchangeMixin:
             digest=digest(data),
             data=data,
             purpose=purpose,
-            requires_secret="secret" in actions,
+            requires_secret=secret_flag,
         )
         self.db.add(row)
         await self.db.flush()
         return {"id": row.id, "name": row.name, "size": len(data), "digest": row.digest}
 
-    async def attachment(self, scope_id, attachment_id, action="export"):
-        _, actions = await authorize(self.db, self.actor, scope_id, action)
+    async def list_attachments(self, scope_id, *, purpose: str = "source"):
+        required_action = "export" if purpose == "export" else "read"
+        _, actions = await authorize(self.db, self.actor, scope_id, required_action)
+        stmt = select(Attachment).where(Attachment.scope_id == scope_id)
+        if purpose:
+            stmt = stmt.where(Attachment.purpose == purpose)
+        if "secret" not in actions:
+            stmt = stmt.where(Attachment.requires_secret.is_(False))
+        rows = (await self.db.scalars(stmt.order_by(Attachment.created_at.desc()).limit(100))).all()
+        return jsonable(
+            [
+                {
+                    "id": r.id,
+                    "name": r.name,
+                    "media_type": r.media_type,
+                    "size": len(r.data),
+                    "digest": r.digest,
+                    "created_at": r.created_at,
+                }
+                for r in rows
+            ]
+        )
+
+    async def attachment(self, scope_id, attachment_id, action: str | None = None):
+        _, actions = await authorize(self.db, self.actor, scope_id, "read")
         row = await self.db.get(Attachment, attachment_id)
         require(row and row.scope_id == scope_id, "not_found", "附件不存在或不可访问", 404)
+        required_action = action if action is not None else ("export" if row.purpose == "export" else "read")
+        if required_action != "read":
+            _, actions = await authorize(self.db, self.actor, scope_id, required_action)
         require(not row.requires_secret or "secret" in actions, "not_found", "附件不存在或不可访问", 404)
         return row
 
@@ -357,27 +409,176 @@ class ExchangeMixin:
         await self.db.flush()
         return self.job_json(job)
 
-    async def queue_export(self, scope_id, format="json", as_of=None):
+    async def _collect_manuscript_chapters(
+        self,
+        scope,
+        version: int,
+        *,
+        volume_id: str | None = None,
+        only_done: bool = False,
+    ) -> tuple[dict[str, str], list[dict]]:
+        stmt = (await self.revision_query(scope, version)).where(
+            Revision.body["deleted"].as_boolean().is_(False),
+            Revision.body["kind"].astext.in_(["volume", "卷", "chapter", "章节"]),
+        )
+        rows = (await self.db.scalars(stmt.order_by(Revision.entity_id))).all()
+        secret_vol_ids: set[str] = set()
+        volumes: list[dict] = []
+        raw_chapters: list[dict] = []
+        for r in rows:
+            b = r.body or {}
+            is_secret = bool(b.get("secret"))
+            kind = b.get("kind") or ""
+            data = b.get("data") if isinstance(b.get("data"), dict) else {}
+            if kind in {"volume", "卷"}:
+                if is_secret:
+                    secret_vol_ids.add(r.entity_id)
+                else:
+                    volumes.append(
+                        {
+                            "id": r.entity_id,
+                            "name": str(b.get("name") or ""),
+                            "data": {"position": data.get("position", 0)},
+                        }
+                    )
+            else:
+                if not is_secret:
+                    raw_chapters.append(
+                        {
+                            "id": r.entity_id,
+                            "name": str(b.get("name") or ""),
+                            "text": str(b.get("text") or ""),
+                            "data": {
+                                "position": data.get("position", 0),
+                                "parent_id": data.get("parent_id"),
+                                "status": data.get("status") or "",
+                            },
+                        }
+                    )
+        public_chapters = [
+            ch
+            for ch in raw_chapters
+            if str((ch.get("data") or {}).get("parent_id") or "") not in secret_vol_ids
+        ]
+        ordered = ordered_book_chapters(volumes, public_chapters)
+        if volume_id:
+            target_vid = volume_id.strip()
+            ordered = [
+                ch for ch in ordered if str((ch.get("data") or {}).get("parent_id") or "") == target_vid
+            ]
+        if only_done:
+            ordered = [
+                ch
+                for ch in ordered
+                if str((ch.get("data") or {}).get("status") or "").strip().lower() in {"done", "已定稿"}
+            ]
+        require(
+            bool(ordered),
+            "export_empty",
+            "当前筛选条件下没有可导出的章节（请检查是否勾选了仅导出已定稿章节或指定分卷）",
+            422,
+        )
+        vol_titles = {v["id"]: v["name"] for v in volumes if v.get("name")}
+        return vol_titles, ordered
+
+    async def queue_export(
+        self,
+        scope_id,
+        format="json",
+        as_of=None,
+        *,
+        volume_id: str | None = None,
+        only_done: bool = False,
+        author: str = "",
+    ):
         scope, actions = await authorize(self.db, self.actor, scope_id, "export", lock=True)
-        require(format in {"json", "csv", "markdown"}, "export_format", "不支持的导出格式")
+        require(format in (EXCHANGE_FORMATS | MANUSCRIPT_FORMATS), "export_format", "不支持的导出格式")
         pin = scope.version if as_of is None else as_of
         require(0 <= pin <= scope.version, "version", "导出版本无效")
+        is_manuscript = format in MANUSCRIPT_FORMATS
+        if is_manuscript:
+            await self._collect_manuscript_chapters(
+                scope,
+                pin,
+                volume_id=volume_id,
+                only_done=only_done,
+            )
+        payload = {
+            "format": format,
+            "version": pin,
+            "include_secret": False if is_manuscript else ("secret" in actions),
+            "requires_secret": False if is_manuscript else ("secret" in actions),
+            "allowed_actions": sorted(actions),
+            "credential_id": getattr(self.actor, "_credential_id", None),
+        }
+        if is_manuscript:
+            payload.update(
+                volume_id=volume_id.strip() if isinstance(volume_id, str) and volume_id.strip() else None,
+                only_done=bool(only_done),
+                author=(author or "").strip()[:128],
+            )
         row = Job(
             scope_id=scope_id,
             actor_id=self.actor.id,
             kind="export",
-            payload={
-                "format": format,
-                "version": pin,
-                "include_secret": "secret" in actions,
-                "requires_secret": "secret" in actions,
-                "allowed_actions": sorted(actions),
-                "credential_id": getattr(self.actor, "_credential_id", None),
-            },
+            payload=payload,
         )
         self.db.add(row)
         await self.db.flush()
         return self.job_json(row)
+
+    async def export_manuscript(
+        self,
+        scope_id,
+        version: int,
+        format: str,
+        *,
+        volume_id: str | None = None,
+        only_done: bool = False,
+        author: str = "",
+    ):
+        scope, _ = await authorize(self.db, self.actor, scope_id, "export")
+        require(format in MANUSCRIPT_FORMATS, "export_format", "不支持的成稿导出格式")
+        vol_titles, ordered = await self._collect_manuscript_chapters(
+            scope,
+            version,
+            volume_id=volume_id,
+            only_done=only_done,
+        )
+        rendered_chapters: list[dict] = []
+        epub_chapters: list[tuple[str, list[str]]] = []
+        total_words = 0
+        for ch in ordered:
+            ch_title, paras = parse_chapter_paragraphs(
+                ch.get("text") or "",
+                fallback_title=ch.get("name") or "",
+            )
+            if not ch_title:
+                ch_title = f"第{ch['book_order']}章"
+            parent_id = str((ch.get("data") or {}).get("parent_id") or "")
+            vol_title = vol_titles.get(parent_id, "")
+            rendered_chapters.append(
+                {
+                    "title": ch_title,
+                    "paragraphs": paras,
+                    "volume_title": vol_title,
+                }
+            )
+            epub_chapters.append((ch_title, paras))
+            total_words += count_han_chars("".join(paras))
+
+        if format == "manuscript_md":
+            data = render_manuscript_md(scope.name, rendered_chapters)
+            media_type, ext = "text/markdown; charset=utf-8", "md"
+        elif format == "txt":
+            data = render_manuscript_txt(scope.name, rendered_chapters)
+            media_type, ext = "text/plain; charset=utf-8", "txt"
+        else:
+            data = build_epub_bytes(scope.name, (author or "").strip(), epub_chapters)
+            media_type, ext = "application/epub+zip", "epub"
+        filename = f"{_safe_export_stem(scope.name)}-v{version}.{ext}"
+        meta = {"format": format, "chapter_count": len(ordered), "words": total_words}
+        return data, media_type, ext, filename, meta
 
     async def export_bytes(self, scope_id, version, format="json"):
         scope, actions = await authorize(self.db, self.actor, scope_id, "export")

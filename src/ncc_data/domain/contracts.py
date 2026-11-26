@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class Strict(BaseModel):
@@ -28,13 +28,25 @@ class ScopeInput(Strict):
 
 
 class ScopeRename(Strict):
-    name: str = Field(min_length=1, max_length=256)
+    name: str | None = Field(default=None, min_length=1, max_length=256)
+    archived: bool | None = None
+
+    @model_validator(mode="after")
+    def check_non_empty_patch(self):
+        if self.name is None and self.archived is None:
+            raise ValueError("名称与归档状态至少提供一项")
+        return self
+
+
+ScopePatch = ScopeRename
 
 
 class ModelConfigurationInput(Strict):
     id: str | None = Field(default=None, max_length=80)
     name: str = Field(min_length=1, max_length=80)
     supplier: str = Field(default="兼容接口", max_length=64)
+    transport: Literal["http", "cli_oauth"] = "http"
+    cli_provider: Literal["", "grok", "codex", "agy"] = ""
     base_url: str = Field(default="", max_length=512)
     auth_ref: str = Field(default="NCC_MODEL_KEY", max_length=128)
     model_key: str = Field(default="", max_length=128)
@@ -111,6 +123,8 @@ class EditChange(ChangeInput):
 class Query(Strict):
     q: str = Field(default="", max_length=256)
     kind: str | None = None
+    kinds: list[str] = Field(default_factory=list, max_length=64)
+    exclude_kinds: list[str] = Field(default_factory=list, max_length=64)
     as_of: int | None = Field(default=None, ge=0)
     role: Literal["author", "writer", "reader"] = "author"
     chapter_id: str | None = None
@@ -118,8 +132,25 @@ class Query(Strict):
     limit: int = Field(default=50, ge=1, le=200)
     include_deleted: bool = False
     filters: list[dict] = Field(default_factory=list, max_length=12)
-    sort: str = Field(default="name", max_length=128)
+    sort: Literal["name", "position", "created_at", "version"] = "name"
     descending: bool = False
+
+    @field_validator("kinds", "exclude_kinds", mode="before")
+    @classmethod
+    def normalize_kind_lists(cls, value):
+        if value is None:
+            return []
+        return value
+
+    @field_validator("kinds", "exclude_kinds")
+    @classmethod
+    def check_kind_items(cls, value):
+        cleaned = []
+        for item in value:
+            if not isinstance(item, str) or not (0 < len(item.strip()) <= 128):
+                raise ValueError("类型筛选项必须为非空字符串")
+            cleaned.append(item.strip())
+        return cleaned
 
 
 class StateQuery(Query):
@@ -196,6 +227,43 @@ class StudioMarketConfigInput(Strict):
         return value
 
 
+class StudioFoundingInput(Strict):
+    soul_question: str = Field(default="", max_length=1000)
+    soul_answer: str = Field(default="", max_length=1000)
+    soul_injustice: str = Field(default="", max_length=1000)
+    soul_ending: str = Field(default="", max_length=1000)
+    soul_arc: Literal["", "正向", "负向", "平弧"] = ""
+    soul_status: Literal["", "暂定", "确定"] = ""
+    contract_main: str = Field(default="", max_length=500)
+    contract_extras: list[str] = Field(default_factory=list, max_length=12)
+    contract_audience: str = Field(default="", max_length=500)
+    poison_lines: list[str] = Field(default_factory=list, max_length=30)
+    writing_mode: Literal["", "建筑师", "混合", "园丁"] = ""
+    style_anchor: str = Field(default="", max_length=4000)
+
+    @field_validator("contract_extras")
+    @classmethod
+    def check_contract_extras(cls, value):
+        cleaned = []
+        for item in value:
+            if not isinstance(item, str) or len(item) > 120:
+                raise ValueError("副契约条目过长或不是文字")
+            if item.strip():
+                cleaned.append(item.strip())
+        return cleaned
+
+    @field_validator("poison_lines")
+    @classmethod
+    def check_poison_lines(cls, value):
+        cleaned = []
+        for item in value:
+            if not isinstance(item, str) or len(item) > 400:
+                raise ValueError("毒点条目过长或不是文字")
+            if item.strip():
+                cleaned.append(item.strip())
+        return cleaned
+
+
 class Intervention(Strict):
     action: Literal["pause", "cancel", "resume", "change_objective", "choose"]
     objective: str | None = Field(default=None, max_length=12000)
@@ -214,6 +282,7 @@ class AuthorDraft(Strict):
     pov: str = Field(default="", max_length=256)
     plotline: str = Field(default="", max_length=512)
     target_words: str = Field(default="", max_length=32)
+    chapter_status: str = Field(default="", max_length=32)
     key_chapter: bool | None = None
     has_draft: bool = True
 
@@ -261,13 +330,38 @@ class DefinitionInput(Strict):
 
 
 class MemberInput(Strict):
-    user_id: str
+    user_id: str | None = Field(default=None, max_length=64)
+    username: str | None = Field(default=None, max_length=128)
     actions: list[Literal["read", "edit", "adopt", "assess", "export", "secret", "admin", "operate"]]
+
+    @model_validator(mode="after")
+    def check_member_target(self):
+        has_id = isinstance(self.user_id, str) and bool(self.user_id.strip())
+        has_name = isinstance(self.username, str) and bool(self.username.strip())
+        if not has_id and not has_name:
+            raise ValueError("成员标识 user_id 或用户名 username 至少提供一项")
+        return self
 
 
 class UserInput(Strict):
     username: str = Field(min_length=1, max_length=128)
     password: str = Field(min_length=12, max_length=1024)
+
+
+class UserUpdateInput(Strict):
+    active: bool | None = None
+    admin: bool | None = None
+    reset_password: str | None = Field(default=None, min_length=12, max_length=1024)
+
+    @model_validator(mode="after")
+    def check_user_patch(self):
+        if self.active is None and self.admin is None and self.reset_password is None:
+            raise ValueError("至少提供一项账号修改字段")
+        return self
+
+
+class StudioMapConfigInput(Strict):
+    basemap_attachment_id: str | None = Field(default=None, max_length=64)
 
 
 class DelegationInput(Strict):

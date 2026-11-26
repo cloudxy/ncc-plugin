@@ -1,14 +1,49 @@
 import copy
+import re
 from decimal import Decimal
 
-from sqlalchemy import Integer, Numeric, and_, cast, func, literal, or_, select, union_all
+from sqlalchemy import Integer, Numeric, and_, case, cast, delete, func, literal, or_, select, union_all
 
 from ncc_data.application.security import authorize
 from ncc_data.domain.contracts import Query, ScopeInput, ScopeRename, StateQuery
 from ncc_data.domain.definitions import SYSTEM_SCOPE, merge_system_properties
-from ncc_data.persistence.models import Audit, ChangeSet, Definition, Entity, Fact, Membership, Revision, Scope
+from ncc_data.persistence.models import (
+    Assessment,
+    Attachment,
+    Audit,
+    Calibration,
+    ChangeSet,
+    Definition,
+    Delegation,
+    Entity,
+    Fact,
+    Feedback,
+    ImportRun,
+    Job,
+    Membership,
+    Receipt,
+    Revision,
+    Scope,
+    Session,
+)
 from ncc_shared.errors import DomainError, require
 from ncc_shared.serialization import jsonable
+
+_INT_POS_RE = re.compile(r"^-?[0-9]{1,9}$")
+
+
+def safe_int_position(value, default: int) -> int:
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and _INT_POS_RE.fullmatch(value.strip()):
+        return int(value.strip())
+    return default
+
+
+def _sql_position(col, *, fallback: int = 2_147_483_647):
+    return case((col.op("~")(r"^-?[0-9]{1,9}$"), cast(col, Integer)), else_=literal(fallback))
 
 
 class ResolvedDefinition:
@@ -33,14 +68,19 @@ class QueryService:
     def __init__(self, db, actor):
         self.db, self.actor = db, actor
 
-    async def scopes(self):
+    async def scopes(self, *, include_archived: bool = False):
         members = select(Membership.scope_id).where(Membership.user_id == self.actor.id)
-        statement = select(Scope).where(or_(Scope.owner_id == self.actor.id, Scope.id.in_(members)))
+        statement = select(Scope).where(
+            Scope.kind != "deleted",
+            or_(Scope.owner_id == self.actor.id, Scope.id.in_(members)),
+        )
         if hasattr(self.actor, "_access_scope"):
             statement = statement.where(Scope.id == self.actor._access_scope)
         rows = (await self.db.scalars(statement.order_by(Scope.created_at))).all()
         result = []
         for row in rows:
+            if not include_archived and bool((row.config or {}).get("archived", False)):
+                continue
             try:
                 result.append(await self.scope_info(row.id))
             except DomainError as exc:
@@ -50,8 +90,9 @@ class QueryService:
 
     async def scope_info(self, scope_id):
         row, actions = await authorize(self.db, self.actor, scope_id)
-        config = {k: v for k, v in row.config.items() if k != "views"} if "admin" in actions else {}
-        config["views"] = row.config.get("views", {}).get(self.actor.id, {})
+        raw_config = row.config or {}
+        config = {k: v for k, v in raw_config.items() if k != "views"} if "admin" in actions else {}
+        config["views"] = raw_config.get("views", {}).get(self.actor.id, {})
         return {
             "id": row.id,
             "name": row.name,
@@ -62,25 +103,41 @@ class QueryService:
             "base_version": row.base_version,
             "actions": sorted(actions),
             "owner": row.owner_id == self.actor.id,
+            "archived": bool(raw_config.get("archived", False)),
             "config": config,
         }
 
     async def rename_scope(self, scope_id, value: ScopeRename):
         scope, _ = await authorize(self.db, self.actor, scope_id, "admin", lock=True)
-        require(scope.owner_id == self.actor.id, "owner_only", "只有范围所有者可修改名称", 403)
-        require(not hasattr(self.actor, "_access_scope"), "scoped_credential", "范围凭据不能修改范围名称", 403)
-        name = value.name.strip()
-        require(name, "name", "名称不能为空")
-        scope.name = name
-        self.db.add(
-            Audit(
-                scope_id=scope.id,
-                actor_id=self.actor.id,
-                action="scope.rename",
-                version=scope.version,
-                detail={"name": name},
+        require(scope.owner_id == self.actor.id, "owner_only", "只有范围所有者可修改名称或归档状态", 403)
+        require(not hasattr(self.actor, "_access_scope"), "scoped_credential", "范围凭据不能修改范围设置", 403)
+        if value.name is not None:
+            name = value.name.strip()
+            require(name, "name", "名称不能为空")
+            scope.name = name
+            self.db.add(
+                Audit(
+                    scope_id=scope.id,
+                    actor_id=self.actor.id,
+                    action="scope.rename",
+                    version=scope.version,
+                    detail={"name": name},
+                )
             )
-        )
+        if value.archived is not None:
+            archived = bool(value.archived)
+            config = dict(scope.config or {})
+            config["archived"] = archived
+            scope.config = config
+            self.db.add(
+                Audit(
+                    scope_id=scope.id,
+                    actor_id=self.actor.id,
+                    action="scope.archive",
+                    version=scope.version,
+                    detail={"archived": archived},
+                )
+            )
         await self.db.flush()
         return await self.scope_info(scope.id)
 
@@ -110,7 +167,80 @@ class QueryService:
         )
         self.db.add(row)
         await self.db.flush()
+        self.db.add(
+            Audit(
+                scope_id=SYSTEM_SCOPE,
+                actor_id=self.actor.id,
+                action="scope.create",
+                version=row.version,
+                detail={"scope_id": row.id, "name": row.name, "kind": row.kind},
+            )
+        )
+        await self.db.flush()
         return await self.scope_info(row.id)
+
+    async def delete_empty_scope(self, scope_id: str):
+        scope, _ = await authorize(self.db, self.actor, scope_id, "admin", lock=True)
+        require(scope.id != SYSTEM_SCOPE, "system_scope", "系统定义范围不可删除", 403)
+        require(scope.owner_id == self.actor.id, "owner_only", "只有范围所有者可彻底删除空空间", 403)
+        require(not hasattr(self.actor, "_access_scope"), "scoped_credential", "范围凭据不能删除空间", 403)
+        child_id = await self.db.scalar(
+            select(Scope.id)
+            .where(
+                Scope.kind != "deleted",
+                or_(Scope.parent_id == scope_id, Scope.base_id == scope_id),
+            )
+            .limit(1)
+        )
+        has_entity = await self.db.scalar(select(Entity.id).where(Entity.scope_id == scope_id).limit(1))
+        require(
+            scope.version == 0 and child_id is None and has_entity is None,
+            "scope_not_empty",
+            "已有正式修订或子分支的空间不能彻底删除，请使用归档",
+            409,
+        )
+        old_name = scope.name
+        await self.db.execute(delete(ImportRun).where(ImportRun.scope_id == scope_id))
+        await self.db.execute(delete(Attachment).where(Attachment.scope_id == scope_id))
+        await self.db.execute(delete(Job).where(Job.scope_id == scope_id))
+        await self.db.execute(delete(ChangeSet).where(ChangeSet.scope_id == scope_id))
+        await self.db.execute(delete(Delegation).where(Delegation.scope_id == scope_id))
+        await self.db.execute(delete(Calibration).where(Calibration.scope_id == scope_id))
+        await self.db.execute(delete(Feedback).where(Feedback.scope_id == scope_id))
+        await self.db.execute(delete(Session).where(Session.scope_id == scope_id))
+        await self.db.execute(delete(Membership).where(Membership.scope_id == scope_id))
+        has_immutable = bool(
+            await self.db.scalar(
+                union_all(
+                    select(Audit.id).where(Audit.scope_id == scope_id).limit(1),
+                    select(Receipt.id).where(Receipt.scope_id == scope_id).limit(1),
+                    select(Assessment.id).where(Assessment.scope_id == scope_id).limit(1),
+                    select(Definition.id).where(Definition.scope_id == scope_id).limit(1),
+                ).limit(1)
+            )
+        )
+        if has_immutable:
+            # Committed ncc_audit/ncc_receipt/ncc_assessment/ncc_definition rows are protected by
+            # PostgreSQL ncc_history_guard() triggers; detach ownership and mark deleted so no
+            # principal can access or enumerate the retired empty scope.
+            scope.owner_id = None
+            scope.parent_id = None
+            scope.base_id = None
+            scope.kind = "deleted"
+            scope.config = {"deleted": True}
+        else:
+            await self.db.delete(scope)
+        self.db.add(
+            Audit(
+                scope_id=SYSTEM_SCOPE,
+                actor_id=self.actor.id,
+                action="scope.delete",
+                version=0,
+                detail={"scope_id": scope_id, "name": old_name},
+            )
+        )
+        await self.db.flush()
+        return {"deleted": True, "id": scope_id}
 
     async def lineage(self, scope, as_of=None):
         limit = scope.version if as_of is None else as_of
@@ -172,9 +302,17 @@ class QueryService:
             )
         ).all()
         picked = {d.key: d for d in rows if d.scope_id == SYSTEM_SCOPE and d.version == 1}
+        rows_by_id = {d.id: d for d in rows}
         pins = scope.config.get("definitions", {})
+        missing_ids = {did for did in pins.values() if did and did not in rows_by_id}
+        if missing_ids:
+            extra = (
+                await self.db.scalars(select(Definition).where(Definition.id.in_(missing_ids)))
+            ).all()
+            for d in extra:
+                rows_by_id[d.id] = d
         for key, definition_id in pins.items():
-            d = await self.db.get(Definition, definition_id)
+            d = rows_by_id.get(definition_id)
             if d:
                 picked[key] = d
         result = []
@@ -267,7 +405,7 @@ class QueryService:
         )
 
     async def redact_with_definitions(
-        self, scope, actions, body, query, definitions_by_id=None, book_orders=None
+        self, scope, actions, body, query, definitions_by_id=None, book_orders=None, cutoff_obj=None
     ):
         require(
             not body.get("secret") or ("secret" in actions and query.role == "author"),
@@ -286,7 +424,11 @@ class QueryService:
             )
             if body["kind"] in {"chapter", "章节", "scene", "场景"}:
                 require(query.chapter_id is not None, "view_context", "受限文本视图必须指定叙述截止章节")
-                cutoff = await self.raw_entity(scope, query.chapter_id, query.as_of)
+                cutoff = (
+                    cutoff_obj
+                    if cutoff_obj is not None
+                    else await self.raw_entity(scope, query.chapter_id, query.as_of)
+                )
                 orders = book_orders if book_orders is not None else await self._book_chapter_orders(scope, query.as_of)
                 cutoff_order = orders.get(query.chapter_id)
                 if body["kind"] in {"chapter", "章节"} and body.get("id") in orders and cutoff_order is not None:
@@ -298,9 +440,9 @@ class QueryService:
                 ):
                     allowed_pos = orders[body["data"]["chapter_id"]] <= cutoff_order
                 else:
-                    allowed_pos = body.get("data", {}).get("position", 10**12) <= cutoff.get("data", {}).get(
-                        "position", -1
-                    )
+                    allowed_pos = safe_int_position(
+                        body.get("data", {}).get("position"), 2_147_483_647
+                    ) <= safe_int_position(cutoff.get("data", {}).get("position"), -1)
                 require(
                     allowed_pos,
                     "not_found",
@@ -338,6 +480,10 @@ class QueryService:
             statement = statement.where(body["secret"].as_boolean().is_(False))
         if query.kind:
             statement = statement.where(body["kind"].astext == query.kind)
+        if query.kinds:
+            statement = statement.where(body["kind"].astext.in_(query.kinds))
+        if query.exclude_kinds:
+            statement = statement.where(func.coalesce(body["kind"].astext, "").not_in(query.exclude_kinds))
         if query.q:
             # Literal substring semantics support CJK names without assuming an English parser segments Chinese.
             q = query.q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -347,12 +493,12 @@ class QueryService:
                     body["text"].astext.ilike(f"%{q}%", escape="\\"),
                 )
             )
+        defs = await self.definitions(scope_id) if query.filters else []
         for condition in query.filters:
             require(set(condition) <= {"field", "op", "value"}, "filter", "筛选含未知字段")
             field, op, value = condition.get("field"), condition.get("op"), condition.get("value")
             require(isinstance(field, str) and 0 < len(field) <= 128, "filter", "无效筛选属性")
             # Secret fields must not become an oracle through matching counts.
-            defs = await self.definitions(scope_id)
             rules = [x["spec"].get("properties", {}).get(field) for x in defs]
             rules = [x for x in rules if x]
             require(
@@ -368,6 +514,13 @@ class QueryService:
             col = body["data"][field].astext
             if op == "eq":
                 statement = statement.where(col == str(value))
+            elif op == "in":
+                require(
+                    isinstance(value, list) and 1 <= len(value) <= 64,
+                    "filter",
+                    "集合条件需要1至64项列表",
+                )
+                statement = statement.where(col.in_([str(v) for v in value]))
             elif op == "contains":
                 require(isinstance(value, str), "filter", "包含条件需要字符串")
                 escaped = value.replace("%", "\\%").replace("_", "\\_")
@@ -389,13 +542,14 @@ class QueryService:
             else:
                 raise DomainError("filter", "不支持的筛选运算符")
         book_orders = None
+        cutoff = None
         if query.role != "author":
             statement = statement.where(
                 body["kind"].astext.not_in(["outline", "大纲", "细纲", "主线", "暗线"])
             )
             require(query.chapter_id is not None, "view_context", "受限查询必须指定叙述截止章节")
             cutoff = await self.raw_entity(scope, query.chapter_id, query.as_of)
-            position = int(cutoff.get("data", {}).get("position", -1))
+            position = safe_int_position(cutoff.get("data", {}).get("position"), -1)
             book_orders = await self._book_chapter_orders(scope, query.as_of)
             cutoff_order = book_orders.get(query.chapter_id)
             if cutoff_order is not None:
@@ -406,7 +560,7 @@ class QueryService:
                     body["data"]["chapter_id"].astext.in_(allowed_ch_ids),
                     and_(
                         body["data"]["chapter_id"].astext.is_(None),
-                        cast(body["data"]["position"].astext, Integer) <= position,
+                        _sql_position(body["data"]["position"].astext) <= position,
                     ),
                 )
                 statement = statement.where(
@@ -419,15 +573,46 @@ class QueryService:
             else:
                 narrative = body["kind"].astext.in_(["chapter", "章节", "scene", "场景"])
                 statement = statement.where(
-                    or_(~narrative, cast(body["data"]["position"].astext, Integer) <= position)
+                    or_(~narrative, _sql_position(body["data"]["position"].astext) <= position)
                 )
-        ordering = (
-            body["name"].astext if query.sort == "name" else cast(body["data"]["position"].astext, Integer)
+        total = int(
+            (await self.db.scalar(select(func.count()).select_from(statement.subquery("filtered_entities"))))
+            or 0
         )
-        statement = statement.order_by(ordering.desc() if query.descending else ordering, Revision.entity_id)
+        name_col = body["name"].astext
+        if query.sort == "name":
+            order_clauses = [name_col.desc() if query.descending else name_col.asc(), Revision.entity_id.asc()]
+        elif query.sort == "position":
+            fallback = -2_147_483_648 if query.descending else 2_147_483_647
+            pos_expr = _sql_position(body["data"]["position"].astext, fallback=fallback)
+            order_clauses = [
+                pos_expr.desc() if query.descending else pos_expr.asc(),
+                name_col.asc(),
+                Revision.entity_id.asc(),
+            ]
+        elif query.sort == "created_at":
+            order_clauses = [
+                Revision.created_at.desc() if query.descending else Revision.created_at.asc(),
+                name_col.asc(),
+                Revision.entity_id.asc(),
+            ]
+        else:
+            order_clauses = [
+                Revision.version.desc(),
+                Revision.created_at.desc(),
+                name_col.asc(),
+                Revision.entity_id.asc(),
+            ]
+        statement = statement.order_by(*order_clauses)
         rows = (await self.db.scalars(statement.offset(query.offset).limit(query.limit + 1))).all()
+        page_rows = rows[: query.limit]
+        def_ids = {r.body.get("definition_id") for r in page_rows if r.body.get("definition_id")}
+        defs_by_id = {}
+        if def_ids:
+            def_rows = (await self.db.scalars(select(Definition).where(Definition.id.in_(def_ids)))).all()
+            defs_by_id = {d.id: d for d in def_rows}
         items = []
-        for row in rows[: query.limit]:
+        for row in page_rows:
             obj = {
                 **row.body,
                 "id": row.entity_id,
@@ -435,15 +620,17 @@ class QueryService:
                 "version": f"{row.scope_id}:{row.version}",
                 "content_hash": row.content_hash,
             }
-            definition = await self.db.get(Definition, obj["definition_id"])
             obj = await self.redact_with_definitions(
-                scope, actions, obj, query, {obj["definition_id"]: definition}, book_orders=book_orders
+                scope, actions, obj, query, defs_by_id, book_orders=book_orders, cutoff_obj=cutoff
             )
             obj["text_preview"] = obj.pop("text", "")[:200]
             obj.pop("definition_spec", None)
             items.append(obj)
         return {
             "items": items,
+            "total": total,
+            "offset": query.offset,
+            "limit": query.limit,
             "next_offset": query.offset + query.limit if len(rows) > query.limit else None,
             "version": scope.version,
             "as_of": query.as_of,
@@ -473,45 +660,15 @@ class QueryService:
         scope, actions = await authorize(self.db, self.actor, scope_id)
         rows = await self.raw_facts(scope, query.as_of)
         cutoff = None
+        cutoff_chapter = None
         if query.chapter_id:
-            chapter = await self.raw_entity(scope, query.chapter_id, query.as_of)
-            cutoff = chapter.get("data", {}).get("position")
+            cutoff_chapter = await self.raw_entity(scope, query.chapter_id, query.as_of)
+            cutoff = cutoff_chapter.get("data", {}).get("position")
         require(query.role == "author" or cutoff is not None, "view_context", "受限事实查询需要叙述截止点")
-        items, uncertain = [], 0
+        can_secret = "secret" in actions and query.role == "author"
+        prefiltered = []
         for row in rows:
-            if row.secret and ("secret" not in actions or query.role != "author"):
-                continue
-            try:
-                await self.entity(
-                    scope_id,
-                    row.subject_id,
-                    Query(
-                        as_of=query.as_of,
-                        role=query.role,
-                        chapter_id=query.chapter_id,
-                        include_deleted=query.include_deleted,
-                    ),
-                )
-                if row.object_id:
-                    await self.reference(
-                        scope,
-                        row.object_id,
-                        secret="secret" in actions and query.role == "author",
-                        as_of=query.as_of,
-                        include_deleted=query.include_deleted,
-                    )
-                if row.source.get("entity_id"):
-                    await self.entity(
-                        scope_id,
-                        row.source["entity_id"],
-                        Query(
-                            as_of=query.as_of,
-                            role=query.role,
-                            chapter_id=query.chapter_id,
-                            include_deleted=True,
-                        ),
-                    )
-            except DomainError:
+            if row.secret and not can_secret:
                 continue
             if query.subject_id and row.subject_id != query.subject_id:
                 continue
@@ -521,9 +678,126 @@ class QueryService:
                 continue
             if query.role != "author" and (row.category == "plan" or not row.chapter_id):
                 continue
+            prefiltered.append(row)
+
+        raw_by_id: dict[str, dict] = {}
+        defs_by_id: dict[str, Definition] = {}
+        book_orders = None
+        if prefiltered:
+            candidate_ids: set[str] = set()
+            for row in prefiltered:
+                candidate_ids.add(row.subject_id)
+                if row.object_id:
+                    candidate_ids.add(row.object_id)
+                src_eid = (row.source or {}).get("entity_id")
+                if src_eid:
+                    candidate_ids.add(src_eid)
+                if cutoff is not None and row.chapter_id:
+                    candidate_ids.add(row.chapter_id)
+            rev_stmt = (await self.revision_query(scope, query.as_of)).where(
+                Revision.entity_id.in_(candidate_ids)
+            )
+            rev_rows = (await self.db.scalars(rev_stmt)).all()
+            for r in rev_rows:
+                raw_by_id[r.entity_id] = {
+                    **r.body,
+                    "id": r.entity_id,
+                    "revision": r.id,
+                    "version": f"{r.scope_id}:{r.version}",
+                    "content_hash": r.content_hash,
+                }
+            def_ids = {
+                obj.get("definition_id")
+                for obj in raw_by_id.values()
+                if obj.get("definition_id")
+            }
+            if def_ids:
+                def_rows = (
+                    await self.db.scalars(select(Definition).where(Definition.id.in_(def_ids)))
+                ).all()
+                defs_by_id = {d.id: d for d in def_rows}
+            if query.role != "author" and any(
+                obj.get("kind") in {"chapter", "章节", "scene", "场景"} for obj in raw_by_id.values()
+            ):
+                book_orders = await self._book_chapter_orders(scope, query.as_of)
+
+        subj_query = Query(
+            as_of=query.as_of,
+            role=query.role,
+            chapter_id=query.chapter_id,
+            include_deleted=query.include_deleted,
+        )
+        src_query = Query(
+            as_of=query.as_of,
+            role=query.role,
+            chapter_id=query.chapter_id,
+            include_deleted=True,
+        )
+        entity_ok_cache: dict[tuple[str, bool], bool] = {}
+        foreign_ref_cache: dict[str, bool] = {}
+
+        async def _entity_visible(eid: str, inc_del: bool) -> bool:
+            ck = (eid, inc_del)
+            if ck in entity_ok_cache:
+                return entity_ok_cache[ck]
+            raw_obj = raw_by_id.get(eid)
+            if raw_obj is None:
+                entity_ok_cache[ck] = False
+                return False
+            try:
+                await self.redact_with_definitions(
+                    scope,
+                    actions,
+                    raw_obj,
+                    src_query if inc_del else subj_query,
+                    defs_by_id,
+                    book_orders=book_orders,
+                    cutoff_obj=cutoff_chapter,
+                )
+                entity_ok_cache[ck] = True
+            except DomainError:
+                entity_ok_cache[ck] = False
+            return entity_ok_cache[ck]
+
+        async def _object_visible(oid: str) -> bool:
+            raw_obj = raw_by_id.get(oid)
+            if raw_obj is not None:
+                if raw_obj.get("deleted") and not query.include_deleted:
+                    return False
+                if raw_obj.get("secret") and not can_secret:
+                    return False
+                return True
+            if oid in foreign_ref_cache:
+                return foreign_ref_cache[oid]
+            try:
+                await self.reference(
+                    scope,
+                    oid,
+                    secret=can_secret,
+                    as_of=query.as_of,
+                    include_deleted=query.include_deleted,
+                )
+                foreign_ref_cache[oid] = True
+            except DomainError:
+                foreign_ref_cache[oid] = False
+            return foreign_ref_cache[oid]
+
+        items, uncertain = [], 0
+        for row in prefiltered:
+            if not await _entity_visible(row.subject_id, query.include_deleted):
+                continue
+            if row.object_id and not await _object_visible(row.object_id):
+                continue
+            src_eid = (row.source or {}).get("entity_id")
+            if src_eid and not await _entity_visible(src_eid, True):
+                continue
             if cutoff is not None and row.chapter_id:
-                chapter = await self.raw_entity(scope, row.chapter_id, query.as_of)
-                if chapter.get("data", {}).get("position", 10**12) > cutoff:
+                chapter = raw_by_id.get(row.chapter_id)
+                if chapter is None:
+                    chapter = await self.raw_entity(scope, row.chapter_id, query.as_of)
+                if safe_int_position(chapter.get("data", {}).get("position"), 2_147_483_647) > safe_int_position(
+                    cutoff, -1
+                ):
                     continue
             if query.world_at is not None:
                 require(query.calendar is not None, "calendar", "世界时点查询必须指定历法")

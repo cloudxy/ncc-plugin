@@ -88,12 +88,20 @@ def check_links(md, bad):
                 resolved = cand.resolve()
                 if resolved.is_relative_to((ROOT / "docs/tasks").resolve()) or resolved.is_relative_to((ROOT / "docs/evidence").resolve()):
                     bad.append(f"公开文档不得链接本地忽略目录：{rel(p)} -> {t}")
-        for m in re.finditer(r"`((?:skills|agents|scripts|workflow|commands|docs)/[^`\s<>*]+?\.(?:md|py|json|ya?ml))`", s):
+        for m in re.finditer(
+            r"`((?:skills|agents|scripts|workflow|commands|docs|src|apps|tests|config)/[^`\s<>*]+?\.(?:md|py|json|ya?ml|toml|ts|tsx|css|sql))`",
+            s,
+        ):
+            candidate_rel = m.group(1)
+            if "..." in candidate_rel or "…" in candidate_rel:
+                continue
             prefix = s[max(0, m.start() - 16):m.start()]
             if re.search(r"(?:不存在|已删除|已移除|缺失)的?\s*$", prefix):
                 continue
-            if not (ROOT / m.group(1)).exists():
-                bad.append(f"路径不存在：{rel(p)} -> {m.group(1)}")
+            if not (ROOT / candidate_rel).exists():
+                bad.append(f"路径不存在：{rel(p)} -> {candidate_rel}")
+        for m in re.finditer(r"(?<![\w.-])\.sdlc/[\w.-][^\s`\"')\]>，。；：]*", s):
+            bad.append(f"公开文档不得引用悬空 .sdlc 子路径：{rel(p)} -> {m.group(0)}")
 
 
 def owned(path):

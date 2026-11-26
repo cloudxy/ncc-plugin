@@ -8,9 +8,11 @@ from pathlib import Path
 from sqlalchemy import select
 
 from ncc_data.creation.subscription_auth import (
+    cancel_oauth_login,
     collect_subscriptions,
     normalize_model,
-    open_login,
+    poll_oauth_login,
+    start_oauth_login,
     verify_channel,
 )
 from ncc_data.domain.definitions import SYSTEM_SCOPE
@@ -54,13 +56,15 @@ async def verify_subscription(svc, provider: str):
     for row in view["channels"]:
         if row["id"] == provider:
             row["status"] = status
+    view["ready_count"] = sum(1 for row in view["channels"] if row["status"]["ready"])
     return view
 
 
 async def start_subscription_login(svc, provider: str):
     _guard(svc.actor)
     scope = await svc.db.get(Scope, SYSTEM_SCOPE)
-    result = await asyncio.to_thread(open_login, provider)
+    saved = _saved(scope)
+    result = await start_oauth_login(provider, saved=saved)
     if scope is not None:
         svc.db.add(
             Audit(
@@ -68,7 +72,37 @@ async def start_subscription_login(svc, provider: str):
                 actor_id=svc.actor.id,
                 action="subscription_auth.login",
                 version=scope.version,
-                detail={"provider": provider, "started": bool(result.get("started"))},
+                detail={
+                    "provider": provider,
+                    "mode": result.get("mode"),
+                    "started": bool(result.get("started")),
+                    "state": result.get("state"),
+                },
+            )
+        )
+        await svc.db.flush()
+    return result
+
+
+async def poll_subscription_login(svc, provider: str, session_id: str):
+    _guard(svc.actor)
+    scope = await svc.db.get(Scope, SYSTEM_SCOPE)
+    saved = _saved(scope)
+    return await poll_oauth_login(provider, session_id, saved=saved)
+
+
+async def cancel_subscription_login(svc, provider: str, session_id: str):
+    _guard(svc.actor)
+    scope = await svc.db.get(Scope, SYSTEM_SCOPE)
+    result = await cancel_oauth_login(provider, session_id)
+    if scope is not None:
+        svc.db.add(
+            Audit(
+                scope_id=scope.id,
+                actor_id=svc.actor.id,
+                action="subscription_auth.login_cancel",
+                version=scope.version,
+                detail={"provider": provider, "session_id": session_id},
             )
         )
         await svc.db.flush()

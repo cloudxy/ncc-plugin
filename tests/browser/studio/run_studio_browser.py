@@ -1,6 +1,7 @@
 """End-to-end synthetic browser acceptance for Producer Novel Studio, U01-U03, R09, R11, R02/R03."""
 
 import argparse
+import contextlib
 import json
 import re
 import sys as _sys
@@ -50,7 +51,9 @@ def main(runtime):
     username, password = runtime.new_credentials("studio-author")
     collab_username, collab_password = runtime.new_credentials("studio-author")
 
-    with httpx.Client(base_url=args.url, timeout=30) as admin_client:
+    with httpx.Client(
+        base_url=args.url, timeout=30, limits=httpx.Limits(max_keepalive_connections=0)
+    ) as admin_client:
         auth = (
             admin_client.post(
                 "/api/v1/auth/login",
@@ -61,15 +64,11 @@ def main(runtime):
             .json()
         )
         admin_csrf = {"x-csrf-token": auth["csrf"]}
-        author_user = (
-            admin_client.post(
-                "/api/v1/users",
-                headers=admin_csrf,
-                json={"username": username, "password": password},
-            )
-            .raise_for_status()
-            .json()
-        )
+        admin_client.post(
+            "/api/v1/users",
+            headers=admin_csrf,
+            json={"username": username, "password": password},
+        ).raise_for_status()
         collab_user = (
             admin_client.post(
                 "/api/v1/users",
@@ -80,11 +79,12 @@ def main(runtime):
             .json()
         )
 
-    with sync_playwright() as p:
+    with sync_playwright() as p, contextlib.ExitStack() as cleanup:
         chrome = Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
         browser = p.chromium.launch(
             headless=True, executable_path=str(chrome) if chrome.exists() else None
         )
+        cleanup.callback(browser.close)
         context = browser.new_context(
             viewport={"width": 1440, "height": 1000}, device_scale_factor=1
         )
@@ -104,7 +104,11 @@ def main(runtime):
         expect(page.get_by_role("dialog")).not_to_be_visible()
 
         # Prepare authenticated HTTP client for server read-back & concurrent edit simulation
-        user_client = httpx.Client(base_url=args.url, timeout=30)
+        user_client = cleanup.enter_context(
+            httpx.Client(
+                base_url=args.url, timeout=30, limits=httpx.Limits(max_keepalive_connections=0)
+            )
+        )
         u_auth = (
             user_client.post(
                 "/api/v1/auth/login",
@@ -849,7 +853,6 @@ def main(runtime):
         (args.output / "studio-result.json").write_text(
             json.dumps(result, ensure_ascii=False, indent=2) + "\n"
         )
-        browser.close()
         print(json.dumps(result, ensure_ascii=False))
 
 

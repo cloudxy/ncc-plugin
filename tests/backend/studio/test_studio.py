@@ -784,8 +784,6 @@ async def test_d04_a01_a02_a06_a10_pipeline_gates_revocation_volumes_and_plan_ad
     assert "绝密跨范围参考原文XYZ987" not in str(provider.calls[0][1])
 
     # 2. A01 + A02: plan+revise & judge_plan+revise+judge execute every stage, attach P5 + second judge, reject delegation+stages
-    provider2 = StudioFixtureProvider()
-
     class DualJudgeProvider(StudioFixtureProvider):
         async def call(self, purpose, packet, budget):
             self.calls.append((purpose, packet))
@@ -1042,13 +1040,12 @@ async def test_a05_a08_cli_studio_bidirectional_workspace_and_concurrent_model_s
     """Covers A05 (CLI <-> Studio deep round-trip) and A08 (concurrent system scope settings)."""
     import asyncio
     import base64
-    import json
     import subprocess
     import sys
     import tempfile
     from pathlib import Path
 
-    from ncc_data.application.model_settings import bind_default, load_model_settings, save_configuration
+    from ncc_data.application.model_settings import bind_default, save_configuration
     from ncc_data.application.subscription_settings import save_subscription_model
     from ncc_data.domain.contracts import ModelConfigurationInput, ModelDefaultInput
     from ncc_data.persistence.models import Scope
@@ -1103,7 +1100,7 @@ async def test_a05_a08_cli_studio_bidirectional_workspace_and_concurrent_model_s
 
     # 2. A05: CLI init + foreshadow + scene card -> workspace_commit -> Studio overview & AI -> Studio new chapter + beat edit -> workspace_snapshot -> CLI continues
     repo_root = Path(__file__).resolve().parents[3]
-    ncc_state = str(repo_root / "scripts" / "ncc_state.py")
+    ncc_state = str(repo_root / "scripts" / "cli" / "ncc_state.py")
     with tempfile.TemporaryDirectory(prefix="ncc-a05-roundtrip-") as tmp:
         book_dir = Path(tmp) / "互通测试书"
         subprocess.run(
@@ -1290,7 +1287,7 @@ async def test_a05_a08_cli_studio_bidirectional_workspace_and_concurrent_model_s
         raw_ch2 = (book_dir / "04-正文/第0002章.md").read_bytes()
         async with factory() as db, db.begin():
             svc = Service(db, await db.get(User, ids[0]))
-            recommit = await svc.workspace_commit(
+            await svc.workspace_commit(
                 ws_scope,
                 {
                     "format": "ncc.workspace/1",

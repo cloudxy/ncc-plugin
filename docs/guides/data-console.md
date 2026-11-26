@@ -71,7 +71,12 @@ API和前端同源运行，采用HttpOnly会话与CSRF令牌。远程部署需�
 
 ## 配置创作模型
 
-管理后台「AI 配置」分成订阅授权和模型登记。订阅授权只查看本机 Grok、Codex、AGY 的 CLI 登录态，并保存所选的公开模型标识；订阅令牌留在本机，不回传给浏览器，也不当作 `NCC_MODEL_KEY` 或其他按量密钥。写作、修订和评价仍走模型登记。模型登记可以保存多套兼容 Chat JSON 的配置，并把场景计划、正文与设定、修订、独立评价、第二评价分别绑到不同的已启用配置。页面只保存网关地址、模型标识和凭证环境变量名，不接收、不回传密钥值。检查配置和在线验证都不发起付费生成。已经开始的任务保留开始时记下的模型。某一用途没有绑定、也没有包含该用途的已启用配置时，这一用途仍使用下列环境变量。修改环境变量后重启服务和 Worker：
+管理后台「AI 配置」（`/admin/models`）将「模型与连接」置于第一页签，第二页签为「本机 CLI OAuth 订阅」，支持兼容 OpenAI Chat JSON 的 HTTP API Key 网关（`transport="http"`）与本机 CLI OAuth 订阅通道（`transport="cli_subscription"`，覆盖 `grok`、`codex`、`agy`）混合路由：
+
+- **模型与连接（第一页签）**：可登记多套 HTTP 网关配置或 CLI 订阅配置，并将场景计划（`plan`）、正文与设定（`write`）、修订（`revise`）、独立评价（`judge`）、第二评价（`judge_secondary`）分别绑定到不同已启用条目。HTTP 通道仅保存网关地址、模型标识和环境变量名，绝不接收或回传明文 API Key；支持按需触发轻量在线探测（`GET /api/v1/operations/models?live=true`，仅校验连通性或本机 CLI 登录态，不消耗生成额度）。
+- **本机 CLI OAuth 订阅（第二页签）**：支持在网页端发起无 `osascript` 弹窗的受管 Device-Auth 授权会话（`grok` / `codex` 自动提取授权链接与一次性设备码并轮询落盘状态，`agy` 返回安全终端手动指引，会话 180 秒自动过期清理），授权就绪后可一键「绑定为写作/审评模型」。订阅凭据始终留在本机，绝不回传浏览器，调用子进程时自动剥离外部按量计费环境变量以防串路扣费。
+
+`ncc-data doctor` 与 `./start.py --check` 同步识别网页已保存的 HTTP 与 CLI 订阅路由状态。已启动的任务固定使用开始时快照的模型路由。某一用途未在网页绑定且无匹配已启用条目时，回退读取下列环境变量（修改环境变量后需重启服务和 Worker）：
 
 | 配置项 | 用途 |
 |---|---|
@@ -105,7 +110,7 @@ API和前端同源运行，采用HttpOnly会话与CSRF令牌。远程部署需�
 
 导入支持CSV、JSON/JSONL、Markdown和纯文本。先上传保留原件，选择映射并预检；未知字段明确列出。交换包会重建定义、实体、关系及附件，身份重新映射。前向引用依赖在同一批处理，超预算依赖组会报错；整个预检在回滚事务中执行，正式内容不变。采用后按批次留回执，中途取消不撤销已经提交的批次。
 
-JSON导出固定版本，包含当前对象、可访问事实、定义以及有权限的历史和附件，不截断为首200条。CSV和Markdown用于查看；CSV对公式开头字段作安全处理。导入产生新的身份及本地真实审计，原历史/原时间戳在原件中保留；完整保真灾难恢复使用PostgreSQL备份。
+JSON导出固定版本，包含当前对象、可访问事实、定义以及有权限的历史和附件，不截断为首200条。CSV和Markdown用于查看；CSV对公式开头字段作安全处理。除此之外，创作台顶栏「导出成稿」与「导入与导出」（`/admin/exchange`）均提供面向作者交付的干净**成稿导出**（共用纯标准库 `src/ncc_shared/manuscript.py`，支持标准 EPUB 3 `.epub`、纯文本 `.txt` 与合稿 Markdown `.md`，可按分卷或「仅已定稿章节」过滤，严格按全书卷章顺序 `ordered_book_chapters` 排版、自动清理段落行尾注记，并强制剔除已停用与 `secret=true` 秘密对象）。导入产生新的身份及本地真实审计，原历史/原时间戳在原件中保留；完整保真灾难恢复使用PostgreSQL备份。
 
 旧文件范围保持原工作路径。数据库权威范围仅通过显式工作副本绑定启用，不自动接管现有书库：
 
@@ -116,7 +121,7 @@ python3 scripts/cli/ncc_state.py status '<私有工作副本目录>'
 .venv/bin/ncc-data workspace pull '<私有工作副本目录>' --scope '<范围ID>'
 ```
 
-在`config/.env`中填写`NCC_API_URL`与`NCC_API_TOKEN`。范围凭据在“成员与设置”生成，至少需要`read/edit/adopt/export/secret`完成完整CLI工作副本往返；令牌只显示一次，不存入工作副本标记。导入前先备份并审核差异；import与bind是两个明确动作。文件原件保留，章节有类型投影；旧的其他专用台账以受管原件兼容，专业领域通过定义/关系接口维护，不能把原件保存等同于全部语义迁移。
+在`config/.env`中填写`NCC_API_URL`与`NCC_API_TOKEN`。范围凭据在“成员与设置”生成，至少需要`read/edit/adopt/export/secret`完成完整CLI工作副本往返；令牌只显示一次，不存入工作副本标记。导入前先备份并审核差异；import与bind是两个明确动作。工作副本在保留未知原件的同时，已完成核心创作资产的确定性双向幂等映射（`snapshot -> commit` 无修改时零冗余修订）：章节顺序/标题/正文/关键章/追读钩及章节状态（`planned / draft / review / done`）、章节场景卡与章纲（`02-大纲/场景卡/` 与 `02-大纲/章纲/` ↔ `beat_outline`）、全书总纲（`02-大纲/总纲.md`）、立书档案（书魂四问/弧光/主副契约/毒点/写作模式 ↔ `book.json`，文风基准 ↔ `03-文风/文风基准.md`）、作品设定与人物卡（`01-设定/人物卡/`、`01-设定/类目/*` 及核心设定文档 ↔ `/materials` 实体，保留 `*-采访.md` 原件独立）、以及承诺伏笔（`06-台账/承诺台账.json` ↔ 工作台伏笔实体，里层真义入私有字段 `secret_note`）。其余专用台账以受管原件兼容保留。
 
 绑定后，CLI先从数据库一致版本构造隔离工作区，再经应用服务回写；命令运行时发生作者编辑或数据库变化会拒绝覆盖。一次命令最多200文件和18MiB传输预算。直接调用程序内部文件写函数不能绕过数据库标记。外部编辑器的本地变化要先对账；冲突原稿保留，不静默切回文件双主模式。新型数据库语义不能无损降级时，只回退应用或保留只读库。
 
@@ -126,7 +131,7 @@ python3 scripts/cli/ncc_state.py status '<私有工作副本目录>'
 
 PostgreSQL只读MCP和不依赖API启动的直接CLI读写，见[数据接入指南](data-access.md)。它们共用后台Service，不能绕过当前权限、修订、审计或变更采用检查。
 
-系统管理员负责建立账号，范围所有者负责成员授权；系统管理身份不自动获得其他作者的作品。`read/edit/adopt/assess/export/secret/admin/operate`分别控制范围行为，范围令牌再收窄权限。秘密正文、属性、变更、任务、评分和导出附件在读取时重新校验；撤权不能仅隐藏导航。
+系统管理员可在「成员与设置」（`/admin/settings`）查看与管理全局账号（建立新账号、启用/停用账号、授予或撤销系统管理员、重置临时密码并自动吊销旧会话，内置防自禁与保留至少一名活跃管理员保护），但系统管理身份不会自动获得其他作者的私有作品权限。范围所有者通过活跃账号下拉目录（无需手工复制 UUID）添加、调整或移除协作成员，签发或吊销范围 CLI 令牌，执行空间改名、归档/恢复显示（默认顶栏隐藏已归档空间），以及彻底删除尚无正式修订（`version == 0`）且无子分支的空空间。`read/edit/adopt/assess/export/secret/admin/operate`分别控制范围行为，范围令牌再收窄权限。秘密正文、属性、变更、任务、评分和导出附件在读取时重新校验；安全栅格底图（PNG/JPEG/WebP/GIF）支持受控内联预览，SVG/HTML 等高风险格式强制作为附件下载；撤权不能仅隐藏导航。
 
 数据库账号和权限沿用已经确定的配置。不要把数据库凭据交给浏览器或模型。当前保护由应用授权、事务约束和数据库历史不可变触发器共同执行，没有宣称已实现数据库RLS隔离。
 
@@ -147,7 +152,7 @@ python3 -m unittest discover -s scripts/tests -t scripts -p 'test_*.py'
 python3 scripts/dev/checkers/check_plugin.py -v
 .venv/bin/pytest tests/unit tests/backend -q
 npm --prefix apps/management-web run build
-.venv/bin/python tests/browser/console/run_browser.py --output '<仓外验收截图目录>'
+.venv/bin/python scripts/dev/run_browser_suite.py --include-cli-bridge --output '<仓外验收截图目录>'
 .venv/bin/python tests/backend/operations/run_recovery.py --confirm-reset-test 'ncc-dev'
 ```
 

@@ -31,8 +31,8 @@ def build_router(service):
         }
 
     @router.get("/api/v1/scopes")
-    async def scopes(svc: Service = Depends(service, scope="function")):
-        return await svc.scopes()
+    async def scopes(include_archived: bool = False, svc: Service = Depends(service, scope="function")):
+        return await svc.scopes(include_archived=include_archived)
 
     @router.post("/api/v1/scopes", status_code=201)
     async def create_scope(value: ScopeInput, svc: Service = Depends(service, scope="function")):
@@ -46,6 +46,10 @@ def build_router(service):
     @router.patch("/api/v1/scopes/{sid}")
     async def rename_scope(sid: str, value: ScopeRename, svc: Service = Depends(service, scope="function")):
         return await svc.rename_scope(sid, value)
+
+    @router.delete("/api/v1/scopes/{sid}")
+    async def delete_scope(sid: str, svc: Service = Depends(service, scope="function")):
+        return await svc.delete_empty_scope(sid)
 
     @router.get("/api/v1/scopes/{sid}/definitions")
     async def definitions(sid: str, svc: Service = Depends(service, scope="function")):
@@ -98,6 +102,15 @@ def build_router(service):
     @router.post("/api/v1/scopes/{sid}/changes", status_code=201)
     async def create_change(sid: str, value: ChangeInput, svc: Service = Depends(service, scope="function")):
         return await svc.create_change(sid, value)
+
+    @router.post("/api/v1/scopes/{sid}/changes/commit")
+    async def commit_change(
+        sid: str,
+        value: ChangeInput,
+        request: Request,
+        svc: Service = Depends(service, scope="function"),
+    ):
+        return await svc.commit_change(sid, value, request.headers.get("idempotency-key"))
 
     @router.get("/api/v1/scopes/{sid}/changes/{cid}")
     async def change(sid: str, cid: str, svc: Service = Depends(service, scope="function")):

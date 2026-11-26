@@ -72,7 +72,7 @@ flowchart TB
 
 API 路由只做请求解析、鉴权、调用和响应；业务服务负责整个操作的事务边界。前端、CLI 和后台任务使用相同规则，不能出现“网页检查很严格，CLI 直接写当前值”的第二条通道。查询服务可使用专用读模型，采用时必须返回实际数据版本与索引水位。
 
-拟在现有仓库中隔离 Web API、Web 前端和共享数据服务。物理落点在实施设计时确定，可采用 `apps/management-api/`、`apps/management-web/` 与可独立导入的 Python 数据包。必须满足：
+拟在现有仓库中隔离 Web API、Web 前端和共享数据服务。物理落点采用 `src/ncc_data/`、`src/ncc_shared/` 与 `apps/management-web/`。必须满足：
 
 - 共享领域逻辑不依赖 React、FastAPI 请求对象或浏览器会话。
 - 文件模式的原 CLI 不因安装后台而被迫启动 HTTP 服务；外部驱动和 Web 依赖只在对应后端被启用时加载。

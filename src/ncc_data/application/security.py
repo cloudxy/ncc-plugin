@@ -78,7 +78,15 @@ def credential_change_policy(
         if req_host and req_host != "testserver" and not is_loopback_host(req_host):
             enforced = True
 
-    reminder = ENFORCED_REMINDER if enforced else LOOPBACK_REMINDER
+    uname = str(getattr(user, "username", "") or "").strip()
+    if not uname or uname.lower() == DEFAULT_ADMIN_USERNAME:
+        reminder = ENFORCED_REMINDER if enforced else LOOPBACK_REMINDER
+    elif enforced:
+        reminder = (
+            f"当前监听或访问非回环地址，账号（{uname}）使用的是初始或已重置临时密码，请先修改密码后再继续使用。"
+        )
+    else:
+        reminder = f"当前账号（{uname}）使用的是初始或已重置临时密码，请及时修改密码。"
     return True, enforced, reminder
 
 

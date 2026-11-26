@@ -58,6 +58,8 @@ export type StudioVolume = {
   version: string;
   position: number;
   status: string;
+  text?: string;
+  description?: string;
 };
 
 export type StudioChapter = {
@@ -101,6 +103,9 @@ export type StudioForeshadow = {
   position: number;
   status: string;
   line_type: string;
+  text?: string;
+  strength?: number | null;
+  secret_note?: string;
   planted_chapter?: number | null;
   expected_chapter?: number | null;
   planted?: boolean;
@@ -115,6 +120,25 @@ export type StudioMarketConfig = {
   target_max_words?: number;
   poison_notes?: string[];
   direction_note?: string;
+};
+
+export type StudioMapConfig = {
+  basemap_attachment_id?: string | null;
+};
+
+export type StudioFoundingConfig = {
+  soul_question?: string;
+  soul_answer?: string;
+  soul_injustice?: string;
+  soul_ending?: string;
+  soul_arc?: "" | "正向" | "负向" | "平弧";
+  soul_status?: "" | "暂定" | "确定";
+  contract_main?: string;
+  contract_extras?: string[];
+  contract_audience?: string;
+  poison_lines?: string[];
+  writing_mode?: "" | "建筑师" | "混合" | "园丁";
+  style_anchor?: string;
 };
 
 export type StudioDiagnostics = {
@@ -165,6 +189,12 @@ export type StudioOverview = {
     kinds: Record<string, number>;
   };
   market_config: StudioMarketConfig;
+  map_config?: StudioMapConfig;
+  founding?: StudioFoundingConfig;
+  view_context?: {
+    role: "author" | "writer" | "reader";
+    chapter_id?: string | null;
+  };
   pagination?: StudioPagination;
   diagnostics: StudioDiagnostics;
   commons_scopes: CommonsScopeSummary[];
@@ -215,6 +245,10 @@ type BlueprintCardDraftEntry = BlueprintCardDraft & {
 let activeSessionOwner: string | null = null;
 let pendingHandoff: (StudioHandoff & { sessionOwner: string }) | null = null;
 const blueprintDraftCache = new Map<string, BlueprintCardDraftEntry>();
+const lastEditedChapterCache = new Map<
+  string,
+  { sessionOwner: string; chapterId: string }
+>();
 
 function actionsSignature(actions: readonly string[]): string {
   return actions.slice().sort().join(":");
@@ -234,6 +268,7 @@ export function bindStudioSessionOwner(sessionOwner: string | null): void {
   const normalized = sessionOwner && sessionOwner.trim() ? sessionOwner : null;
   if (normalized === activeSessionOwner) return;
   blueprintDraftCache.clear();
+  lastEditedChapterCache.clear();
   pendingHandoff = null;
   activeSessionOwner = normalized;
 }
@@ -241,6 +276,7 @@ export function bindStudioSessionOwner(sessionOwner: string | null): void {
 /** Destroy all in-memory studio drafts and handoffs (on logout, auth expiry, or login switch). */
 export function clearAllStudioSessionDrafts(): void {
   blueprintDraftCache.clear();
+  lastEditedChapterCache.clear();
   pendingHandoff = null;
   activeSessionOwner = null;
 }
@@ -251,6 +287,7 @@ export function clearScopeStudioDrafts(scopeId: string): void {
   for (const [key, entry] of blueprintDraftCache.entries()) {
     if (entry.scopeId === scopeId) blueprintDraftCache.delete(key);
   }
+  lastEditedChapterCache.delete(scopeId);
   if (pendingHandoff?.scopeId === scopeId) {
     pendingHandoff = null;
   }
@@ -263,6 +300,9 @@ export function pruneStudioDraftScopes(
   const allowed = new Set(allowedScopeIds);
   for (const [key, entry] of blueprintDraftCache.entries()) {
     if (!allowed.has(entry.scopeId)) blueprintDraftCache.delete(key);
+  }
+  for (const scopeId of lastEditedChapterCache.keys()) {
+    if (!allowed.has(scopeId)) lastEditedChapterCache.delete(scopeId);
   }
   if (pendingHandoff && !allowed.has(pendingHandoff.scopeId)) {
     pendingHandoff = null;
@@ -284,6 +324,33 @@ export function syncScopeStudioActions(
       blueprintDraftCache.delete(key);
     }
   }
+}
+
+/** Session-bound in-memory last edited chapter per scope (never touches localStorage). */
+export function getLastEditedChapter(scopeId: string): string | undefined {
+  if (!scopeId || !activeSessionOwner) return undefined;
+  const entry = lastEditedChapterCache.get(scopeId);
+  if (!entry || entry.sessionOwner !== activeSessionOwner) {
+    lastEditedChapterCache.delete(scopeId);
+    return undefined;
+  }
+  return entry.chapterId;
+}
+
+/** Record session-bound in-memory last edited chapter per scope (never touches localStorage). */
+export function setLastEditedChapter(
+  scopeId: string,
+  chapterId: string | undefined,
+): void {
+  if (!scopeId || !activeSessionOwner) return;
+  if (!chapterId) {
+    lastEditedChapterCache.delete(scopeId);
+    return;
+  }
+  lastEditedChapterCache.set(scopeId, {
+    sessionOwner: activeSessionOwner,
+    chapterId,
+  });
 }
 
 export function getBlueprintDraft(
@@ -403,7 +470,7 @@ export function consumeStudioHandoff(scopeId: string): StudioHandoff | null {
 export function buildWorkTaskPath(
   scopeId: string,
   job: Json,
-  from: "inbox" | "jobs",
+  from: "inbox" | "jobs" | "blueprint",
 ): string {
   const params = new URLSearchParams();
   params.set("scope", scopeId);
@@ -420,7 +487,7 @@ export function buildWorkTaskPath(
 export function buildJobsTaskPath(
   scopeId: string,
   jobId: string,
-  from: "inbox" | "work" = "inbox",
+  from: "inbox" | "work" | "blueprint" = "inbox",
 ): string {
   const params = new URLSearchParams();
   params.set("scope", scopeId);
@@ -626,4 +693,26 @@ export function saveStudioMarketConfig(
     market_config: StudioMarketConfig;
     diagnostics: StudioDiagnostics;
   }>(scoped(scopeId, "/studio/market-config"), "PUT", config);
+}
+
+export function saveStudioFounding(
+  scopeId: string,
+  founding: Required<StudioFoundingConfig>,
+) {
+  return api<{ founding: StudioFoundingConfig }>(
+    scoped(scopeId, "/studio/founding"),
+    "PUT",
+    founding,
+  );
+}
+
+export function saveStudioMapConfig(
+  scopeId: string,
+  basemapAttachmentId: string | null,
+) {
+  return api<{ map_config: StudioMapConfig }>(
+    scoped(scopeId, "/studio/map-config"),
+    "PUT",
+    { basemap_attachment_id: basemapAttachmentId },
+  );
 }

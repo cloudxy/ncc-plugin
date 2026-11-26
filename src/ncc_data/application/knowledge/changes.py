@@ -1,10 +1,14 @@
 import copy
+import json
 
-from sqlalchemy import func, select
+from sqlalchemy import func, insert, or_, select
+from sqlalchemy import text as sql_text
+from sqlalchemy.orm import attributes
 
-from ncc_data.application.knowledge.queries import QueryService, ResolvedDefinition
+from ncc_data.application.knowledge.queries import QueryService, ResolvedDefinition, safe_int_position
 from ncc_data.application.security import authorize
 from ncc_data.domain.contracts import ChangeInput, DefinitionInput, FactInput
+from ncc_data.domain.definitions import SYSTEM_SCOPE
 from ncc_data.domain.validation import validate_definition, validate_values
 from ncc_data.persistence.models import (
     Attachment,
@@ -13,14 +17,30 @@ from ncc_data.persistence.models import (
     Definition,
     Entity,
     Fact,
-    Job,
     Receipt,
     Revision,
     uid,
+    utcnow,
 )
 from ncc_shared.errors import DomainError, require
 from ncc_shared.quality.policy import POLICY_HASH
-from ncc_shared.serialization import digest, search_tokens
+from ncc_shared.serialization import digest, jsonable, search_tokens
+
+
+def _is_ref_id_candidate(val: object) -> bool:
+    return isinstance(val, str) and len(val) == 36 and val.count("-") == 4
+
+
+def _collect_data_ref_candidates(data: dict | None, out: set[str]) -> None:
+    if not isinstance(data, dict):
+        return
+    for val in data.values():
+        if _is_ref_id_candidate(val):
+            out.add(val)  # type: ignore[arg-type]
+        elif isinstance(val, list):
+            for elem in val:
+                if _is_ref_id_candidate(elem):
+                    out.add(elem)  # type: ignore[arg-type]
 
 
 class ChangeService(QueryService):
@@ -105,8 +125,13 @@ class ChangeService(QueryService):
             }
         )
 
+    def _expire_cached_entities(self) -> None:
+        for obj in list(self.db.identity_map.values()):
+            if isinstance(obj, Entity):
+                self.db.expire(obj)
+
     async def validate_change(self, scope_id, change_id):
-        scope, _, row = await self.change(scope_id, change_id, "edit", lock=True)
+        scope, actions, row = await self.change(scope_id, change_id, "edit", lock=True)
         require(row.state != "applied", "change_state", "已采用变更无需重复预检", 409)
         report = {"valid": False, "errors": [], "impacts": []}
         if row.base_version != scope.version:
@@ -116,13 +141,14 @@ class ChangeService(QueryService):
         else:
             nested = await self.db.begin_nested()
             try:
-                report["impacts"] = await self._operations(scope, row)
+                report["impacts"] = await self._operations(scope, row, actions_override=actions)
                 await self.db.flush()
                 report["valid"] = True
             except DomainError as exc:
                 report["errors"] = [{"code": exc.code, "detail": exc.detail, **exc.extra}]
             finally:
                 await nested.rollback()
+                self._expire_cached_entities()
             await self.db.refresh(scope)
             await self.db.refresh(row)
         row.validation = {
@@ -153,7 +179,7 @@ class ChangeService(QueryService):
 
     async def apply_change(self, scope_id, change_id, key, receipt_extra=None):
         require(isinstance(key, str) and 1 <= len(key) <= 128, "idempotency", "采用操作必须提供幂等键")
-        scope, _, row = await self.change(scope_id, change_id, "adopt", lock=True)
+        scope, actions, row = await self.change(scope_id, change_id, "adopt", lock=True)
         request_hash = digest({"change": row.id, "draft": row.draft_version, "ops": row.operations})
         receipt = await self.db.scalar(
             select(Receipt).where(
@@ -186,7 +212,7 @@ class ChangeService(QueryService):
         approver = await self.db.get(User, row.approver_id)
         require(approver is not None and approver.active, "approval_revoked", "批准者已不可用", 403)
         await authorize(self.db, approver, scope_id, "adopt")
-        impacts = await self._operations(scope, row)
+        impacts = await self._operations(scope, row, actions_override=actions)
         row.state, row.applied_version = "applied", scope.version
         result = {"change_id": row.id, "version": scope.version, "impacts": impacts}
         extra = getattr(self, "_receipt_extra", None) or receipt_extra
@@ -207,9 +233,6 @@ class ChangeService(QueryService):
                 detail={"change_id": row.id, "title": row.title, "operations_hash": digest(row.operations)},
             )
         )
-        self.db.add(
-            Job(scope_id=scope_id, actor_id=self.actor.id, kind="index", payload={"version": scope.version})
-        )
         await self.db.flush()
         return result
 
@@ -228,6 +251,204 @@ class ChangeService(QueryService):
         )
         await self.approve_change(scope_id, change_id)
         return await self.apply_change(scope_id, change_id, key, receipt_extra=receipt_extra)
+
+    async def commit_change(
+        self,
+        scope_id,
+        value: ChangeInput,
+        key: str | None = None,
+        *,
+        receipt_extra: dict | None = None,
+        _preauthorized: tuple | None = None,
+        _preloaded_raw: dict | None = None,
+        _preloaded_defs: dict | None = None,
+        _receipt_checked: bool = False,
+    ):
+        """Atomic one-step validate + approve + apply within a single transaction.
+
+        Never leaves an orphan draft ChangeSet on version conflict or validation failure.
+        """
+        if _preauthorized is not None:
+            scope, actions = _preauthorized
+            require("edit" in actions and "adopt" in actions, "forbidden", "当前范围未授予此操作", 403)
+        else:
+            scope, actions = await authorize(self.db, self.actor, scope_id, "edit", lock=True)
+            require("adopt" in actions, "forbidden", "当前范围未授予此操作", 403)
+
+        payload_json = value.model_dump(mode="json")
+        request_hash = digest({"commit": 1, "payload": payload_json})
+        explicit_key = (key or "").strip() if key is not None else ""
+        require(len(explicit_key) <= 128, "idempotency", "幂等键长度不能超过128字符")
+        effective_key = (
+            explicit_key
+            if explicit_key
+            else (
+                "commit:"
+                + digest({"scope": scope_id, "actor": self.actor.id, "payload": payload_json})[:64]
+            )
+        )
+        if not _receipt_checked:
+            receipt = await self.db.scalar(
+                select(Receipt).where(
+                    Receipt.scope_id == scope_id,
+                    Receipt.actor_id == self.actor.id,
+                    Receipt.key == effective_key,
+                )
+            )
+            if receipt is not None:
+                require(
+                    receipt.request_hash == request_hash,
+                    "idempotency_reuse",
+                    "同一幂等键不能用于不同内容",
+                    409,
+                )
+                return receipt.result
+
+        require(
+            value.base_version == scope.version,
+            "version_conflict",
+            "内容范围已变化，请刷新后比较",
+            409,
+            current_version=scope.version,
+        )
+        require(
+            not scope.config.get("separate_approval"),
+            "separate_approval",
+            "此范围要求另一位批准者",
+            403,
+        )
+        operations = [op.model_dump(mode="json", exclude_none=True) for op in value.operations]
+        for op in operations:
+            if op["op"] == "create":
+                op["entity_id"] = op.get("entity_id") or uid()
+
+        needs_savepoint = any(
+            op["op"] not in {"create", "update", "retire"} for op in operations
+        )
+        row_id = uid()
+        row = ChangeSet(
+            id=row_id,
+            scope_id=scope_id,
+            actor_id=self.actor.id,
+            title=value.title,
+            base_version=value.base_version,
+            draft_version=1,
+            operations=operations,
+            state="draft",
+            validation={"requires_secret": "secret" in actions},
+        )
+
+        if needs_savepoint:
+            nested = await self.db.begin_nested()
+            try:
+                self.db.add(row)
+                impacts = await self._operations(
+                    scope,
+                    row,
+                    actions_override=actions,
+                    preloaded_raw=_preloaded_raw,
+                    preloaded_defs=_preloaded_defs,
+                )
+                fp = self.approval_digest(row)
+                row.validation = {
+                    "requires_secret": "secret" in actions,
+                    "valid": True,
+                    "errors": [],
+                    "impacts": impacts,
+                    "fingerprint": fp,
+                    "checked_version": row.base_version,
+                }
+                row.approved_hash = fp
+                row.approver_id = self.actor.id
+                row.state = "applied"
+                row.applied_version = scope.version
+                result = {"change_id": row.id, "version": scope.version, "impacts": impacts}
+                if receipt_extra:
+                    result = {**result, **receipt_extra}
+                self.db.add(
+                    Receipt(
+                        scope_id=scope_id,
+                        actor_id=self.actor.id,
+                        key=effective_key,
+                        request_hash=request_hash,
+                        result=result,
+                    )
+                )
+                self.db.add(
+                    Audit(
+                        scope_id=scope_id,
+                        actor_id=self.actor.id,
+                        action="change.apply",
+                        version=scope.version,
+                        detail={
+                            "change_id": row.id,
+                            "title": row.title,
+                            "operations_hash": digest(row.operations),
+                        },
+                    )
+                )
+                await self.db.flush()
+            except BaseException:
+                await nested.rollback()
+                self._expire_cached_entities()
+                await self.db.refresh(scope)
+                raise
+            else:
+                await nested.commit()
+            return result
+
+        # Fast atomic path for pure entity create/update/retire batches:
+        # _operations validates all operations in memory before mutating ORM/DB state,
+        # so any DomainError leaves zero orphan ChangeSet and zero SAVEPOINT overhead.
+        impacts = await self._operations(
+            scope,
+            row,
+            actions_override=actions,
+            preloaded_raw=_preloaded_raw,
+            preloaded_defs=_preloaded_defs,
+            defer_scope_bump=True,
+        )
+        fp = self.approval_digest(row)
+        row.validation = {
+            "requires_secret": "secret" in actions,
+            "valid": True,
+            "errors": [],
+            "impacts": impacts,
+            "fingerprint": fp,
+            "checked_version": row.base_version,
+        }
+        row.approved_hash = fp
+        row.approver_id = self.actor.id
+        row.state = "applied"
+        row.applied_version = scope.version
+        self.db.add(row)
+        result = {"change_id": row.id, "version": scope.version, "impacts": impacts}
+        if receipt_extra:
+            result = {**result, **receipt_extra}
+        self.db.add(
+            Receipt(
+                scope_id=scope_id,
+                actor_id=self.actor.id,
+                key=effective_key,
+                request_hash=request_hash,
+                result=result,
+            )
+        )
+        self.db.add(
+            Audit(
+                scope_id=scope_id,
+                actor_id=self.actor.id,
+                action="change.apply",
+                version=scope.version,
+                detail={
+                    "change_id": row.id,
+                    "title": row.title,
+                    "operations_hash": digest(row.operations),
+                },
+            )
+        )
+        await self.db.flush()
+        return result
 
     async def _save_body(self, scope, identity, body, change_id):
         content_hash = digest(body)
@@ -264,7 +485,17 @@ class ChangeService(QueryService):
             )
         await self.db.flush()
 
-    async def _validate_refs(self, scope, spec, data, actions, previous_data=None):
+    async def _validate_refs(
+        self,
+        scope,
+        spec,
+        data,
+        actions,
+        previous_data=None,
+        *,
+        resolve_ref=None,
+    ):
+        ref_fn = resolve_ref or (lambda ref_id: self.reference(scope, ref_id, secret="secret" in actions))
         for key, value in data.items():
             rule = spec["properties"][key]
             if rule.get("secret") and "secret" not in actions:
@@ -279,7 +510,7 @@ class ChangeService(QueryService):
             if rule["type"] in {"reference", "references"}:
                 refs = value if rule["type"] == "references" else [value]
                 for ref in refs:
-                    obj = await self.reference(scope, ref, secret="secret" in actions)
+                    obj = await ref_fn(ref)
                     require(
                         not rule.get("kinds") or obj["kind"] in rule["kinds"],
                         "reference_type",
@@ -294,28 +525,35 @@ class ChangeService(QueryService):
                     "附件不属于当前范围",
                 )
 
-    async def _operations(self, scope, change):
-        _, actions = await authorize(self.db, self.actor, scope.id, "edit")
-        scope.version += 1
-        await self.db.flush()
+    async def _operations(
+        self,
+        scope,
+        change,
+        *,
+        actions_override=None,
+        preloaded_raw: dict | None = None,
+        preloaded_defs: dict | None = None,
+        defer_scope_bump: bool = False,
+    ):
+        if actions_override is not None:
+            actions = actions_override
+            require("edit" in actions, "forbidden", "当前范围未授予此操作", 403)
+        else:
+            _, actions = await authorize(self.db, self.actor, scope.id, "edit")
+
+        target_version = scope.version + 1
+        if not defer_scope_bump:
+            scope.version = target_version
+            await self.db.flush()
+
         impacts = []
         # Publish definitions first, then stage all identities/revisions so cyclic and forward
         # references are validated against the complete transaction, never against row order.
         ordered = sorted(change.operations, key=lambda op: 0 if op["op"] in {"definition", "adopt"} else 1)
-        staged = {}
-        for op in ordered:
-            if op["op"] != "create":
-                continue
-            entity_id = op["entity_id"]
-            require(
-                entity_id not in staged and await self.db.get(Entity, entity_id) is None,
-                "identity_exists",
-                "对象身份已存在或在同批重复",
-                409,
-            )
-            # Definitions in this same change are resolved below before staging creates.
-            staged[entity_id] = op
-        for op in ordered:
+        meta_ops = [op for op in ordered if op["op"] in {"definition", "adopt"}]
+        content_ops = [op for op in ordered if op["op"] not in {"definition", "adopt"}]
+
+        for op in meta_ops:
             action = op["op"]
             if action == "definition":
                 require("admin" in actions, "definition_permission", "发布定义需要范围管理权限", 403)
@@ -339,8 +577,7 @@ class ChangeService(QueryService):
                 config.setdefault("definitions", {})[value.key] = definition.id
                 scope.config = config
                 impacts.append({"kind": "definition", "key": value.key, "version": value.version})
-                continue
-            if action == "adopt":
+            elif action == "adopt":
                 target, target_actions = await authorize(self.db, self.actor, op.get("target_scope"), "read")
                 require(
                     "export" in target_actions and "secret" in target_actions,
@@ -355,16 +592,310 @@ class ChangeService(QueryService):
                 config.setdefault("adoptions", {})[target.id] = pin
                 scope.config = config
                 impacts.append({"kind": "adoption", "scope_id": target.id, "version": pin})
+
+        if not content_ops:
+            if defer_scope_bump:
+                scope.version = target_version
+            return impacts
+
+        # Batch preload referenced Entity, latest Revision, and Definition rows
+        preload_ids: set[str] = set()
+        create_kinds: set[str] = set()
+        for op in content_ops:
+            eid = op.get("entity_id")
+            if isinstance(eid, str) and eid:
+                preload_ids.add(eid)
+            if op["op"] == "create" and isinstance(op.get("kind"), str) and op["kind"]:
+                create_kinds.add(op["kind"])
+            _collect_data_ref_candidates(op.get("data"), preload_ids)
+            if op["op"] in {"fact", "name"} and isinstance(op.get("fact"), dict):
+                fdict = op["fact"]
+                for fk in ("object_id", "chapter_id"):
+                    fv = fdict.get(fk)
+                    if isinstance(fv, str) and fv:
+                        preload_ids.add(fv)
+                fsrc = fdict.get("source")
+                if isinstance(fsrc, dict) and isinstance(fsrc.get("entity_id"), str) and fsrc["entity_id"]:
+                    preload_ids.add(fsrc["entity_id"])
+
+        entities_by_id: dict[str, Entity] = {}
+        if preload_ids:
+            loaded_entities = (
+                await self.db.scalars(select(Entity).where(Entity.id.in_(preload_ids)))
+            ).all()
+            entities_by_id = {e.id: e for e in loaded_entities}
+
+        # Use pre-bump revision limit so lineage lookup matches committed baseline
+        as_of_baseline = target_version - 1
+        current_by_id: dict[str, dict] = {}
+        if preloaded_raw:
+            for k, v in preloaded_raw.items():
+                current_by_id[k] = copy.deepcopy(v)
+        missing_rev_ids = set(entities_by_id.keys()) - set(current_by_id.keys())
+        if missing_rev_ids:
+            rev_stmt = (await self.revision_query(scope, as_of=as_of_baseline)).where(
+                Revision.entity_id.in_(missing_rev_ids)
+            )
+            for r in (await self.db.scalars(rev_stmt)).all():
+                current_by_id[r.entity_id] = {
+                    **r.body,
+                    "id": r.entity_id,
+                    "revision": r.id,
+                    "version": f"{r.scope_id}:{r.version}",
+                    "content_hash": r.content_hash,
+                }
+
+        # Preload second-degree reference targets (e.g. existing parent_id not touched in op.data)
+        extra_ref_ids: set[str] = set()
+        for cur_obj in current_by_id.values():
+            _collect_data_ref_candidates(cur_obj.get("data"), extra_ref_ids)
+        extra_ref_ids -= preload_ids
+        if extra_ref_ids:
+            more_entities = (
+                await self.db.scalars(select(Entity).where(Entity.id.in_(extra_ref_ids)))
+            ).all()
+            if more_entities:
+                for e in more_entities:
+                    entities_by_id[e.id] = e
+                more_rev_stmt = (await self.revision_query(scope, as_of=as_of_baseline)).where(
+                    Revision.entity_id.in_({e.id for e in more_entities})
+                )
+                for r in (await self.db.scalars(more_rev_stmt)).all():
+                    current_by_id[r.entity_id] = {
+                        **r.body,
+                        "id": r.entity_id,
+                        "revision": r.id,
+                        "version": f"{r.scope_id}:{r.version}",
+                        "content_hash": r.content_hash,
+                    }
+
+        # Batch preload Definitions (from preloaded_defs & session identity map first, then 1 query if needed)
+        defs_by_id: dict[str, Definition] = dict(preloaded_defs) if preloaded_defs else {}
+        pinned_defs: dict[str, str] = dict((scope.config or {}).get("definitions") or {})
+        needed_def_ids = {
+            obj.get("definition_id") for obj in current_by_id.values() if obj.get("definition_id")
+        } | {did for did in pinned_defs.values() if did} | {
+            op["definition_id"] for op in content_ops if isinstance(op.get("definition_id"), str)
+        }
+        for obj in self.db.identity_map.values():
+            if isinstance(obj, Definition) and obj.id in needed_def_ids:
+                defs_by_id[obj.id] = obj
+        missing_def_ids = needed_def_ids - set(defs_by_id.keys())
+        unpinned_create_kinds = {k for k in create_kinds if k not in pinned_defs}
+        if missing_def_ids or unpinned_create_kinds:
+            def_clauses = []
+            if missing_def_ids:
+                def_clauses.append(Definition.id.in_(missing_def_ids))
+            if unpinned_create_kinds:
+                def_clauses.append(
+                    (Definition.scope_id == SYSTEM_SCOPE)
+                    & (Definition.version == 1)
+                    & Definition.key.in_(unpinned_create_kinds)
+                )
+            for d in (await self.db.scalars(select(Definition).where(or_(*def_clauses)))).all():
+                defs_by_id[d.id] = d
+
+        defs_by_key: dict[str, ResolvedDefinition] = {}
+        for d in defs_by_id.values():
+            if d.scope_id == SYSTEM_SCOPE and d.version == 1 and d.key not in pinned_defs:
+                defs_by_key[d.key] = ResolvedDefinition(d)
+        for k, did in pinned_defs.items():
+            if did in defs_by_id:
+                defs_by_key[k] = ResolvedDefinition(defs_by_id[did])
+
+        async def _get_def_by_key(kind_key: str) -> ResolvedDefinition:
+            if kind_key in defs_by_key:
+                return defs_by_key[kind_key]
+            resolved = await self.definition(scope, kind_key)
+            defs_by_key[kind_key] = resolved
+            return resolved
+
+        async def _get_def_by_id(def_id: str | None) -> ResolvedDefinition | None:
+            if not def_id:
+                return None
+            d = defs_by_id.get(def_id)
+            if d is None:
+                d = await self.db.get(Definition, def_id)
+                if d is not None:
+                    defs_by_id[def_id] = d
+            return ResolvedDefinition(d) if d is not None else None
+
+        lineage_ids = {sid for sid, _ in await self.lineage(scope, as_of=as_of_baseline)} | {scope.id}
+        foreign_ref_cache: dict[tuple[str, bool], dict] = {}
+
+        async def _fast_ref(ref_id: str, *, allow_secret: bool | None = None) -> dict:
+            sec_ok = ("secret" in actions) if allow_secret is None else (allow_secret and "secret" in actions)
+            cur = current_by_id.get(ref_id)
+            ent = entities_by_id.get(ref_id)
+            if cur is not None and (ent is None or ent.scope_id in lineage_ids):
+                require(not cur.get("deleted"), "reference", "引用对象已停用")
+                require(not cur.get("secret") or sec_ok, "reference", "引用不可访问")
+                return cur
+            ck = (ref_id, sec_ok)
+            if ck in foreign_ref_cache:
+                return foreign_ref_cache[ck]
+            resolved = await self.reference(scope, ref_id, secret=sec_ok)
+            foreign_ref_cache[ck] = resolved
+            return resolved
+
+        staged = {}
+        for op in content_ops:
+            if op["op"] != "create":
                 continue
+            entity_id = op["entity_id"]
+            exists_in_db = entity_id in entities_by_id or (await self.db.get(Entity, entity_id) is not None)
+            require(
+                entity_id not in staged and not exists_in_db,
+                "identity_exists",
+                "对象身份已存在或在同批重复",
+                409,
+            )
+            staged[entity_id] = op
+
+        new_entities: dict[str, Entity] = {}
+        dirty_entities: dict[str, tuple[Entity, dict]] = {}
+        pending_revisions: dict[str, dict] = {}
+        flushed_revisions: dict[str, dict] = {}
+        pending_name_facts: list[Fact] = []
+
+        def _stage_save_body(identity: Entity, body_val: dict) -> None:
+            eid = identity.id
+            body_copy = copy.deepcopy(body_val)
+            content_hash = digest(body_copy)
+            existing_rev = pending_revisions.get(eid) or flushed_revisions.get(eid)
+            rev_id = existing_rev["id"] if existing_rev else uid()
+            pending_revisions[eid] = {
+                "id": rev_id,
+                "created_at": utcnow(),
+                "scope_id": scope.id,
+                "entity_id": eid,
+                "version": target_version,
+                "body": jsonable(body_copy),
+                "content_hash": content_hash,
+                "change_id": change.id,
+            }
+            current_by_id[eid] = {
+                **body_copy,
+                "id": eid,
+                "revision": rev_id,
+                "version": f"{scope.id}:{target_version}",
+                "content_hash": content_hash,
+            }
+            if identity.scope_id == scope.id:
+                if eid in new_entities:
+                    identity.name = body_copy["name"]
+                    identity.data = body_copy["data"]
+                    identity.text = body_copy["text"]
+                    identity.current_version = target_version
+                    identity.secret = body_copy["secret"]
+                    identity.deleted = body_copy["deleted"]
+                    identity.search_vector = func.to_tsvector(
+                        "simple", search_tokens(body_copy["name"] + " " + body_copy["text"])
+                    )
+                else:
+                    dirty_entities[eid] = (identity, body_copy)
+
+        async def _flush_pending_writes() -> None:
+            nonlocal defer_scope_bump
+            if defer_scope_bump:
+                scope.version = target_version
+                defer_scope_bump = False
+            if new_entities:
+                self.db.add_all(list(new_entities.values()))
+                new_entities.clear()
+                await self.db.flush()
+            if pending_revisions:
+                to_insert = []
+                for eid, rev_payload in list(pending_revisions.items()):
+                    if eid in flushed_revisions:
+                        rev_row = await self.db.get(Revision, rev_payload["id"])
+                        if rev_row is not None:
+                            rev_row.body = rev_payload["body"]
+                            rev_row.content_hash = rev_payload["content_hash"]
+                    else:
+                        to_insert.append(rev_payload)
+                        flushed_revisions[eid] = rev_payload
+                pending_revisions.clear()
+                if to_insert:
+                    await self.db.execute(insert(Revision), to_insert)
+            if dirty_entities:
+                update_rows = []
+                synced_pairs = list(dirty_entities.values())
+                dirty_entities.clear()
+                for ent, bval in synced_pairs:
+                    recalc_ts = (
+                        ent.search_vector is None
+                        or ent.name != bval["name"]
+                        or ent.text != bval["text"]
+                    )
+                    update_rows.append(
+                        jsonable(
+                            {
+                                "id": ent.id,
+                                "name": bval["name"],
+                                "data": bval["data"],
+                                "text": bval["text"],
+                                "secret": bool(bval["secret"]),
+                                "deleted": bool(bval["deleted"]),
+                                "recalc_ts": recalc_ts,
+                                "tokens": (
+                                    search_tokens(bval["name"] + " " + bval["text"]) if recalc_ts else ""
+                                ),
+                            }
+                        )
+                    )
+                await self.db.execute(
+                    sql_text(
+                        """
+                        UPDATE ncc_entity AS e
+                        SET name = v.name,
+                            data = v.data,
+                            text = v.text,
+                            current_version = :ver,
+                            secret = v.secret,
+                            deleted = v.deleted,
+                            search_vector = CASE
+                                WHEN v.recalc_ts THEN to_tsvector('simple', v.tokens)
+                                ELSE e.search_vector
+                            END
+                        FROM jsonb_to_recordset(CAST(:rows AS jsonb)) AS v(
+                            id text,
+                            name text,
+                            data jsonb,
+                            text text,
+                            secret boolean,
+                            deleted boolean,
+                            recalc_ts boolean,
+                            tokens text
+                        )
+                        WHERE e.id = v.id
+                        """
+                    ),
+                    {"ver": target_version, "rows": json.dumps(update_rows, ensure_ascii=False)},
+                )
+                for ent, bval in synced_pairs:
+                    attributes.set_committed_value(ent, "name", bval["name"])
+                    attributes.set_committed_value(ent, "data", copy.deepcopy(bval["data"]))
+                    attributes.set_committed_value(ent, "text", bval["text"])
+                    attributes.set_committed_value(ent, "current_version", target_version)
+                    attributes.set_committed_value(ent, "secret", bool(bval["secret"]))
+                    attributes.set_committed_value(ent, "deleted", bool(bval["deleted"]))
+            if pending_name_facts:
+                self.db.add_all(pending_name_facts)
+                pending_name_facts.clear()
+
+        for op in content_ops:
+            action = op["op"]
             entity_id = op.get("entity_id")
             require(entity_id, "entity_id", "操作必须指定对象")
             if action == "create":
                 if staged:
+                    max_chapter_pos: int | None = None
                     for pending_id, pending in list(staged.items()):
                         require(
                             pending.get("kind") and pending.get("name"), "entity", "创建必须指定类型和名称"
                         )
-                        pending_def = await self.definition(scope, pending["kind"])
+                        pending_def = await _get_def_by_key(pending["kind"])
                         require(not pending_def.spec.get("relation"), "kind", "关系类型不能直接作为对象类型")
                         pending_body = {
                             "kind": pending["kind"],
@@ -376,77 +907,95 @@ class ChangeService(QueryService):
                             "definition_id": pending_def.id,
                         }
                         if pending["kind"] in {"chapter", "章节"} and "position" not in pending_body["data"]:
-                            from ncc_data.domain.contracts import Query
+                            if max_chapter_pos is None:
+                                from ncc_data.domain.contracts import Query
 
-                            latest = await self.entities(
-                                scope.id,
-                                Query(kind=pending["kind"], sort="position", descending=True, limit=1),
-                            )
-                            pending_body["data"]["position"] = (
-                                max([int(i["data"].get("position", 0)) for i in latest["items"]] + [0]) + 1
-                            )
+                                latest = await self.entities(
+                                    scope.id,
+                                    Query(
+                                        kind=pending["kind"],
+                                        sort="position",
+                                        descending=True,
+                                        limit=1,
+                                        as_of=as_of_baseline,
+                                    ),
+                                )
+                                max_chapter_pos = max(
+                                    [safe_int_position(i["data"].get("position"), 0) for i in latest["items"]]
+                                    + [0]
+                                )
+                            max_chapter_pos += 1
+                            pending_body["data"]["position"] = max_chapter_pos
                         validate_values(pending_def.spec, pending_body["data"])
                         pending_entity = Entity(
                             id=pending_id,
                             scope_id=scope.id,
                             kind=pending["kind"],
-                            current_version=scope.version,
+                            current_version=target_version,
                             name=pending_body["name"],
                             data=pending_body["data"],
                             text=pending_body["text"],
                             secret=pending_body["secret"],
+                            deleted=False,
+                            search_vector=func.to_tsvector(
+                                "simple",
+                                search_tokens(pending_body["name"] + " " + pending_body["text"]),
+                            ),
                         )
-                        self.db.add(pending_entity)
-                        await self.db.flush()
-                        await self._save_body(scope, pending_entity, pending_body, change.id)
+                        entities_by_id[pending_id] = pending_entity
+                        new_entities[pending_id] = pending_entity
+                        _stage_save_body(pending_entity, pending_body)
                     staged.clear()
                 require(op.get("kind") and op.get("name"), "entity", "创建必须指定类型和名称")
-                definition = await self.definition(scope, op["kind"])
+                definition = await _get_def_by_key(op["kind"])
                 require(not definition.spec.get("relation"), "kind", "关系类型不能直接作为对象类型")
-                staged_body = await self.raw_entity(scope, entity_id)
+                staged_body = current_by_id[entity_id]
+                previous = staged_body
                 body = {
-                    k: staged_body[k]
+                    k: copy.deepcopy(staged_body[k])
                     for k in ("kind", "name", "data", "text", "secret", "deleted", "definition_id")
                 }
-                identity = await self.db.get(Entity, entity_id)
-            else:
-                previous = await self.raw_entity(scope, entity_id)
+                identity = entities_by_id[entity_id]
+            elif action in {"update", "retire", "restore"}:
+                previous = current_by_id.get(entity_id)
+                require(previous is not None, "not_found", "对象不存在或不属于当前视图", 404)
                 require(not previous.get("secret") or "secret" in actions, "not_found", "对象不可访问", 404)
-                identity = await self.db.get(Entity, entity_id)
+                identity = entities_by_id.get(entity_id) or await self.db.get(Entity, entity_id)
+                if identity is not None:
+                    entities_by_id[entity_id] = identity
                 body = {
                     k: copy.deepcopy(previous[k])
                     for k in ("kind", "name", "data", "text", "secret", "deleted", "definition_id")
                 }
-                if action in {"update", "retire", "restore"}:
-                    require(op.get("expected"), "precondition_required", "修改必须携带读取时的版本", 428)
-                    require(
-                        op["expected"] == previous["version"],
-                        "precondition",
-                        "对象版本已变化，请三方比较",
-                        412,
-                        current_version=previous["version"],
-                    )
-                raw_def = await self.db.get(Definition, body["definition_id"])
-                definition = ResolvedDefinition(raw_def) if raw_def is not None else None
+                require(op.get("expected"), "precondition_required", "修改必须携带读取时的版本", 428)
+                require(
+                    op["expected"] == previous["version"],
+                    "precondition",
+                    "对象版本已变化，请三方比较",
+                    412,
+                    current_version=previous["version"],
+                )
+                definition = await _get_def_by_id(body["definition_id"])
                 if op.get("definition_id"):
                     require("secret" in actions, "definition_upgrade", "定义升级需要完整属性权限", 403)
-                    adopted = await self.definition(scope, body["kind"])
+                    adopted = await _get_def_by_key(body["kind"])
                     require(
                         adopted.id == op["definition_id"],
                         "definition_upgrade",
                         "只能显式升级到当前采用的同类型定义",
                     )
                     body["definition_id"], definition = adopted.id, adopted
+
             if action in {"create", "update", "retire", "restore"}:
                 if action == "restore":
+                    await _flush_pending_writes()
                     require("secret" in actions, "restore_permission", "历史恢复需要完整范围权限", 403)
                     old = await self.revision(scope.id, entity_id, op.get("revision_id"))
                     body = {
                         k: copy.deepcopy(old[k])
                         for k in ("kind", "name", "data", "text", "secret", "deleted", "definition_id")
                     }
-                    raw_def = await self.db.get(Definition, body["definition_id"])
-                    definition = ResolvedDefinition(raw_def) if raw_def is not None else None
+                    definition = await _get_def_by_id(body["definition_id"])
                 if action == "update":
                     if op.get("reactivate"):
                         body["deleted"] = False
@@ -476,6 +1025,7 @@ class ChangeService(QueryService):
                     body["data"],
                     actions,
                     previous.get("data") if action != "create" else None,
+                    resolve_ref=lambda r: _fast_ref(r, allow_secret="secret" in actions),
                 )
                 parent_id = body["data"].get("parent_id")
                 visited = {entity_id}
@@ -484,18 +1034,18 @@ class ChangeService(QueryService):
                         parent_id not in visited and len(visited) < 100, "hierarchy_cycle", "层级关系形成循环"
                     )
                     visited.add(parent_id)
-                    parent = await self.reference(scope, parent_id)
+                    parent = await _fast_ref(parent_id, allow_secret=True)
                     parent_id = parent.get("data", {}).get("parent_id")
-                await self._save_body(scope, identity, body, change.id)
+                _stage_save_body(identity, body)
                 if action == "create" or body["name"] != previous["name"]:
-                    self.db.add(
+                    pending_name_facts.append(
                         Fact(
                             scope_id=scope.id,
                             subject_id=entity_id,
                             predicate="name",
                             category="name",
                             value={"label": body["name"], "language": "zh", "context": "default"},
-                            recorded_from=scope.version,
+                            recorded_from=target_version,
                             source={"kind": "author", "change_id": change.id},
                             change_id=change.id,
                         )
@@ -509,12 +1059,17 @@ class ChangeService(QueryService):
                     }
                 )
             elif action in {"fact", "name"}:
+                await _flush_pending_writes()
+                await self.db.flush()
                 value = FactInput.model_validate(op.get("fact"))
                 if action == "name":
                     require(value.category == "name", "name", "名称记录必须使用name类别")
                 await self._assert_fact(scope, entity_id, value, change.id, actions)
                 impacts.append({"kind": value.category, "entity_id": entity_id, "predicate": value.predicate})
+                await self.db.flush()
             elif action == "retract":
+                await _flush_pending_writes()
+                await self.db.flush()
                 old = await self.db.get(Fact, op.get("fact_id"))
                 require(not old or not old.secret or "secret" in actions, "not_found", "事实不可访问", 404)
                 active_ids = {f.id for f in await self.raw_facts(scope)}
@@ -540,8 +1095,12 @@ class ChangeService(QueryService):
                         )
                     )
                 impacts.append({"kind": "retraction", "fact_id": old.id})
+                await self.db.flush()
             else:
                 raise DomainError("operation", "未知变更操作")
+
+        await _flush_pending_writes()
+        if not defer_scope_bump:
             await self.db.flush()
         return impacts
 

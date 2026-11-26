@@ -15,7 +15,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 from types import SimpleNamespace
 
 from psycopg import sql
-from sqlalchemy import select
 from support.runtime import TestRuntime
 
 from ncc_data.application.security import password_hash

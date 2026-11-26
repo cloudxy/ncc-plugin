@@ -1,21 +1,43 @@
-"""Local CLI subscription status. Tokens stay on disk and never enter these results."""
+"""Local CLI subscription status and managed headless Device-Auth login.
 
+Tokens stay on disk in each CLI's own store and never enter API responses or audit logs.
+"""
+
+import asyncio
+import contextlib
 import datetime
 import json
 import os
 import re
-import shlex
 import shutil
 import subprocess
-import sys
+import time
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
+from urllib.parse import urlsplit
+from uuid import uuid4
 
 from ncc_data.creation.model_route import SECRET_HINT
 from ncc_shared.errors import require
 
 PROVIDERS = ("grok", "codex", "agy")
-MODEL_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
+OAUTH_TTL_SECONDS = 180
+STRIPPED_API_KEYS = (
+    "XAI_API_KEY",
+    "OPENAI_API_KEY",
+    "NCC_MODEL_KEY",
+    "ARK_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "GEMINI_API_KEY",
+    "GOOGLE_API_KEY",
+)
+MODEL_ID = re.compile(r"^[A-Za-z0-9_.:/-]{1,128}$")
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+_URL_RE = re.compile(r"https://[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+")
+_HYPHEN_CODE_RE = re.compile(r"\b([A-Z0-9]{3,8}-[A-Z0-9]{3,8})\b")
+_LABELED_CODE_RE = re.compile(r"(?:code|验证码|设备码)\s*[:：=]?\s*([A-Z0-9-]{4,16})\b", re.I)
 _CHANNELS = (
     {
         "id": "grok",
@@ -23,12 +45,15 @@ _CHANNELS = (
         "path_label": "~/.grok/auth.json",
         "bin": "grok",
         "login_command": "grok login --oauth",
+        "device_auth_argv": ("login", "--device-auth"),
         "login_argv": ("login", "--oauth"),
         "verify_argv": ("models",),
-        "login_label": "调起浏览器授权登录",
+        "login_label": "网页发起 OAuth 授权",
         "verify_label": "在线验证授权",
-        "note": "复用本机 grok CLI 登录态。服务不回传令牌，也不改用 XAI_API_KEY。与「模型与连接」里的按量接口分开。",
+        "note": "复用本机 grok CLI 登录态。服务不回传令牌，也不改用 XAI_API_KEY。可直接绑定到写作与审评模型。",
         "models": (
+            ("grok-4", "grok-4（对话与创作）"),
+            ("grok-3", "grok-3（对话与审评）"),
             ("image_edit", "image_edit（终端 grok CLI 内置）"),
             ("grok-imagine-image-2.0", "grok-imagine-image-2.0"),
             ("grok-imagine-image", "grok-imagine-image"),
@@ -41,12 +66,17 @@ _CHANNELS = (
         "path_label": "本机 codex login 的 ChatGPT 订阅",
         "bin": "codex",
         "login_command": "codex login",
+        "device_auth_argv": ("login", "--device-auth"),
         "login_argv": ("login",),
         "verify_argv": ("login", "status"),
-        "login_label": "打开终端完成 Codex 授权",
+        "login_label": "网页发起 Codex 授权",
         "verify_label": "检查本机授权",
         "note": "只承认 ChatGPT 订阅登录。Codex 若用 API Key 登录，这里视为未完成订阅授权，也不会拿 OpenAI API Key 顶上。",
-        "models": (("image-generation", "Codex 内置生图（GPT Image）"),),
+        "models": (
+            ("gpt-5", "gpt-5（ChatGPT 订阅对话与创作）"),
+            ("o3", "o3（深度推理与审评）"),
+            ("image-generation", "Codex 内置生图（GPT Image）"),
+        ),
         "default_model": "image-generation",
     },
     {
@@ -55,12 +85,17 @@ _CHANNELS = (
         "path_label": "~/.gemini/antigravity-cli/jetski_state.pbtxt",
         "bin": "agy",
         "login_command": "agy",
+        "device_auth_argv": (),
         "login_argv": (),
         "verify_argv": ("models",),
-        "login_label": "打开终端完成 AGY 授权",
+        "login_label": "查看终端授权说明",
         "verify_label": "在线验证授权",
         "note": "复用本机 Antigravity CLI 登录态。服务不读取令牌正文，也不把它当作 API Key。",
-        "models": (("image-generator", "image-generator（AGY 内置生图）"),),
+        "models": (
+            ("gemini-2.5-pro", "gemini-2.5-pro（对话与创作）"),
+            ("claude-sonnet-4-5", "claude-sonnet-4-5（对话与审评）"),
+            ("image-generator", "image-generator（AGY 内置生图）"),
+        ),
         "default_model": "image-generator",
     },
 )
@@ -112,8 +147,13 @@ def _expiry(entry: dict):
     return parsed
 
 
+def _has_refresh_token(entry: dict) -> bool:
+    rt = entry.get("refresh_token")
+    return isinstance(rt, str) and bool(rt.strip())
+
+
 def _grok_file(path: Path) -> tuple[str, str | None]:
-    """Classify ~/.grok/auth.json. The access key is never returned."""
+    """Classify ~/.grok/auth.json. The access key and refresh token are never returned."""
     if not path.is_file():
         return "missing", None
     try:
@@ -123,12 +163,19 @@ def _grok_file(path: Path) -> tuple[str, str | None]:
     entries = []
     if isinstance(data, dict):
         for value in data.values():
-            if isinstance(value, dict) and isinstance(value.get("key"), str) and value["key"].strip():
+            if isinstance(value, dict) and (
+                (isinstance(value.get("key"), str) and value["key"].strip())
+                or _has_refresh_token(value)
+            ):
                 entries.append(value)
     if not entries:
         return "empty", None
-    now = datetime.datetime.now(datetime.timezone.utc)
-    fresh = [entry for entry in entries if (expiry := _expiry(entry)) is None or expiry > now]
+    now = datetime.datetime.now(datetime.UTC)
+    fresh = [
+        entry
+        for entry in entries
+        if (expiry := _expiry(entry)) is None or expiry > now or _has_refresh_token(entry)
+    ]
     chosen = (fresh or entries)[0]
     raw = str(chosen.get("user_id") or chosen.get("email") or "")
     account = _mask(raw)
@@ -205,10 +252,17 @@ def agy_status(home: Path, which) -> dict:
     return _status("agy", cli_installed=True, message="已安装 agy CLI，尚未检测到授权文件。请在终端运行 agy 完成登录。")
 
 
-def _run(binary: str, args: tuple[str, ...], run, env: dict | None, timeout: int):
+def clean_oauth_env(env: dict | None = None) -> dict[str, str]:
     child = dict(env if env is not None else os.environ)
-    for name in ("XAI_API_KEY", "OPENAI_API_KEY", "NCC_MODEL_KEY", "ARK_API_KEY", "DEEPSEEK_API_KEY"):
+    for name in STRIPPED_API_KEYS:
         child.pop(name, None)
+    child.setdefault("NO_COLOR", "1")
+    child.setdefault("TERM", "dumb")
+    return child
+
+
+def _run(binary: str, args: tuple[str, ...], run, env: dict | None, timeout: int):
+    child = clean_oauth_env(env)
     try:
         completed = run(
             [binary, *args],
@@ -369,27 +423,413 @@ def collect_subscriptions(saved, home: Path | None = None, which=shutil.which, r
 
 def open_login(provider: str, which=shutil.which, run=subprocess.run) -> dict:
     spec = channel(provider)
-    binary = which(spec["bin"])
+    _ = (which, run)
     command = spec["login_command"]
-    if not binary:
-        return {"started": False, "command": command, "message": f"本机未找到 {spec['bin']}。请先安装，再运行 {command}。"}
-    if sys.platform != "darwin" or not which("osascript"):
-        return {"started": False, "command": command, "message": f"请在终端运行 {command}。完成后回到本页刷新授权状态。"}
-    argv = " ".join(shlex.quote(part) for part in (binary, *spec["login_argv"]))
-    escaped = argv.replace("\\", "\\\\").replace('"', '\\"')
-    script = f'tell application "Terminal"\nactivate\ndo script "{escaped}"\nend tell'
+    return {
+        "started": False,
+        "command": command,
+        "message": f"请在本地终端执行 {command} 完成授权，然后回到本页点击「刷新授权状态」。",
+    }
+
+
+def extract_device_auth_info(raw_text: str) -> tuple[str | None, str | None]:
+    """Extract only safe https:// verification URL and short device code; never return raw logs or tokens."""
+    cleaned = _ANSI.sub("", raw_text or "")
+    auth_url: str | None = None
+    for match in _URL_RE.finditer(cleaned):
+        candidate = match.group(0).rstrip(".,;:)<>\"']")
+        parts = urlsplit(candidate)
+        lowered = candidate.lower()
+        if (
+            parts.scheme == "https"
+            and parts.hostname
+            and len(candidate) <= 512
+            and SECRET_HINT.search(candidate) is None
+            and "access_token=" not in lowered
+            and "refresh_token=" not in lowered
+            and "api_key=" not in lowered
+        ):
+            auth_url = candidate
+            break
+
+    text_without_urls = _URL_RE.sub(" ", cleaned)
+    device_code: str | None = None
+    for pattern in (_HYPHEN_CODE_RE, _LABELED_CODE_RE):
+        for match in pattern.finditer(text_without_urls):
+            code = match.group(1).strip().upper()
+            if (
+                4 <= len(code) <= 20
+                and SECRET_HINT.search(code) is None
+                and not code.startswith("SK-")
+                and any(ch.isdigit() or ch == "-" for ch in code)
+            ):
+                device_code = code
+                break
+        if device_code is None and pattern is _LABELED_CODE_RE:
+            for match in pattern.finditer(text_without_urls):
+                code = match.group(1).strip().upper()
+                if (
+                    4 <= len(code) <= 16
+                    and code not in {"HTTP", "HTTPS", "CODE", "AUTH", "OAUTH", "TRUE", "FALSE", "NULL"}
+                    and SECRET_HINT.search(code) is None
+                    and not code.startswith("SK-")
+                ):
+                    device_code = code
+                    break
+        if device_code:
+            break
+    return auth_url, device_code
+
+
+@dataclass
+class _ManagedLoginSession:
+    session_id: str
+    provider: str
+    command: str
+    created_monotonic: float
+    ttl_seconds: int
+    proc: Any
+    initial_ready: bool = False
+    auth_url: str | None = None
+    device_code: str | None = None
+    closed_state: str | None = None
+    chunks: list[str] = field(default_factory=list)
+    total_chars: int = 0
+    reader_task: asyncio.Task | None = None
+    expiry_task: asyncio.Task | None = None
+
+
+_ACTIVE_BY_PROVIDER: dict[str, _ManagedLoginSession] = {}
+_SESSIONS_BY_ID: dict[str, _ManagedLoginSession] = {}
+
+
+async def _terminate_proc(proc: Any) -> None:
+    if proc is None or getattr(proc, "returncode", None) is not None:
+        return
+    with contextlib.suppress(ProcessLookupError, OSError):
+        proc.terminate()
     try:
-        completed = run(
-            ["osascript", "-e", script],
-            capture_output=True,
-            text=True,
-            timeout=8,
-            stdin=subprocess.DEVNULL,
-            check=False,
-        )
-        started = completed.returncode == 0
-    except (OSError, subprocess.TimeoutExpired):
+        await asyncio.wait_for(proc.wait(), timeout=1.5)
+    except Exception:
+        with contextlib.suppress(ProcessLookupError, OSError):
+            proc.kill()
+        with contextlib.suppress(Exception):
+            await asyncio.wait_for(proc.wait(), timeout=1.0)
+
+
+async def _close_session(session: _ManagedLoginSession, state: str) -> None:
+    if session.closed_state is None:
+        session.closed_state = state
+    await _terminate_proc(session.proc)
+    if session.reader_task is not None and not session.reader_task.done():
+        session.reader_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await session.reader_task
+    if (
+        session.expiry_task is not None
+        and session.expiry_task is not asyncio.current_task()
+        and not session.expiry_task.done()
+    ):
+        session.expiry_task.cancel()
+    if _ACTIVE_BY_PROVIDER.get(session.provider) is session:
+        _ACTIVE_BY_PROVIDER.pop(session.provider, None)
+
+
+async def _sweep_expired_sessions() -> None:
+    now = time.monotonic()
+    stale_ids = [
+        sid
+        for sid, sess in list(_SESSIONS_BY_ID.items())
+        if now - sess.created_monotonic > sess.ttl_seconds + 60
+    ]
+    for sid in stale_ids:
+        sess = _SESSIONS_BY_ID.pop(sid, None)
+        if sess is not None:
+            await _close_session(sess, "expired")
+
+
+async def _drain_login_output(session: _ManagedLoginSession) -> None:
+    stream = getattr(session.proc, "stdout", None)
+    if stream is None:
+        return
+    try:
+        while session.total_chars < 16_384:
+            chunk = await stream.read(512)
+            if not chunk:
+                break
+            text = chunk.decode("utf-8", errors="replace") if isinstance(chunk, (bytes, bytearray)) else str(chunk)
+            session.chunks.append(text)
+            session.total_chars += len(text)
+            url, code = extract_device_auth_info("".join(session.chunks))
+            if url and not session.auth_url:
+                session.auth_url = url
+            if code and not session.device_code:
+                session.device_code = code
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        return
+
+
+async def _auto_expire(session: _ManagedLoginSession) -> None:
+    try:
+        await asyncio.sleep(session.ttl_seconds)
+        if getattr(session.proc, "returncode", None) is None and session.closed_state is None:
+            await _close_session(session, "expired")
+    except asyncio.CancelledError:
+        return
+
+
+async def _default_spawner(argv: list[str], env: dict[str, str]):
+    child_env = dict(env)
+    child_env["BROWSER"] = "/usr/bin/true"
+    return await asyncio.create_subprocess_exec(
+        *argv,
+        stdin=asyncio.subprocess.DEVNULL,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+        env=child_env,
+    )
+
+
+def _probe_single_channel(
+    provider: str,
+    saved: dict,
+    home: Path,
+    which,
+    run,
+    env: dict | None,
+) -> dict:
+    spec = channel(provider)
+    if provider == "grok":
+        status = grok_status(home, which)
+    elif provider == "codex":
+        status = codex_status(which, run, env)
+    else:
+        status = agy_status(home, which)
+    return {
+        "id": spec["id"],
+        "title": spec["title"],
+        "path_label": spec["path_label"],
+        "login_command": spec["login_command"],
+        "login_label": spec["login_label"],
+        "verify_label": spec["verify_label"],
+        "note": spec["note"],
+        "models": [{"id": mid, "label": label} for mid, label in spec["models"]],
+        "model": saved_model(saved, spec["id"]),
+        "status": status,
+    }
+
+
+async def start_oauth_login(
+    provider: str,
+    *,
+    saved: dict | None = None,
+    home: Path | None = None,
+    which=shutil.which,
+    run=subprocess.run,
+    spawner=None,
+    env: dict | None = None,
+    ttl_seconds: int = OAUTH_TTL_SECONDS,
+    startup_wait: float = 2.5,
+) -> dict:
+    spec = channel(provider)
+    await _sweep_expired_sessions()
+    root = home or Path.home()
+    device_argv = spec.get("device_auth_argv") or ()
+    if not device_argv:
+        return {
+            "provider": provider,
+            "started": False,
+            "mode": "manual",
+            "session_id": None,
+            "state": "manual",
+            "auth_url": None,
+            "device_code": None,
+            "command": spec["login_command"],
+            "expires_in": None,
+            "message": f"{spec['title']}暂不支持网页设备码流。请在终端执行 {spec['login_command']} 完成登录，随后点击「在线验证授权」。",
+        }
+
+    previous = _ACTIVE_BY_PROVIDER.pop(provider, None)
+    if previous is not None:
+        await _close_session(previous, "failed")
+
+    command_text = f"{spec['bin']} {' '.join(device_argv)}"
+    binary = which(spec["bin"])
+    if not binary:
+        return {
+            "provider": provider,
+            "started": False,
+            "mode": "manual",
+            "session_id": None,
+            "state": "failed",
+            "auth_url": None,
+            "device_code": None,
+            "command": command_text,
+            "expires_in": None,
+            "message": f"未检测到本机 {spec['bin']} CLI。请先安装后再发起网页授权。",
+        }
+
+    initial_channel = await asyncio.to_thread(
+        _probe_single_channel, provider, saved or {}, root, which, run, env
+    )
+    spawn = spawner or _default_spawner
+    clean_env = clean_oauth_env(env)
+    try:
+        proc = await spawn([binary, *device_argv], clean_env)
+    except OSError:
+        return {
+            "provider": provider,
+            "started": False,
+            "mode": "manual",
+            "session_id": None,
+            "state": "failed",
+            "auth_url": None,
+            "device_code": None,
+            "command": command_text,
+            "expires_in": None,
+            "message": f"无法启动 {spec['bin']} 设备码授权进程，请改用终端执行 {command_text}。",
+        }
+
+    session = _ManagedLoginSession(
+        session_id=str(uuid4()),
+        provider=provider,
+        command=command_text,
+        created_monotonic=time.monotonic(),
+        ttl_seconds=ttl_seconds,
+        proc=proc,
+        initial_ready=bool(initial_channel["status"]["ready"]),
+    )
+    session.reader_task = asyncio.create_task(_drain_login_output(session))
+    session.expiry_task = asyncio.create_task(_auto_expire(session))
+    _ACTIVE_BY_PROVIDER[provider] = session
+    _SESSIONS_BY_ID[session.session_id] = session
+
+    deadline = time.monotonic() + startup_wait
+    while time.monotonic() < deadline:
+        if (session.auth_url and session.device_code) or getattr(proc, "returncode", None) is not None:
+            break
+        await asyncio.sleep(0.05)
+    if getattr(proc, "returncode", None) is not None and session.reader_task is not None:
+        with contextlib.suppress(Exception):
+            await asyncio.wait_for(session.reader_task, timeout=0.5)
+
+    expires_in = max(0, int(session.ttl_seconds - (time.monotonic() - session.created_monotonic)))
+    rc = getattr(proc, "returncode", None)
+    if rc is None:
+        state = "pending"
+        started = True
+        if session.auth_url and session.device_code:
+            msg = "已生成设备授权码。请在新窗口打开授权链接并输入设备码，完成后本页将自动更新。"
+        elif session.auth_url:
+            msg = "已获取授权链接，请在新窗口完成登录授权。"
+        else:
+            msg = "授权进程已启动，正在等待设备码与授权链接…"
+    elif rc == 0:
+        await _close_session(session, "authorized")
+        state = "authorized"
+        started = True
+        msg = f"{spec['title']}已完成授权。"
+    else:
+        await _close_session(session, "failed")
+        state = "failed"
         started = False
-    if started:
-        return {"started": True, "command": command, "message": f"已打开终端。请按提示完成授权，然后回到本页刷新。命令是 {command}。"}
-    return {"started": False, "command": command, "message": f"未能打开终端。请复制命令 {command} 并在终端运行。"}
+        msg = f"{spec['title']}设备码授权未成功完成，请重试或在终端执行 {command_text}。"
+
+    return {
+        "provider": provider,
+        "started": started,
+        "mode": "device_auth",
+        "session_id": session.session_id,
+        "state": state,
+        "auth_url": session.auth_url,
+        "device_code": session.device_code,
+        "command": command_text,
+        "expires_in": expires_in,
+        "message": msg,
+    }
+
+
+async def poll_oauth_login(
+    provider: str,
+    session_id: str,
+    *,
+    saved: dict | None = None,
+    home: Path | None = None,
+    which=shutil.which,
+    run=subprocess.run,
+    env: dict | None = None,
+) -> dict:
+    spec = channel(provider)
+    await _sweep_expired_sessions()
+    session = _SESSIONS_BY_ID.get(session_id)
+    require(
+        session is not None and session.provider == provider,
+        "not_found",
+        "授权会话不存在或已过期",
+        404,
+    )
+    root = home or Path.home()
+    elapsed = time.monotonic() - session.created_monotonic
+    if elapsed >= session.ttl_seconds and session.closed_state is None:
+        await _close_session(session, "expired")
+
+    rc = getattr(session.proc, "returncode", None)
+    channel_row = await asyncio.to_thread(
+        _probe_single_channel, provider, saved or {}, root, which, run, env
+    )
+    ready_now = bool(channel_row["status"]["ready"])
+
+    if session.closed_state == "expired":
+        state = "expired"
+        msg = f"{spec['title']}网页授权会话已超时（{session.ttl_seconds} 秒），请重新发起授权。"
+    elif session.closed_state == "cancelled":
+        state = "failed"
+        msg = f"{spec['title']}授权会话已取消。"
+    elif rc == 0 or (not session.initial_ready and ready_now):
+        await _close_session(session, "authorized")
+        if not ready_now:
+            channel_row = await asyncio.to_thread(
+                _probe_single_channel, provider, saved or {}, root, which, run, env
+            )
+        state = "authorized" if channel_row["status"]["ready"] or rc == 0 else "failed"
+        msg = (
+            f"{spec['title']}已完成授权。"
+            if state == "authorized"
+            else f"{spec['title']}授权进程已结束，但尚未检测到有效订阅登录态。"
+        )
+    elif rc is not None and rc != 0:
+        await _close_session(session, "failed")
+        state = "failed"
+        msg = f"{spec['title']}授权未通过或已中断，请重新发起授权。"
+    else:
+        state = "pending"
+        msg = (
+            "等待浏览器完成设备码授权…"
+            if session.auth_url
+            else "正在读取 CLI 授权链接与设备码…"
+        )
+
+    expires_in = max(0, int(session.ttl_seconds - (time.monotonic() - session.created_monotonic)))
+    return {
+        "provider": provider,
+        "started": state in {"pending", "authorized"},
+        "mode": "device_auth",
+        "session_id": session.session_id,
+        "state": state,
+        "auth_url": session.auth_url,
+        "device_code": session.device_code,
+        "command": session.command,
+        "expires_in": expires_in,
+        "message": msg,
+        "channel": channel_row,
+    }
+
+
+async def cancel_oauth_login(provider: str, session_id: str) -> dict:
+    channel(provider)
+    session = _SESSIONS_BY_ID.pop(session_id, None)
+    if session is not None and session.provider == provider:
+        await _close_session(session, "cancelled")
+    return {"cancelled": True}

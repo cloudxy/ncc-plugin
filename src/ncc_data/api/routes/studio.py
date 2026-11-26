@@ -10,6 +10,8 @@ from ncc_data.application.service import Service
 from ncc_data.domain.contracts import (
     ChangeInput,
     Query,
+    StudioFoundingInput,
+    StudioMapConfigInput,
     StudioMarketConfigInput,
     StudioReorderInput,
 )
@@ -21,7 +23,7 @@ from ncc_data.domain.studio_catalog import (
     market_playbook,
     ordered_book_chapters,
 )
-from ncc_data.persistence.models import Audit, Definition, Receipt, Revision
+from ncc_data.persistence.models import Attachment, Audit, Definition, Receipt, Revision
 from ncc_shared.errors import DomainError, require
 from ncc_shared.serialization import digest, jsonable
 
@@ -62,8 +64,8 @@ def build_router(service):
         request: Request,
         svc: Service = Depends(service, scope="function"),
     ):
-        await authorize(svc.db, svc.actor, sid, "edit", lock=True)
-        await authorize(svc.db, svc.actor, sid, "adopt")
+        scope, actions = await authorize(svc.db, svc.actor, sid, "edit", lock=True)
+        require("adopt" in actions, "forbidden", "当前范围未授予此操作", 403)
         payload_json = value.model_dump(mode="json")
         payload_digest = digest(payload_json)
         header_key = (request.headers.get("idempotency-key") or "").strip()
@@ -85,9 +87,42 @@ def build_router(service):
                     409,
                 )
             return existing_receipt.result
+
+        item_ids = {item.entity_id for item in value.items}
+        parent_ids = {item.parent_id for item in value.items if item.include_parent and item.parent_id}
+        lookup_ids = item_ids | parent_ids
+        raw_by_id: dict[str, dict] = {}
+        defs_by_id: dict[str, Definition] = {}
+        if lookup_ids:
+            rev_stmt = (await svc.revision_query(scope)).where(Revision.entity_id.in_(lookup_ids))
+            rev_rows = (await svc.db.scalars(rev_stmt)).all()
+            for r in rev_rows:
+                raw_by_id[r.entity_id] = {
+                    **r.body,
+                    "id": r.entity_id,
+                    "revision": r.id,
+                    "version": f"{r.scope_id}:{r.version}",
+                    "content_hash": r.content_hash,
+                }
+            def_ids = {
+                obj.get("definition_id")
+                for obj in raw_by_id.values()
+                if obj.get("definition_id")
+            }
+            if def_ids:
+                def_rows = (
+                    await svc.db.scalars(select(Definition).where(Definition.id.in_(def_ids)))
+                ).all()
+                defs_by_id = {d.id: d for d in def_rows}
+
+        default_query = Query()
         operations = []
         for item in value.items:
-            current = await svc.entity(sid, item.entity_id)
+            raw_obj = raw_by_id.get(item.entity_id)
+            require(raw_obj is not None, "not_found", "对象不存在或不属于当前视图", 404)
+            current = await svc.redact_with_definitions(
+                scope, actions, raw_obj, default_query, defs_by_id
+            )
             data = {"position": item.position}
             unset = []
             if item.include_parent:
@@ -104,15 +139,15 @@ def build_router(service):
             if unset:
                 operation["unset"] = unset
             operations.append(operation)
-        change = await svc.create_change(
+        return await svc.commit_change(
             sid,
             ChangeInput(title="调整卷章顺序", base_version=value.base_version, operations=operations),
-        )
-        return await svc.adopt(
-            sid,
-            change["id"],
             key,
             receipt_extra={"reorder_digest": payload_digest} if header_key else None,
+            _preauthorized=(scope, actions),
+            _preloaded_raw=raw_by_id,
+            _preloaded_defs=defs_by_id,
+            _receipt_checked=True,
         )
 
     @router.put("/api/v1/scopes/{sid}/studio/market-config")
@@ -138,6 +173,69 @@ def build_router(service):
         await svc.db.flush()
         view = await _overview(svc, scope, actions)
         return {"market_config": saved, "diagnostics": view["diagnostics"]}
+
+    @router.put("/api/v1/scopes/{sid}/studio/founding")
+    async def founding_config(
+        sid: str, value: StudioFoundingInput, svc: Service = Depends(service, scope="function")
+    ):
+        scope, _ = await authorize(svc.db, svc.actor, sid, "edit", lock=True)
+        saved = value.model_dump(mode="json")
+        config = dict(scope.config or {})
+        config["founding"] = saved
+        scope.config = config
+        svc.db.add(
+            Audit(
+                scope_id=scope.id,
+                actor_id=svc.actor.id,
+                action="studio.founding",
+                version=scope.version,
+                detail={
+                    "soul_status": saved["soul_status"],
+                    "writing_mode": saved["writing_mode"],
+                    "contract_main": saved["contract_main"][:120],
+                },
+            )
+        )
+        await svc.db.flush()
+        return {"founding": saved}
+
+    @router.put("/api/v1/scopes/{sid}/studio/map-config")
+    async def map_config(
+        sid: str, value: StudioMapConfigInput, svc: Service = Depends(service, scope="function")
+    ):
+        scope, actions = await authorize(svc.db, svc.actor, sid, "edit", lock=True)
+        att_id = value.basemap_attachment_id.strip() if value.basemap_attachment_id else None
+        if att_id:
+            att = await svc.db.get(Attachment, att_id)
+            require(
+                att is not None and att.scope_id == sid and att.purpose == "source",
+                "not_found",
+                "底图附件不存在或不属于当前范围",
+                404,
+            )
+            require(
+                not att.requires_secret or "secret" in actions,
+                "not_found",
+                "底图附件不可访问",
+                404,
+            )
+            if "secret" in actions and att.requires_secret:
+                att.requires_secret = False
+        saved = {"basemap_attachment_id": att_id or None}
+        config = dict(scope.config or {})
+        config["studio_map"] = saved
+        scope.config = config
+        svc.db.add(
+            Audit(
+                scope_id=scope.id,
+                actor_id=svc.actor.id,
+                action="studio.map_config",
+                version=scope.version,
+                detail={"basemap_attachment_id": saved["basemap_attachment_id"]},
+            )
+        )
+        await svc.db.flush()
+        return {"map_config": saved}
 
     return router
 
@@ -181,6 +279,7 @@ async def _overview(svc, scope, actions, *, role="author", chapter_id=None, offs
     all_structural_rows = (await svc.db.scalars(structural_stmt)).all()
 
     book_orders = None
+    cutoff_order = None
     if role != "author":
         raw_vols, raw_chs = [], []
         for r in all_structural_rows:
@@ -191,6 +290,7 @@ async def _overview(svc, scope, actions, *, role="author", chapter_id=None, offs
             elif b.get("kind") in CHAPTER_KINDS:
                 raw_chs.append(entry)
         book_orders = {c["id"]: c["book_order"] for c in ordered_book_chapters(raw_vols, raw_chs)}
+        cutoff_order = book_orders.get(chapter_id) if chapter_id else None
 
     def_ids = {
         (r.body or {}).get("definition_id")
@@ -218,6 +318,18 @@ async def _overview(svc, scope, actions, *, role="author", chapter_id=None, offs
         except DomainError:
             continue
         kind_str = str(projected.get("kind") or "")
+        pdata = projected.get("data") or {}
+        if role == "reader" and cutoff_order is not None and kind_str in FORESHADOW_KINDS:
+            f_status = str(pdata.get("status") or "").strip()
+            f_line = str(pdata.get("line_type") or "").strip()
+            p_ch = pdata.get("planted_chapter")
+            valid_planted = isinstance(p_ch, int) and not isinstance(p_ch, bool) and p_ch >= 1
+            if (
+                f_status in {"待埋设", "未埋设", "planned"}
+                or (isinstance(p_ch, int) and not isinstance(p_ch, bool) and (p_ch <= 0 or p_ch > cutoff_order))
+                or (f_line == "暗线" and not (valid_planted and p_ch <= cutoff_order))
+            ):
+                continue
         kind_counts[kind_str] = kind_counts.get(kind_str, 0) + 1
         all_items.append(
             {
@@ -226,7 +338,7 @@ async def _overview(svc, scope, actions, *, role="author", chapter_id=None, offs
                 "kind": kind_str,
                 "name": projected.get("name") or "",
                 "text": projected.get("text") or "",
-                "data": projected.get("data") or {},
+                "data": pdata,
             }
         )
 
@@ -245,12 +357,15 @@ async def _overview(svc, scope, actions, *, role="author", chapter_id=None, offs
     max_written = max(written_orders) if written_orders else 0
     all_outlines = [_outline(item) for item in all_items if item["kind"] in OUTLINE_KINDS]
     all_outlines.sort(key=lambda item: (item["position"], item["id"]))
+    can_secret = "secret" in actions and role == "author"
     all_foreshadows = []
     for item in all_items:
         if item["kind"] not in FORESHADOW_KINDS:
             continue
         data = item["data"]
         life = foreshadow_lifecycle(data, max_written)
+        raw_strength = data.get("strength")
+        strength = raw_strength if isinstance(raw_strength, int) and not isinstance(raw_strength, bool) else None
         all_foreshadows.append(
             {
                 "id": item["id"],
@@ -262,6 +377,9 @@ async def _overview(svc, scope, actions, *, role="author", chapter_id=None, offs
                 "line_type": data.get("line_type") or "",
                 "planted_chapter": data.get("planted_chapter"),
                 "expected_chapter": data.get("expected_chapter"),
+                "text": item["text"] or "",
+                "strength": strength,
+                "secret_note": (data.get("secret_note") or "") if can_secret else "",
                 "planted": life["planted"],
                 "due_state": life["due_state"],
                 "alert_state": life["alert_state"],
@@ -312,6 +430,9 @@ async def _overview(svc, scope, actions, *, role="author", chapter_id=None, offs
             "foreshadows": foreshadows,
             "codex_counts": {"groups": groups, "kinds": kind_counts},
             "market_config": (scope.config or {}).get("studio_market") or {},
+            "map_config": (scope.config or {}).get("studio_map") or {},
+            "founding": dict((scope.config or {}).get("founding") or {}),
+            "view_context": {"role": role, "chapter_id": chapter_id},
             "pagination": {
                 "total_entities": total_entities,
                 "structural_count": total_structural,
@@ -358,6 +479,8 @@ def _volume(item):
         "version": item["version"],
         "position": _position(data),
         "status": data.get("status") or "",
+        "text": item["text"] or "",
+        "description": data.get("description") or "",
     }
 
 

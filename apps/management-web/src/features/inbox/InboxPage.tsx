@@ -1,30 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { Alert, App, Button, Card, Skeleton } from "antd";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, scoped, type Json } from "../../shared/api";
 import { NoData, PageTitle, Status } from "../../shared/components/Feedback";
 import { scopeLine } from "../../shared/scopeLabel";
 import { buildJobsTaskPath, buildWorkTaskPath } from "../../shared/studioApi";
+import { useDelayed } from "../../shared/useDelayed";
 import { useWorkspace } from "../../shared/WorkspaceContext";
 import { effectDetail } from "../creation/effectDetail";
 import { selectedCandidate } from "../creation/jobCandidate";
 import "./inbox.css";
 
 const TASK_STATES = new Set(["qualified", "waiting", "failed"]);
-
-function useDelayed(active: boolean, delay: number) {
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    if (!active) {
-      setReady(false);
-      return;
-    }
-    const timer = window.setTimeout(() => setReady(true), delay);
-    return () => window.clearTimeout(timer);
-  }, [active, delay]);
-  return ready;
-}
 
 function verdictOf(job: Json) {
   const verdict = selectedCandidate(job)?.evaluation?.verdict;

@@ -1,6 +1,6 @@
 # 小说创作工作台全面重构设计（出品人把控 × 可分可合 AI 协同 × 万象设定 × 公共陈列 × 市场风向）
 
-日期：2026-11-23。状态：按作者本轮明确授权实施（本地候选）。前置依据：[PostgreSQL底座](postgresql-foundation.md)、[基础管理后台](management-console.md)、[创作自动化与AI评分](creation-automation.md)、[白金连载引擎方案](../writing/platinum-upgrade.md)，以及 `.sdlc/novel-studio/` 下的 SDLC 规格与契约工件。开源平台与方法论出处见[设计出处与致谢](../../../ACKNOWLEDGMENTS.md#开源小说创作工作台与-sdlc-优势融合2026-11-23)。
+日期：2026-11-23。状态：已实施并验收通过。前置依据：[PostgreSQL底座](postgresql-foundation.md)、[基础管理后台](management-console.md)、[创作自动化与AI评分](creation-automation.md)、[白金连载引擎方案](../writing/platinum-upgrade.md)，以及[产品层规格基线](../../product/README.md)。开源平台与方法论出处见[设计出处与致谢](../../../ACKNOWLEDGMENTS.md#开源小说创作工作台与-sdlc-优势融合2026-11-23)。
 
 ## 1. 背景与核心设计转向
 

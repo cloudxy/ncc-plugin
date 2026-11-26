@@ -1,15 +1,33 @@
 """交付：多书仪表盘与导出。"""
 
-import datetime
 import html
 import re
-import uuid
-import zipfile
+import sys
 from pathlib import Path
-from ..foundation.core import (HAN, L, PROMISES, PROMISE_TYPES, SCHEMA, current_chapter, die, ensure_m3_fields, ledger, load, now, open_unit, read_json)
-from .ledgers import promise_overdue, promise_summary
-from .views import views
 
+from ..foundation.core import (
+    HAN,
+    PLUGIN_ROOT,
+    PROMISE_TYPES,
+    PROMISES,
+    SCHEMA,
+    L,
+    current_chapter,
+    die,
+    ensure_m3_fields,
+    ledger,
+    load,
+    now,
+    open_unit,
+    read_json,
+)
+from .ledgers import promise_overdue, promise_summary
+
+_SHARED_SRC = str(PLUGIN_ROOT / "src")
+if _SHARED_SRC not in sys.path:
+    sys.path.insert(0, _SHARED_SRC)
+from ncc_shared.manuscript import parse_chapter_paragraphs  # noqa: E402
+from ncc_shared.manuscript import write_epub as _shared_write_epub  # noqa: E402
 
 SHADES = "·░▒▓█"
 
@@ -134,63 +152,15 @@ th, td {{ border:1px solid var(--line); padding:4px 8px; text-align:center; whit
 
 def chapter_text(book_dir: Path, c: dict):
     raw = (book_dir / c["file"]).read_text("utf-8")
-    lines = raw.splitlines()
-    title = ""
-    while lines and not lines[0].strip():
-        lines.pop(0)
-    if lines and (lines[0].lstrip().startswith("#") or re.match(r"\s*第[一二三四五六七八九十百千零〇0-9]+章", lines[0])):
-        title = lines.pop(0).lstrip("# ").strip()
+    title, paras = parse_chapter_paragraphs(raw)
     if not title:
         m = re.match(r"第0*(\d+)章[-_ ]?(.*)", Path(c["file"]).stem)
         title = f"第{m.group(1)}章 {m.group(2)}".strip() if m else Path(c["file"]).stem
-    paras = []
-    for l in lines:
-        t = l.strip()
-        if not t or re.match(r"rev\s*\d+\s*[:：]", t) or re.fullmatch(r"[-*_]{3,}", t):
-            continue
-        paras.append(re.sub(r"^(#+|>)\s*", "", t))
     return title, paras
 
 
 def write_epub(dest: Path, title: str, author: str, chapters):
-    e = html.escape
-    uid = f"urn:uuid:{uuid.uuid5(uuid.NAMESPACE_URL, 'ncc-workflow:' + title)}"
-    modified = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    xhtml = ('<?xml version="1.0" encoding="utf-8"?>\n<!DOCTYPE html>\n<html xmlns="http://www.w3.org/1999/xhtml" '
-             'xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="zh-CN" lang="zh-CN">\n<head><meta charset="utf-8"/>'
-             '<title>{t}</title><link rel="stylesheet" type="text/css" href="style.css"/></head>\n<body>\n{b}\n</body>\n</html>\n')
-    with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as z:
-        mt = zipfile.ZipInfo("mimetype")
-        mt.compress_type = zipfile.ZIP_STORED
-        z.writestr(mt, "application/epub+zip")
-        z.writestr("META-INF/container.xml", '<?xml version="1.0" encoding="utf-8"?>\n<container version="1.0" '
-                   'xmlns="urn:oasis:names:tc:opendocument:xmlns:container">\n<rootfiles><rootfile full-path="OEBPS/content.opf" '
-                   'media-type="application/oebps-package+xml"/></rootfiles>\n</container>\n')
-        z.writestr("OEBPS/style.css", "body { line-height: 1.8; }\np { text-indent: 2em; margin: 0 0 0.4em; }\n"
-                   "h2 { text-align: center; margin: 1.5em 0 1em; }\n")
-        items, refs, lis, points = [], [], [], []
-        for i, (t, paras) in enumerate(chapters, 1):
-            name = f"ch{i:04d}.xhtml"
-            body = f"<h2>{e(t)}</h2>\n" + "\n".join(f"<p>{e(p)}</p>" for p in paras)
-            z.writestr(f"OEBPS/{name}", xhtml.format(t=e(t), b=body))
-            items.append(f'<item id="c{i}" href="{name}" media-type="application/xhtml+xml"/>')
-            refs.append(f'<itemref idref="c{i}"/>')
-            lis.append(f'<li><a href="{name}">{e(t)}</a></li>')
-            points.append(f'<navPoint id="np{i}" playOrder="{i}"><navLabel><text>{e(t)}</text></navLabel><content src="{name}"/></navPoint>')
-        z.writestr("OEBPS/nav.xhtml", xhtml.format(t="目录", b=f'<nav epub:type="toc" id="toc"><h1>目录</h1><ol>{"".join(lis)}</ol></nav>'))
-        z.writestr("OEBPS/toc.ncx", f'<?xml version="1.0" encoding="utf-8"?>\n<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">\n'
-                   f'<head><meta name="dtb:uid" content="{uid}"/><meta name="dtb:depth" content="1"/>'
-                   f'<meta name="dtb:totalPageCount" content="0"/><meta name="dtb:maxPageNumber" content="0"/></head>\n'
-                   f'<docTitle><text>{e(title)}</text></docTitle>\n<navMap>{"".join(points)}</navMap>\n</ncx>\n')
-        creator = f"<dc:creator>{e(author)}</dc:creator>" if author else ""
-        z.writestr("OEBPS/content.opf", f'<?xml version="1.0" encoding="utf-8"?>\n<package xmlns="http://www.idpf.org/2007/opf" '
-                   f'version="3.0" unique-identifier="bookid" xml:lang="zh-CN">\n<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">'
-                   f'<dc:identifier id="bookid">{uid}</dc:identifier><dc:title>{e(title)}</dc:title><dc:language>zh-CN</dc:language>'
-                   f'{creator}<meta property="dcterms:modified">{modified}</meta></metadata>\n<manifest>'
-                   '<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>'
-                   '<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>'
-                   f'<item id="css" href="style.css" media-type="text/css"/>{"".join(items)}</manifest>\n'
-                   f'<spine toc="ncx">{"".join(refs)}</spine>\n</package>\n')
+    _shared_write_epub(dest, title, author, chapters)
 
 
 def cmd_export(a):

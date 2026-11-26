@@ -8,9 +8,11 @@ import {
   Input,
   InputNumber,
   Modal,
+  Popconfirm,
   Select,
   Skeleton,
   Space,
+  Spin,
   Tag,
   Typography,
 } from "antd";
@@ -23,8 +25,10 @@ import {
   scoped,
   type Entity,
   type Json,
+  type Scope,
 } from "../../shared/api";
 import { PageTitle } from "../../shared/components/Feedback";
+import { queryKeys } from "../../shared/queryKeys";
 import { scopeLine } from "../../shared/scopeLabel";
 import {
   fetchStudioCatalog,
@@ -34,22 +38,10 @@ import {
   type MarketPlaybook,
   type StudioMarketConfig,
 } from "../../shared/studioApi";
+import { useDelayed } from "../../shared/useDelayed";
+import { waitForCreationDraft } from "../../shared/waitForCreationDraft";
 import { useWorkspace } from "../../shared/WorkspaceContext";
-import { selectedCandidate } from "../creation/jobCandidate";
 import "./market.css";
-
-function useDelayed(active: boolean) {
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    if (!active) {
-      setReady(false);
-      return;
-    }
-    const timer = window.setTimeout(() => setReady(true), 200);
-    return () => window.clearTimeout(timer);
-  }, [active]);
-  return ready;
-}
 
 function versionNumber(version: string) {
   const tail = Number(version.split(":").pop());
@@ -65,42 +57,6 @@ function bandText(min: number, max: number, avg: number) {
   if (avg < min) return `${span}，章均 ${avg}，低于目标字数带`;
   if (avg > max) return `${span}，章均 ${avg}，高于目标字数带`;
   return `${span}，章均 ${avg}，落在目标字数带内`;
-}
-
-async function waitForDraft(
-  scopeId: string,
-  jobId: string,
-  signal: AbortSignal,
-) {
-  for (let attempt = 0; attempt < 30; attempt += 1) {
-    const job = await api<Json>(
-      scoped(scopeId, `/jobs/${jobId}`),
-      "GET",
-      undefined,
-      signal,
-    );
-    const text = selectedCandidate(job)?.text;
-    if (typeof text === "string" && text.trim()) return text;
-    if (
-      ["failed", "cancelled", "waiting", "qualified", "succeeded"].includes(
-        job.state,
-      )
-    ) {
-      throw new Error("没有提炼出来");
-    }
-    await new Promise<void>((resolve, reject) => {
-      const timer = window.setTimeout(resolve, 2000);
-      signal.addEventListener(
-        "abort",
-        () => {
-          window.clearTimeout(timer);
-          reject(new DOMException("aborted", "AbortError"));
-        },
-        { once: true },
-      );
-    });
-  }
-  throw new Error("没有提炼出来");
 }
 
 function PlaybookBody({ book }: { book: MarketPlaybook }) {
@@ -133,6 +89,7 @@ export function MarketPage() {
     navigate = useNavigate(),
     [form] = Form.useForm(),
     [windForm] = Form.useForm(),
+    [editWindForm] = Form.useForm(),
     [track, setTrack] = useState<string>(),
     [qInput, setQInput] = useState(""),
     [q, setQ] = useState(""),
@@ -142,19 +99,24 @@ export function MarketPage() {
     [creating, setCreating] = useState(false),
     [windError, setWindError] = useState(""),
     [distilling, setDistilling] = useState(false),
-    [distillError, setDistillError] = useState("");
+    [distillError, setDistillError] = useState(""),
+    [editingWind, setEditingWind] = useState<Entity | null>(null),
+    [loadingWindId, setLoadingWindId] = useState(""),
+    [savingWindEdit, setSavingWindEdit] = useState(false),
+    [editWindError, setEditWindError] = useState(""),
+    [retiringWindId, setRetiringWindId] = useState("");
   const canEdit = scope.actions.includes("edit");
   const distillAbort = useRef<AbortController | null>(null);
   const catalog = useQuery({
-    queryKey: ["studio", "catalog"],
+    queryKey: queryKeys.studioCatalog(),
     queryFn: fetchStudioCatalog,
   });
   const overview = useQuery({
-    queryKey: ["scope", scope.id, "studio", "overview"],
+    queryKey: queryKeys.studioOverview(scope.id),
     queryFn: () => fetchStudioOverview(scope.id),
   });
   const winds = useQuery({
-    queryKey: ["scope", scope.id, "market-winds", q, track, sortKey],
+    queryKey: queryKeys.marketWinds(scope.id, { q, track, sortKey }),
     queryFn: () =>
       api<Json>(scoped(scope.id, "/entities/search"), "POST", {
         q,
@@ -246,8 +208,9 @@ export function MarketPage() {
   }
   async function createWind(values: Json) {
     try {
+      const freshScope = await api<Scope>(scoped(scope.id, ""));
       await adopt(
-        scope,
+        freshScope,
         [
           {
             op: "create",
@@ -278,6 +241,105 @@ export function MarketPage() {
             ? "网络中断了，这一次没有写上。"
             : "这一次没有写上。",
       );
+    }
+  }
+  async function openWindDetail(row: Entity) {
+    setLoadingWindId(row.id);
+    setEditWindError("");
+    try {
+      const full = await api<Entity>(scoped(scope.id, `/entities/${row.id}`));
+      setEditingWind(full);
+      editWindForm.setFieldsValue({
+        name: full.name,
+        market_track: full.data?.market_track || "",
+        description: full.data?.description || "",
+        text: full.text || "",
+        note: full.data?.note || "",
+      });
+    } catch (error) {
+      message.error(
+        offline(error)
+          ? "网络中断了，无法读取风向全文。"
+          : (error as Error).message || "读取风向全文失败。",
+      );
+    } finally {
+      setLoadingWindId("");
+    }
+  }
+  async function saveEditedWind(values: Json) {
+    if (!editingWind || !canEdit) return;
+    setSavingWindEdit(true);
+    setEditWindError("");
+    try {
+      const freshScope = await api<Scope>(scoped(scope.id, ""));
+      await adopt(
+        freshScope,
+        [
+          {
+            op: "update",
+            entity_id: editingWind.id,
+            expected: editingWind.version,
+            name: values.name,
+            text: values.text || "",
+            data: {
+              market_track: values.market_track || "",
+              description: values.description || "",
+              note: values.note || "",
+            },
+          },
+        ],
+        "编辑风向：" + values.name,
+      );
+      setEditingWind(null);
+      editWindForm.resetFields();
+      refresh();
+      await winds.refetch();
+      message.success("市场风向修订已保存");
+    } catch (error) {
+      setEditWindError(
+        error instanceof ApiError &&
+          (error.status === 409 || error.status === 412)
+          ? "这条风向在别处已被修改，请点击「重新载入最新版」比对后再保存。"
+          : offline(error)
+            ? "网络中断了，修改没有保存。"
+            : (error as Error).message || "保存风向失败。",
+      );
+    } finally {
+      setSavingWindEdit(false);
+    }
+  }
+  async function retireWind(row: Entity) {
+    if (!canEdit) return;
+    setRetiringWindId(row.id);
+    try {
+      const freshScope = await api<Scope>(scoped(scope.id, ""));
+      await adopt(
+        freshScope,
+        [
+          {
+            op: "retire",
+            entity_id: row.id,
+            expected: row.version,
+          },
+        ],
+        "停用风向：" + row.name,
+      );
+      if (editingWind?.id === row.id) {
+        setEditingWind(null);
+      }
+      refresh();
+      await winds.refetch();
+      message.success("市场风向已停用");
+    } catch (error) {
+      message.error(
+        error instanceof ApiError &&
+          (error.status === 409 || error.status === 412)
+          ? "风向版本已变更，已为你刷新列表，请重试。"
+          : (error as Error).message || "停用风向失败。",
+      );
+      winds.refetch();
+    } finally {
+      setRetiringWindId("");
     }
   }
   async function distill() {
@@ -315,7 +377,12 @@ export function MarketPage() {
         },
         controller.signal,
       );
-      const text = await waitForDraft(scope.id, created.id, controller.signal);
+      const text = await waitForCreationDraft(
+        scope.id,
+        created.id,
+        controller.signal,
+        "没有提炼出来",
+      );
       windForm.setFieldValue("text", text);
       message.success("提炼结果在编辑区，尚未保存");
     } catch (error) {
@@ -664,7 +731,37 @@ export function MarketPage() {
               <h3>{row.name}</h3>
               {row.data?.market_track && <Tag>{row.data.market_track}</Tag>}
               <p>{row.data?.description || row.text_preview || "还没有观察"}</p>
-              <Button onClick={() => handoff(row)}>带入创作台</Button>
+              {row.data?.note && (
+                <p>
+                  <strong>避坑备注：</strong>
+                  {row.data.note}
+                </p>
+              )}
+              <Space wrap>
+                <Button
+                  loading={loadingWindId === row.id}
+                  onClick={() => void openWindDetail(row)}
+                >
+                  {canEdit ? "查看全文 / 编辑" : "查看全文"}
+                </Button>
+                <Button onClick={() => handoff(row)}>带入创作台</Button>
+                <Popconfirm
+                  title="停用这条市场风向？"
+                  description="停用后不再在风向列表中显示；需要时可在「身份与历史维护」中恢复。"
+                  okText="确认停用"
+                  cancelText="取消"
+                  disabled={!canEdit}
+                  onConfirm={() => void retireWind(row)}
+                >
+                  <Button
+                    danger
+                    disabled={!canEdit}
+                    loading={retiringWindId === row.id}
+                  >
+                    停用
+                  </Button>
+                </Popconfirm>
+              </Space>
             </Card>
           ))}
         </section>
@@ -714,7 +811,7 @@ export function MarketPage() {
           <Form.Item name="note" label="避坑备注">
             <Input.TextArea rows={3} />
           </Form.Item>
-          <Space direction="vertical">
+          <Space orientation="vertical">
             <Button disabled={!canEdit} loading={distilling} onClick={distill}>
               {distilling ? "正在提炼" : "AI 提炼风向"}
             </Button>
@@ -735,6 +832,69 @@ export function MarketPage() {
             )}
           </Space>
         </Form>
+      </Modal>
+
+      <Modal
+        title={canEdit ? "查看全文 / 编辑市场风向" : "查看市场风向全文"}
+        open={editingWind !== null}
+        onCancel={() => {
+          setEditingWind(null);
+          setEditWindError("");
+        }}
+        onOk={() => editWindForm.submit()}
+        okText="保存修改"
+        cancelText={canEdit ? "取消" : "关闭"}
+        confirmLoading={savingWindEdit}
+        okButtonProps={{
+          disabled: !canEdit,
+          style: canEdit ? undefined : { display: "none" },
+        }}
+        destroyOnHidden
+      >
+        {loadingWindId ? (
+          <Spin description="正在读取风向全文" />
+        ) : (
+          <Form
+            form={editWindForm}
+            layout="vertical"
+            onFinish={saveEditedWind}
+            disabled={!canEdit}
+          >
+            {editWindError && (
+              <Alert
+                type="warning"
+                showIcon
+                style={{ marginBottom: 12 }}
+                title={editWindError}
+                action={
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      if (editingWind) void openWindDetail(editingWind);
+                    }}
+                  >
+                    重新载入最新版
+                  </Button>
+                }
+              />
+            )}
+            <Form.Item name="name" label="名称" rules={[{ required: true }]}>
+              <Input maxLength={512} />
+            </Form.Item>
+            <Form.Item name="market_track" label="赛道">
+              <Input maxLength={128} placeholder="例如 西部奥术" />
+            </Form.Item>
+            <Form.Item name="description" label="热点观察">
+              <Input.TextArea rows={3} />
+            </Form.Item>
+            <Form.Item name="text" label="对标作品爽点分析全文">
+              <Input.TextArea rows={7} />
+            </Form.Item>
+            <Form.Item name="note" label="避坑备注">
+              <Input.TextArea rows={3} />
+            </Form.Item>
+          </Form>
+        )}
       </Modal>
     </>
   );

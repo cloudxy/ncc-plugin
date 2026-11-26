@@ -1,5 +1,15 @@
+import { UploadOutlined } from "@ant-design/icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Alert, Button, Input, Select, Skeleton, Space } from "antd";
+import {
+  Alert,
+  App,
+  Button,
+  Input,
+  Select,
+  Skeleton,
+  Space,
+  Upload,
+} from "antd";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -10,30 +20,47 @@ import {
   type Json,
 } from "../../shared/api";
 import { NoData, PageTitle } from "../../shared/components/Feedback";
+import { queryKeys } from "../../shared/queryKeys";
 import { scopeLine } from "../../shared/scopeLabel";
+import {
+  fetchStudioOverview,
+  saveStudioMapConfig,
+} from "../../shared/studioApi";
+import { useDelayed } from "../../shared/useDelayed";
 import { useWorkspace } from "../../shared/WorkspaceContext";
 import { effectDetail } from "../creation/effectDetail";
-import { readCoordinate } from "./coordinates";
+import { EntityDrawer } from "./components/EntityDrawer";
 import { MapCanvas } from "./components/KnowledgeVisuals";
+import { readCoordinate } from "./coordinates";
 import "./visuals/boards.css";
 import { useViewportWidth } from "./visuals/useViewportWidth";
 import type { MapMarker } from "./visuals/WorldMap";
 
 const PAGE_LIMIT = 200;
+const SAFE_RASTER_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+]);
 
 type PlacePage = { items: Entity[]; next_offset: number | null };
 
-function useDelayed(active: boolean, delay: number) {
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    if (!active) {
-      setReady(false);
-      return;
-    }
-    const timer = window.setTimeout(() => setReady(true), delay);
-    return () => window.clearTimeout(timer);
-  }, [active, delay]);
-  return ready;
+function isRasterAttachment(row: Json): boolean {
+  if (
+    typeof row.media_type === "string" &&
+    SAFE_RASTER_TYPES.has(row.media_type)
+  ) {
+    return true;
+  }
+  const lower = String(row.name || "").toLowerCase();
+  return (
+    lower.endsWith(".png") ||
+    lower.endsWith(".jpg") ||
+    lower.endsWith(".jpeg") ||
+    lower.endsWith(".webp") ||
+    lower.endsWith(".gif")
+  );
 }
 
 function placeDefinitions(definitions: Definition[] | undefined) {
@@ -55,6 +82,7 @@ function toPage(value: Json | undefined): PlacePage | undefined {
 
 export function MapPage() {
   const { scope } = useWorkspace();
+  const { message } = App.useApp();
   const width = useViewportWidth();
   const client = useQueryClient();
   const scopeSeen = useRef(scope.id);
@@ -64,11 +92,17 @@ export function MapPage() {
   const [frame, setFrame] = useState("all");
   const [offset, setOffset] = useState(0);
   const [stableOffset, setStableOffset] = useState(0);
-  const [attachmentDraft, setAttachmentDraft] = useState("");
-  const [attachmentId, setAttachmentId] = useState("");
+  const [manualBasemapId, setManualBasemapId] = useState<string | undefined>();
   const [basemapUrl, setBasemapUrl] = useState<string>();
   const [basemapNote, setBasemapNote] = useState<string>();
   const [basemapBusy, setBasemapBusy] = useState(false);
+  const [uploadingBasemap, setUploadingBasemap] = useState(false);
+  const [savingDefault, setSavingDefault] = useState(false);
+  const [focusedPlaceId, setFocusedPlaceId] = useState<string>();
+  const [drawerId, setDrawerId] = useState<string>();
+
+  const canEdit = scope.actions.includes("edit");
+
   if (scopeSeen.current !== scope.id) {
     scopeSeen.current = scope.id;
     setKindChoice(undefined);
@@ -77,16 +111,56 @@ export function MapPage() {
     setFrame("all");
     setOffset(0);
     setStableOffset(0);
-    setAttachmentDraft("");
-    setAttachmentId("");
+    setManualBasemapId(undefined);
     setBasemapUrl(undefined);
     setBasemapNote(undefined);
+    setFocusedPlaceId(undefined);
+    setDrawerId(undefined);
   }
+
   const definitions = useQuery({
-    queryKey: ["scope", scope.id, "definitions"],
+    queryKey: queryKeys.definitions(scope.id),
     queryFn: () => api<Definition[]>(scoped(scope.id, "/definitions")),
     retry: false,
   });
+
+  const overview = useQuery({
+    queryKey: queryKeys.studioOverview(scope.id),
+    queryFn: () => fetchStudioOverview(scope.id),
+  });
+
+  const attachments = useQuery({
+    queryKey: queryKeys.attachments(scope.id, "source"),
+    queryFn: () => api<Json[]>(scoped(scope.id, "/attachments?purpose=source")),
+  });
+
+  const savedDefaultBasemapId =
+    overview.data?.map_config?.basemap_attachment_id || "";
+  const activeAttachmentId =
+    manualBasemapId !== undefined ? manualBasemapId : savedDefaultBasemapId;
+
+  const imageAttachments = useMemo(
+    () => (attachments.data || []).filter(isRasterAttachment),
+    [attachments.data],
+  );
+
+  const basemapOptions = useMemo(() => {
+    const opts = imageAttachments.map((item) => ({
+      value: String(item.id),
+      label: `${item.name}${item.id === savedDefaultBasemapId ? "（默认）" : ""}`,
+    }));
+    if (
+      activeAttachmentId &&
+      !opts.some((item) => item.value === activeAttachmentId)
+    ) {
+      opts.unshift({
+        value: activeAttachmentId,
+        label: `底图附件 ${activeAttachmentId.slice(0, 8)}…`,
+      });
+    }
+    return opts;
+  }, [imageAttachments, activeAttachmentId, savedDefaultBasemapId]);
+
   const places = placeDefinitions(definitions.data);
   const kind =
     kindChoice && places.some((item) => item.key === kindChoice)
@@ -112,9 +186,11 @@ export function MapPage() {
         limit: PAGE_LIMIT,
       }),
   });
+
   useEffect(() => {
     if (search.isSuccess) setStableOffset(offset);
   }, [search.isSuccess, offset]);
+
   const turning = search.isError && offset !== stableOffset;
   const stableKey = [
     "scope",
@@ -134,6 +210,7 @@ export function MapPage() {
   const slow = useDelayed(firstLoad, 10000);
   const failed = (definitions.isError || search.isError) && !page;
   const items = page?.items ?? [];
+
   const filtered = useMemo(
     () =>
       frame === "all"
@@ -163,8 +240,9 @@ export function MapPage() {
     }
     return plotted;
   }, [filtered]);
+
   useEffect(() => {
-    if (!attachmentId) {
+    if (!activeAttachmentId) {
       setBasemapUrl(undefined);
       setBasemapBusy(false);
       return;
@@ -173,11 +251,18 @@ export function MapPage() {
     let object: string | undefined;
     setBasemapBusy(true);
     setBasemapNote(undefined);
-    fetch(`/api/v1/scopes/${scope.id}/attachments/${attachmentId}`, {
-      credentials: "same-origin",
-    })
+    fetch(
+      `/api/v1/scopes/${scope.id}/attachments/${encodeURIComponent(activeAttachmentId)}?inline=true`,
+      {
+        credentials: "same-origin",
+      },
+    )
       .then((response) => {
         if (!response.ok) throw Error("底图不可访问");
+        const contentType = response.headers.get("content-type") || "";
+        if (!contentType.startsWith("image/")) {
+          throw Error("所选附件不是受支持的位图格式（支持 PNG/JPG/WebP/GIF）");
+        }
         return response.blob();
       })
       .then((blob) => {
@@ -186,10 +271,10 @@ export function MapPage() {
         setBasemapUrl(object);
         setBasemapNote(undefined);
       })
-      .catch(() => {
+      .catch((err) => {
         if (!active) return;
         setBasemapUrl(undefined);
-        setBasemapNote("底图不可访问");
+        setBasemapNote((err as Error).message || "底图不可访问");
       })
       .finally(() => {
         if (active) setBasemapBusy(false);
@@ -198,7 +283,47 @@ export function MapPage() {
       active = false;
       if (object) URL.revokeObjectURL(object);
     };
-  }, [attachmentId, scope.id]);
+  }, [activeAttachmentId, scope.id]);
+
+  async function handleUploadBasemap(file: File) {
+    if (!canEdit) return false;
+    setUploadingBasemap(true);
+    setBasemapNote(undefined);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const uploaded = await api<Json>(
+        scoped(scope.id, "/attachments"),
+        "POST",
+        body,
+      );
+      const newId = String(uploaded.id);
+      setManualBasemapId(newId);
+      await saveStudioMapConfig(scope.id, newId);
+      await Promise.all([attachments.refetch(), overview.refetch()]);
+      message.success("底图已上传并设为当前作品默认底图");
+    } catch (err) {
+      message.error(effectDetail(err));
+    } finally {
+      setUploadingBasemap(false);
+    }
+    return false;
+  }
+
+  async function persistDefaultBasemap(targetId: string | null) {
+    if (!canEdit) return;
+    setSavingDefault(true);
+    try {
+      await saveStudioMapConfig(scope.id, targetId);
+      await overview.refetch();
+      message.success(targetId ? "已保存为默认地图底图" : "已清除默认地图底图");
+    } catch (err) {
+      message.error(effectDetail(err));
+    } finally {
+      setSavingDefault(false);
+    }
+  }
+
   function applySearch(value: string) {
     setQ(value);
     setOffset(0);
@@ -217,17 +342,7 @@ export function MapPage() {
     setOffset(0);
     setStableOffset(0);
   }
-  function loadBasemap() {
-    const id = attachmentDraft.trim();
-    if (!id) {
-      setAttachmentId("");
-      setBasemapUrl(undefined);
-      setBasemapNote("先填写已经知道的附件编号。页面没有底图目录。");
-      return;
-    }
-    setBasemapNote(undefined);
-    setAttachmentId(id);
-  }
+
   const noPlaceType = definitions.isSuccess && places.length === 0;
   const unfilteredEmpty =
     !failed &&
@@ -246,11 +361,12 @@ export function MapPage() {
   const failureText = definitions.isError
     ? effectDetail(definitions.error)
     : effectDetail(search.error);
+
   return (
     <div aria-busy={firstLoad || undefined}>
       <PageTitle
         title="地图与地点"
-        note="支持虚构坐标与本地底图。标注使用稳定地点身份，未知坐标保持未知。"
+        note="支持虚构坐标与安全位图底图。点击地点可在地图居中聚焦，或打开资料抽屉补充坐标。"
       />
       <p className="scope-note" data-component="scope-line">
         {scopeLine(scope.name, scope.kind, scope.version)}
@@ -297,7 +413,7 @@ export function MapPage() {
             aria-label="地点类型"
             value={kind}
             onChange={applyKind}
-            style={{ width: 180 }}
+            style={{ width: 160 }}
             options={places.map((item) => ({
               value: item.key,
               label: item.spec?.label || item.key,
@@ -307,42 +423,67 @@ export function MapPage() {
             aria-label="按名称筛选地点"
             placeholder="搜索地点名称"
             value={qDraft}
-            onChange={(event) => setQDraft(event.target.value)}
+            onChange={(event) => {
+              setQDraft(event.target.value);
+              if (!event.target.value) applySearch("");
+            }}
             onSearch={applySearch}
             allowClear
-            style={{ width: 220 }}
+            style={{ width: 200 }}
           />
           <Select
             aria-label="坐标系"
             value={frame}
             onChange={setFrame}
-            style={{ width: 160 }}
+            style={{ width: 150 }}
             options={[
-              { value: "all", label: "全部" },
+              { value: "all", label: "全部坐标系" },
               ...frames.map((value) => ({ value, label: value })),
             ]}
           />
-          <Input
-            aria-label="底图附件编号"
-            placeholder="填写附件编号"
-            value={attachmentDraft}
-            onChange={(event) => setAttachmentDraft(event.target.value)}
-            style={{ width: 180 }}
+          <Select
+            aria-label="选择底图附件"
+            allowClear
+            placeholder="选择已有图片底图"
+            loading={attachments.isPending || basemapBusy}
+            value={activeAttachmentId || undefined}
+            style={{ width: 220 }}
+            options={basemapOptions}
+            onChange={(val) => {
+              setBasemapNote(undefined);
+              setManualBasemapId(val || "");
+            }}
           />
-          <Button
-            className="hit-44"
-            onClick={loadBasemap}
-            loading={basemapBusy}
+          <Upload
+            accept=".png,.jpg,.jpeg,.webp,.gif,image/png,image/jpeg,image/webp,image/gif"
+            showUploadList={false}
+            beforeUpload={handleUploadBasemap}
           >
-            {basemapBusy ? "正在读取底图" : "使用底图"}
-          </Button>
+            <Button
+              icon={<UploadOutlined />}
+              disabled={!canEdit}
+              loading={uploadingBasemap}
+            >
+              上传图片底图
+            </Button>
+          </Upload>
+          {canEdit && activeAttachmentId !== savedDefaultBasemapId && (
+            <Button
+              loading={savingDefault}
+              onClick={() =>
+                void persistDefaultBasemap(activeAttachmentId || null)
+              }
+            >
+              {activeAttachmentId ? "设为默认底图" : "清除默认底图"}
+            </Button>
+          )}
         </div>
       )}
-      {basemapNote && <p>{basemapNote}</p>}
+      {basemapNote && <Alert type="warning" showIcon title={basemapNote} />}
       {showEmpty && (
         <NoData
           text="当前范围没有地点"
-          action={<Link to="/materials">打开作品资料</Link>}
+          action={<Link to="/materials">打开作品资料新建地点</Link>}
         />
       )}
       {filterEmpty && (
@@ -358,21 +499,40 @@ export function MapPage() {
           <div>
             {filtered.map((item) => {
               const read = readCoordinate(item.data?.coordinate);
+              const isFocused = focusedPlaceId === item.id;
               return (
-                <button
+                <div
                   key={item.id}
-                  type="button"
-                  className="place-row"
-                  data-entity={item.id}
-                  data-plot={read.plot ? "1" : "0"}
+                  className={isFocused ? "place-card is-focused" : "place-card"}
                 >
-                  <h3>{item.name}</h3>
-                  <span>
-                    {read.plot
-                      ? `坐标 ${read.point.x}，${read.point.y} · 坐标系 ${read.point.frame} · 已上图`
-                      : read.label}
-                  </span>
-                </button>
+                  <button
+                    type="button"
+                    className="place-row"
+                    data-entity={item.id}
+                    data-plot={read.plot ? "1" : "0"}
+                    onClick={() => {
+                      if (read.plot) {
+                        setFocusedPlaceId(item.id);
+                      } else {
+                        setDrawerId(item.id);
+                      }
+                    }}
+                  >
+                    <h3>{item.name}</h3>
+                    <span>
+                      {read.plot
+                        ? `坐标 ${read.point.x}，${read.point.y} · 坐标系 ${read.point.frame} · 点击在地图居中`
+                        : `${read.label} · 点击补充坐标`}
+                    </span>
+                  </button>
+                  <Button
+                    size="small"
+                    type="link"
+                    onClick={() => setDrawerId(item.id)}
+                  >
+                    {read.plot ? "编辑坐标" : "补充坐标"}
+                  </Button>
+                </div>
               );
             })}
             <p className="rel-caption">
@@ -396,11 +556,23 @@ export function MapPage() {
           </div>
           {mountCanvas && (
             <Suspense fallback="加载地图">
-              <MapCanvas points={markers} imageUrl={basemapUrl} />
+              <MapCanvas
+                points={markers}
+                imageUrl={basemapUrl}
+                focusedId={focusedPlaceId}
+                onSelectMarker={(id) => setFocusedPlaceId(id)}
+              />
             </Suspense>
           )}
         </div>
       )}
+      <EntityDrawer
+        id={drawerId}
+        onClose={() => {
+          setDrawerId(undefined);
+          search.refetch();
+        }}
+      />
     </div>
   );
 }

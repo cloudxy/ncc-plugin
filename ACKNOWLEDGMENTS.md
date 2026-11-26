@@ -212,7 +212,7 @@ MCP采用[官方Python SDK](https://github.com/modelcontextprotocol/python-sdk)�
 
 | 来源与作者 | 许可与核对范围 | 借鉴的核心优势与机制 | NCC 的转化、取舍与落点 |
 |---|---|---|---|
-| [sdlc-workflow — cloudxy](https://github.com/cloudxy/sdlc-plugins) | 作者自有项目 | 角色帽职责分离（PM/Designer/Architect/Backend/Frontend/QA）、PRD-GWT 规格、页面六态×控件七态契约、分开滑动壳层与并行无冲突切片 | 转化为 `.sdlc/novel-studio/` 全套规格契约、双代理无冲突并行实施切片及壳层独立滚动防呆；不引入外部打包依赖 |
+| [sdlc-workflow — cloudxy](https://github.com/cloudxy/sdlc-plugins) | 作者自有项目 | 角色帽职责分离（PM/Designer/Architect/Backend/Frontend/QA）、PRD-GWT 规格、页面六态×控件七态契约、分开滑动壳层与并行无冲突切片 | 转化为[产品层规格基线](docs/product/README.md)、双代理无冲突并行实施切片及壳层独立滚动防呆；不引入外部打包依赖 |
 | [novelWriter — Veronica Berglyd Olsen](https://github.com/vkbo/novelWriter) | GPL-3.0（仅借布局思想，零代码引用） | 左侧分层故事树（卷/章层级导航与字数状态）＋中间低干扰稿纸＋右侧上下文检视面板＋专注写作视图 | 转化为创作台（`/work`）三栏可折叠书案、左栏卷章与细纲树、一键专注模式与实时字数目标进度；舍弃其桌面 Qt 文件格式 |
 | [Manuskript — Olivier Keshavjee 等](https://github.com/olivierkes/manuskript) | GPL-3.0（仅借大纲思想，零代码引用） | 雪花法从核心命题到卷纲、章节索引卡片墙（Corkboard）与剧情线对照的渐进式规划体验 | 转化为「大纲与暗线」（`/blueprint`）的总纲走向、细纲卡片墙与按卷/剧情线/状态轻量聚合排序 |
 | [bibisco — Andrea Feccomandi](https://github.com/andreafeccomandi/bibisco) | GPL-3.0（仅借人物与设定卡片思想，零代码引用） | 叙事学导向的人物深层档案（动机、冲突、心理与人物弧光演化）及场景/物品分类陈列 | 转化为「作品资料 / 万象设定」（`/materials`）的人物角色深度档案、六大创作领域胶囊聚合与卡片/表格双视图 |

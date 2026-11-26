@@ -41,6 +41,7 @@ when_to_use: "User asks for library governance or creative preparation, material
 3. 每次运行先跑 `python3 <PLUGIN_ROOT>/scripts/cli/ncc_state.py status <书目录>`，把输出作为事实基础；不要凭目录猜状态。信息放在哪、谁能写、在哪看，按 [references/book-state.md](references/book-state.md) 的"信息地图"：源头只有一个，`author-intent.md`、`current-focus.md`、台账的 .md 都是生成的视图，不手改；`ncc_state.py check` 自查。
 4. 脚本提示 schema 1（v0.1 的书）→ 推荐运行 `ncc_state.py migrate <书目录>`（原伏笔台账保留不删），说明会改什么，作者同意后执行。
 5. 无书且意图是开书 → 转 `ncc-new`。无书且意图是拆书 → 转 `ncc-deconstruct`。意图是评测 → 转 `ncc-eval`（不需要书）。
+6. 若书目录含 `.ncc-database.json` 或宿主已接只读 MCP（`list_scopes`），提示已启用数据库模式：读资料可走只读 MCP，写操作统一经 `ncc_state.py` 或 `ncc-data` 应用服务，不绕过权威状态。
 
 ## Step 1 — 意图分类（对作者最后一条实质消息）
 

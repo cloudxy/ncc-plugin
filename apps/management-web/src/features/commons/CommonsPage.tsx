@@ -7,9 +7,11 @@ import {
   Form,
   Input,
   Modal,
+  Popconfirm,
   Select,
   Skeleton,
   Space,
+  Spin,
   Tag,
   Typography,
 } from "antd";
@@ -25,6 +27,7 @@ import {
   type Scope,
 } from "../../shared/api";
 import { PageTitle } from "../../shared/components/Feedback";
+import { queryKeys } from "../../shared/queryKeys";
 import { scopeLine } from "../../shared/scopeLabel";
 import {
   fetchStudioCatalog,
@@ -51,11 +54,6 @@ const NAV = [
   { id: "environment", label: "环境" },
 ] as const;
 
-function versionNumber(version: string) {
-  const tail = Number(version.split(":").pop());
-  return Number.isFinite(tail) ? tail : 0;
-}
-
 function offline(error: unknown) {
   return error instanceof TypeError;
 }
@@ -77,42 +75,33 @@ export function CommonsPage() {
     [qInput, setQInput] = useState(""),
     [q, setQ] = useState(""),
     [sortKey, setSortKey] = useState("名称"),
+    [offset, setOffset] = useState(0),
     [commonsId, setCommonsId] = useState(""),
     [creatingLibrary, setCreatingLibrary] = useState(false),
     [libraryError, setLibraryError] = useState(""),
     [adding, setAdding] = useState(false),
     [cardError, setCardError] = useState(""),
     [cloning, setCloning] = useState(""),
-    [form] = Form.useForm();
+    [editingCard, setEditingCard] = useState<Entity | null>(null),
+    [loadingCardId, setLoadingCardId] = useState(""),
+    [savingEdit, setSavingEdit] = useState(false),
+    [editError, setEditError] = useState(""),
+    [retiringId, setRetiringId] = useState(""),
+    [form] = Form.useForm(),
+    [editForm] = Form.useForm();
   const canEdit = scope.actions.includes("edit");
   const catalog = useQuery({
-    queryKey: ["studio", "catalog"],
+    queryKey: queryKeys.studioCatalog(),
     queryFn: fetchStudioCatalog,
   });
   const overview = useQuery({
-    queryKey: ["scope", scope.id, "studio", "overview"],
+    queryKey: queryKeys.studioOverview(scope.id),
     queryFn: () => fetchStudioOverview(scope.id),
   });
   const libraries = overview.data?.commons_scopes || [];
   const selectedId = libraries.some((item) => item.id === commonsId)
     ? commonsId
     : libraries[0]?.id || "";
-  const library = useQuery({
-    queryKey: ["commons-library", selectedId, q, sortKey],
-    enabled: !!selectedId,
-    queryFn: () =>
-      api<Json>(scoped(selectedId, "/entities/search"), "POST", {
-        q,
-        limit: 50,
-        sort: "name",
-      }),
-  });
-  const libraryScope = useQuery({
-    queryKey: ["scope-info", selectedId],
-    enabled: !!selectedId,
-    queryFn: () => api<Scope>(scoped(selectedId, "")),
-  });
-  const canEditLibrary = libraryScope.data?.actions.includes("edit") ?? false;
   const labelOf = useMemo(() => {
     const map = new Map<string, string>(
       NAV.map((item) => [item.id, item.label]),
@@ -121,6 +110,47 @@ export function CommonsPage() {
       map.set(item.id, item.label);
     return map;
   }, [catalog.data]);
+  const activeCatValues = useMemo(() => {
+    if (category === "all") return [];
+    const label = labelOf.get(category);
+    return Array.from(
+      new Set([category, label].filter((v): v is string => Boolean(v))),
+    );
+  }, [category, labelOf]);
+  const library = useQuery({
+    queryKey: queryKeys.commonsLibrary(selectedId, {
+      category,
+      q,
+      offset,
+      sortKey,
+    }),
+    enabled: !!selectedId,
+    queryFn: () =>
+      api<Json>(scoped(selectedId, "/entities/search"), "POST", {
+        q,
+        kind: "公共母本",
+        offset,
+        limit: 50,
+        sort: sortKey === "修订版本" ? "version" : "name",
+        ...(category !== "all"
+          ? {
+              filters: [
+                {
+                  field: "commons_category",
+                  op: "in",
+                  value: activeCatValues,
+                },
+              ],
+            }
+          : {}),
+      }),
+  });
+  const libraryScope = useQuery({
+    queryKey: queryKeys.scopeInfo(selectedId),
+    enabled: !!selectedId,
+    queryFn: () => api<Scope>(scoped(selectedId, "")),
+  });
+  const canEditLibrary = libraryScope.data?.actions.includes("edit") ?? false;
   const needle = q.trim().toLowerCase();
   const builtin = (catalog.data?.commons_cards || [])
     .filter((card) => category === "all" || card.category === category)
@@ -139,31 +169,28 @@ export function CommonsPage() {
       return hay.includes(needle);
     })
     .sort((a, b) => a.title.localeCompare(b.title, "zh"));
-  const authorCards = ((library.data?.items || []) as Entity[])
-    .filter(
-      (item) =>
-        item.kind === "公共母本" ||
-        typeof item.data?.commons_category === "string",
-    )
-    .filter((item) => {
-      if (category === "all") return true;
-      const value = String(item.data?.commons_category || "");
-      return value === category || value === labelOf.get(category);
-    })
-    .sort((a, b) =>
-      sortKey === "修订版本"
-        ? versionNumber(b.version) - versionNumber(a.version)
-        : a.name.localeCompare(b.name, "zh"),
-    );
+  const authorCards = (library.data?.items || []) as Entity[];
   const bothOffline =
     catalog.isError &&
     overview.isError &&
     offline(catalog.error) &&
     offline(overview.error);
 
+  const authorTotal =
+    typeof library.data?.total === "number"
+      ? library.data.total
+      : authorCards.length;
+  const hasNextAuthorPage =
+    library.data?.next_offset != null || offset + 50 < authorTotal;
+  const nextAuthorOffset =
+    typeof library.data?.next_offset === "number"
+      ? library.data.next_offset
+      : offset + 50;
+
   function clearSearch() {
     setQ("");
     setQInput("");
+    setOffset(0);
   }
   async function createLibrary() {
     setCreatingLibrary(true);
@@ -174,7 +201,7 @@ export function CommonsPage() {
         kind: "author",
       });
       setCommonsId(created.id);
-      await client.invalidateQueries({ queryKey: ["scopes"] });
+      await client.invalidateQueries({ queryKey: queryKeys.scopesRoot() });
       await overview.refetch();
       message.success("公共陈列库已建立");
     } catch (error) {
@@ -249,7 +276,7 @@ export function CommonsPage() {
       );
       refresh();
       message.success("已克隆到当前书");
-    } catch (error) {
+    } catch {
       message.error("没有克隆过去。");
     } finally {
       setCloning("");
@@ -276,19 +303,11 @@ export function CommonsPage() {
     navigate("/work");
   }
   async function addCard(values: Json) {
-    const target = libraries.find((item) => item.id === selectedId);
-    if (!target) return;
-    const holder: Scope = {
-      id: target.id,
-      name: target.name,
-      kind: target.kind,
-      version: target.version,
-      actions: libraryScope.data?.actions || [],
-      config: {},
-    };
+    if (!selectedId) return;
     try {
+      const freshScope = await api<Scope>(scoped(selectedId, ""));
       await adopt(
-        holder,
+        freshScope,
         [
           {
             op: "create",
@@ -308,14 +327,139 @@ export function CommonsPage() {
       setAdding(false);
       setCardError("");
       form.resetFields();
-      library.refetch();
+      await Promise.all([
+        library.refetch(),
+        libraryScope.refetch(),
+        overview.refetch(),
+      ]);
       message.success("公共卡已保存");
     } catch (error) {
       setCardError(
         error instanceof ApiError && error.status === 409
           ? "对方先保存了同名卡片。"
-          : "这一次没有写上。",
+          : (error as Error).message || "这一次没有写上。",
       );
+    }
+  }
+
+  async function openCardDetail(item: Entity) {
+    if (!selectedId) return;
+    setLoadingCardId(item.id);
+    setEditError("");
+    try {
+      const full = await api<Entity>(
+        scoped(selectedId, `/entities/${item.id}`),
+      );
+      setEditingCard(full);
+      const rawCat = String(full.data?.commons_category || "");
+      const matchedNav = NAV.find(
+        (nav) =>
+          nav.id !== "all" && (nav.id === rawCat || nav.label === rawCat),
+      );
+      editForm.setFieldsValue({
+        name: full.name,
+        commons_category: matchedNav
+          ? matchedNav.id
+          : rawCat || "writing_routine",
+        description: full.data?.description || "",
+        usage_guide: full.data?.usage_guide || "",
+        text: full.text || "",
+      });
+    } catch (error) {
+      message.error(
+        offline(error)
+          ? "网络中断了，无法读取公共卡全文。"
+          : (error as Error).message || "读取公共卡失败。",
+      );
+    } finally {
+      setLoadingCardId("");
+    }
+  }
+
+  async function reloadEditingCard() {
+    if (!editingCard || !selectedId) return;
+    await openCardDetail(editingCard);
+  }
+
+  async function saveEditedCard(values: Json) {
+    if (!editingCard || !selectedId || !canEditLibrary) return;
+    setSavingEdit(true);
+    setEditError("");
+    try {
+      const freshScope = await api<Scope>(scoped(selectedId, ""));
+      await adopt(
+        freshScope,
+        [
+          {
+            op: "update",
+            entity_id: editingCard.id,
+            expected: editingCard.version,
+            name: values.name,
+            text: values.text || "",
+            data: {
+              commons_category: values.commons_category,
+              description: values.description || "",
+              usage_guide: values.usage_guide || "",
+            },
+          },
+        ],
+        "编辑公共卡：" + values.name,
+      );
+      setEditingCard(null);
+      editForm.resetFields();
+      await Promise.all([
+        library.refetch(),
+        libraryScope.refetch(),
+        overview.refetch(),
+      ]);
+      message.success("公共卡修订已保存");
+    } catch (error) {
+      setEditError(
+        error instanceof ApiError &&
+          (error.status === 409 || error.status === 412)
+          ? "这张公共卡在别处已被修改，请点击「重新载入最新版」比对后再保存。"
+          : (error as Error).message || "公共卡保存失败。",
+      );
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  async function retireCard(item: Entity) {
+    if (!selectedId || !canEditLibrary) return;
+    setRetiringId(item.id);
+    try {
+      const freshScope = await api<Scope>(scoped(selectedId, ""));
+      await adopt(
+        freshScope,
+        [
+          {
+            op: "retire",
+            entity_id: item.id,
+            expected: item.version,
+          },
+        ],
+        "停用公共卡：" + item.name,
+      );
+      if (editingCard?.id === item.id) {
+        setEditingCard(null);
+      }
+      await Promise.all([
+        library.refetch(),
+        libraryScope.refetch(),
+        overview.refetch(),
+      ]);
+      message.success("公共卡已停用");
+    } catch (error) {
+      message.error(
+        error instanceof ApiError &&
+          (error.status === 409 || error.status === 412)
+          ? "卡片版本已变更，已为你刷新列表，请重试。"
+          : (error as Error).message || "停用公共卡失败。",
+      );
+      library.refetch();
+    } finally {
+      setRetiringId("");
     }
   }
 
@@ -334,7 +478,10 @@ export function CommonsPage() {
             key={item.id}
             type={category === item.id ? "primary" : "default"}
             aria-pressed={category === item.id}
-            onClick={() => setCategory(item.id)}
+            onClick={() => {
+              setCategory(item.id);
+              setOffset(0);
+            }}
           >
             {item.label}
           </Button>
@@ -349,11 +496,15 @@ export function CommonsPage() {
           style={{ width: 280 }}
           onChange={(event) => {
             setQInput(event.target.value);
-            if (!event.target.value) setQ("");
+            if (!event.target.value) {
+              setQ("");
+              setOffset(0);
+            }
           }}
           onSearch={(value) => {
             setQ(value);
             setQInput(value);
+            setOffset(0);
           }}
         />
         <Select
@@ -364,7 +515,10 @@ export function CommonsPage() {
             { value: "名称", label: "名称" },
             { value: "修订版本", label: "修订版本" },
           ]}
-          onChange={setSortKey}
+          onChange={(value) => {
+            setSortKey(value);
+            setOffset(0);
+          }}
         />
       </Space>
       {bothOffline ? (
@@ -500,7 +654,10 @@ export function CommonsPage() {
                       value: item.id,
                       label: `${item.name} · ${item.kind}`,
                     }))}
-                    onChange={setCommonsId}
+                    onChange={(value) => {
+                      setCommonsId(value);
+                      setOffset(0);
+                    }}
                   />
                   <Button
                     type="primary"
@@ -573,6 +730,12 @@ export function CommonsPage() {
                     )}
                     <Space wrap className="com-actions">
                       <Button
+                        loading={loadingCardId === item.id}
+                        onClick={() => void openCardDetail(item)}
+                      >
+                        {canEditLibrary ? "查看 / 编辑" : "查看全文"}
+                      </Button>
+                      <Button
                         disabled={!canEdit}
                         loading={cloning === item.id}
                         onClick={() => cloneAuthor(item)}
@@ -585,9 +748,46 @@ export function CommonsPage() {
                       >
                         带入创作台给 AI 参考
                       </Button>
+                      <Popconfirm
+                        title="停用这张公共卡？"
+                        description="停用后不再出现在陈列库；需要时可在该公共库的「身份与历史维护」中恢复。"
+                        okText="确认停用"
+                        cancelText="取消"
+                        disabled={!canEditLibrary}
+                        onConfirm={() => void retireCard(item)}
+                      >
+                        <Button
+                          danger
+                          disabled={!canEditLibrary}
+                          loading={retiringId === item.id}
+                        >
+                          停用
+                        </Button>
+                      </Popconfirm>
                     </Space>
                   </Card>
                 ))}
+                {(authorTotal > 50 || offset > 0) && (
+                  <div className="pager">
+                    <Typography.Text type="secondary">
+                      {`本页 ${authorCards.length} 张 · 共 ${authorTotal} 张公共卡`}
+                    </Typography.Text>
+                    <Space>
+                      <Button
+                        disabled={offset === 0}
+                        onClick={() => setOffset(Math.max(0, offset - 50))}
+                      >
+                        上一页
+                      </Button>
+                      <Button
+                        disabled={!hasNextAuthorPage}
+                        onClick={() => setOffset(nextAuthorOffset)}
+                      >
+                        下一页
+                      </Button>
+                    </Space>
+                  </div>
+                )}
               </>
             )}
           </section>
@@ -655,6 +855,75 @@ export function CommonsPage() {
             <Input.TextArea rows={6} />
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title={canEditLibrary ? "查看 / 编辑公共卡" : "查看公共卡全文"}
+        open={editingCard !== null}
+        onCancel={() => {
+          setEditingCard(null);
+          setEditError("");
+        }}
+        onOk={() => editForm.submit()}
+        okText="保存修改"
+        cancelText={canEditLibrary ? "取消" : "关闭"}
+        confirmLoading={savingEdit}
+        okButtonProps={{
+          disabled: !canEditLibrary,
+          style: canEditLibrary ? undefined : { display: "none" },
+        }}
+        destroyOnHidden
+      >
+        {loadingCardId ? (
+          <Spin description="正在读取公共卡全文" />
+        ) : (
+          <Form
+            form={editForm}
+            layout="vertical"
+            onFinish={saveEditedCard}
+            disabled={!canEditLibrary}
+          >
+            {editError && (
+              <Alert
+                type="warning"
+                showIcon
+                style={{ marginBottom: 12 }}
+                title={editError}
+                action={
+                  <Button size="small" onClick={() => void reloadEditingCard()}>
+                    重新载入最新版
+                  </Button>
+                }
+              />
+            )}
+            <Form.Item name="name" label="名称" rules={[{ required: true }]}>
+              <Input maxLength={512} />
+            </Form.Item>
+            <Form.Item
+              name="commons_category"
+              label="所属板块"
+              rules={[{ required: true }]}
+            >
+              <Select
+                options={NAV.filter((item) => item.id !== "all").map(
+                  (item) => ({
+                    value: item.id,
+                    label: item.label,
+                  }),
+                )}
+              />
+            </Form.Item>
+            <Form.Item name="description" label="核心摘要">
+              <Input.TextArea rows={3} />
+            </Form.Item>
+            <Form.Item name="usage_guide" label="AI 用法提示">
+              <Input.TextArea rows={3} />
+            </Form.Item>
+            <Form.Item name="text" label="正文全文">
+              <Input.TextArea rows={8} />
+            </Form.Item>
+          </Form>
+        )}
       </Modal>
     </>
   );

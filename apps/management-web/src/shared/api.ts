@@ -6,8 +6,10 @@ export type Scope = {
   version: number;
   actions: string[];
   owner?: boolean;
+  archived?: boolean;
   config: Json;
   base_id?: string;
+  parent_id?: string | null;
 };
 export type Entity = {
   id: string;
