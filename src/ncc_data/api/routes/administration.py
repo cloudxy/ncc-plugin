@@ -5,6 +5,7 @@ from sqlalchemy import select
 
 from ncc_data.api.schemas import TokenInput
 from ncc_data.application.model_settings import (
+    bind_capability_default,
     bind_default,
     check_configuration,
     delete_configuration,
@@ -19,6 +20,7 @@ from ncc_data.application.security import (
 from ncc_data.application.service import Service
 from ncc_data.application.subscription_settings import (
     cancel_subscription_login,
+    load_single_subscription,
     load_subscriptions,
     poll_subscription_login,
     save_subscription_model,
@@ -26,6 +28,7 @@ from ncc_data.application.subscription_settings import (
     verify_subscription,
 )
 from ncc_data.domain.contracts import (
+    CapabilityDefaultInput,
     MemberInput,
     ModelConfigurationInput,
     ModelDefaultInput,
@@ -66,6 +69,12 @@ def build_router(service, settings):
     async def post_default(value: ModelDefaultInput, svc: Service = Depends(service, scope="function")):
         return await bind_default(svc, settings, value)
 
+    @router.post("/api/v1/model-settings/capability-defaults")
+    async def post_capability_default(
+        value: CapabilityDefaultInput, svc: Service = Depends(service, scope="function")
+    ):
+        return await bind_capability_default(svc, settings, value)
+
     @router.delete("/api/v1/model-settings/configurations/{cid}")
     async def remove_configuration(cid: str, svc: Service = Depends(service, scope="function")):
         return await delete_configuration(svc, settings, cid)
@@ -73,6 +82,10 @@ def build_router(service, settings):
     @router.get("/api/v1/model-settings/subscriptions")
     async def subscriptions(svc: Service = Depends(service, scope="function")):
         return await load_subscriptions(svc)
+
+    @router.get("/api/v1/model-settings/subscriptions/{provider}")
+    async def subscription_single(provider: str, svc: Service = Depends(service, scope="function")):
+        return await load_single_subscription(svc, provider)
 
     @router.post("/api/v1/model-settings/subscriptions/{provider}/verify")
     async def subscription_verify(provider: str, svc: Service = Depends(service, scope="function")):
@@ -98,7 +111,13 @@ def build_router(service, settings):
     async def subscription_model(
         provider: str, value: SubscriptionModelInput, svc: Service = Depends(service, scope="function")
     ):
-        return await save_subscription_model(svc, provider, value.model)
+        return await save_subscription_model(
+            svc,
+            provider,
+            value.model,
+            text_model=value.text_model,
+            image_model=value.image_model,
+        )
 
     @router.get("/api/v1/scopes/{sid}/tokens")
     async def tokens(sid: str, svc: Service = Depends(service, scope="function")):

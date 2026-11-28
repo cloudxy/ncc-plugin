@@ -18,10 +18,23 @@ from typing import Any
 from urllib.parse import urlsplit
 from uuid import uuid4
 
-from ncc_data.creation.model_route import SECRET_HINT
+from ncc_data.creation.model_catalog import (
+    CLI_MODEL_ID as MODEL_ID,
+)
+from ncc_data.creation.model_catalog import (
+    CLI_PROVIDERS as PROVIDERS,
+)
+from ncc_data.creation.model_catalog import (
+    SECRET_HINT,
+    SUBSCRIPTION_CHANNELS,
+    is_known_image_model,
+    normalize_subscription_model,
+    subscription_channel,
+    subscription_model_capabilities,
+    subscription_spec_models,
+)
 from ncc_shared.errors import require
 
-PROVIDERS = ("grok", "codex", "agy")
 OAUTH_TTL_SECONDS = 180
 STRIPPED_API_KEYS = (
     "XAI_API_KEY",
@@ -33,92 +46,37 @@ STRIPPED_API_KEYS = (
     "GEMINI_API_KEY",
     "GOOGLE_API_KEY",
 )
-MODEL_ID = re.compile(r"^[A-Za-z0-9_.:/-]{1,128}$")
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 _URL_RE = re.compile(r"https://[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+")
 _HYPHEN_CODE_RE = re.compile(r"\b([A-Z0-9]{3,8}-[A-Z0-9]{3,8})\b")
 _LABELED_CODE_RE = re.compile(r"(?:code|验证码|设备码)\s*[:：=]?\s*([A-Z0-9-]{4,16})\b", re.I)
-_CHANNELS = (
-    {
-        "id": "grok",
-        "title": "xAI Grok 订阅授权",
-        "path_label": "~/.grok/auth.json",
-        "bin": "grok",
-        "login_command": "grok login --oauth",
-        "device_auth_argv": ("login", "--device-auth"),
-        "login_argv": ("login", "--oauth"),
-        "verify_argv": ("models",),
-        "login_label": "网页发起 OAuth 授权",
-        "verify_label": "在线验证授权",
-        "note": "复用本机 grok CLI 登录态。服务不回传令牌，也不改用 XAI_API_KEY。可直接绑定到写作与审评模型。",
-        "models": (
-            ("grok-4", "grok-4（对话与创作）"),
-            ("grok-3", "grok-3（对话与审评）"),
-            ("image_edit", "image_edit（终端 grok CLI 内置）"),
-            ("grok-imagine-image-2.0", "grok-imagine-image-2.0"),
-            ("grok-imagine-image", "grok-imagine-image"),
-        ),
-        "default_model": "image_edit",
-    },
-    {
-        "id": "codex",
-        "title": "OpenAI Codex 订阅授权",
-        "path_label": "本机 codex login 的 ChatGPT 订阅",
-        "bin": "codex",
-        "login_command": "codex login",
-        "device_auth_argv": ("login", "--device-auth"),
-        "login_argv": ("login",),
-        "verify_argv": ("login", "status"),
-        "login_label": "网页发起 Codex 授权",
-        "verify_label": "检查本机授权",
-        "note": "只承认 ChatGPT 订阅登录。Codex 若用 API Key 登录，这里视为未完成订阅授权，也不会拿 OpenAI API Key 顶上。",
-        "models": (
-            ("gpt-5", "gpt-5（ChatGPT 订阅对话与创作）"),
-            ("o3", "o3（深度推理与审评）"),
-            ("image-generation", "Codex 内置生图（GPT Image）"),
-        ),
-        "default_model": "image-generation",
-    },
-    {
-        "id": "agy",
-        "title": "Google AGY 授权登录",
-        "path_label": "~/.gemini/antigravity-cli/jetski_state.pbtxt",
-        "bin": "agy",
-        "login_command": "agy",
-        "device_auth_argv": (),
-        "login_argv": (),
-        "verify_argv": ("models",),
-        "login_label": "查看终端授权说明",
-        "verify_label": "在线验证授权",
-        "note": "复用本机 Antigravity CLI 登录态。服务不读取令牌正文，也不把它当作 API Key。",
-        "models": (
-            ("gemini-2.5-pro", "gemini-2.5-pro（对话与创作）"),
-            ("claude-sonnet-4-5", "claude-sonnet-4-5（对话与审评）"),
-            ("image-generator", "image-generator（AGY 内置生图）"),
-        ),
-        "default_model": "image-generator",
-    },
-)
+_CHANNELS = SUBSCRIPTION_CHANNELS
+_spec_models = subscription_spec_models
 
 
 def channels():
-    return _CHANNELS
+    return SUBSCRIPTION_CHANNELS
 
 
 def channel(provider: str) -> dict:
-    found = next((item for item in _CHANNELS if item["id"] == provider), None)
-    require(found is not None, "subscription", "未知的订阅授权通道", 404)
-    return found
+    return subscription_channel(provider)
 
 
 def normalize_model(provider: str, model: str) -> str:
-    spec = channel(provider)
-    text = model.strip()
-    allowed = {item[0] for item in spec["models"]}
-    require(text in allowed or MODEL_ID.fullmatch(text) is not None, "model", "模型标识只填写公开的模型名")
-    require(SECRET_HINT.search(text) is None, "model", "不要填写密钥，只填写公开的模型标识")
-    require("token" not in text.lower() and "secret" not in text.lower(), "model", "不要填写密钥，只填写公开的模型标识")
-    return text
+    return normalize_subscription_model(provider, model)
+
+
+__all__ = [
+    "MODEL_ID",
+    "OAUTH_TTL_SECONDS",
+    "PROVIDERS",
+    "STRIPPED_API_KEYS",
+    "channel",
+    "channels",
+    "is_known_image_model",
+    "normalize_model",
+    "subscription_model_capabilities",
+]
 
 
 def _mask(value: str) -> str | None:
@@ -311,7 +269,7 @@ def _has_supported_verify_signal(provider: str, spec: dict, output: str) -> bool
     stripped = (output or "").strip()
     if not stripped:
         return False
-    known_models = [model_id.lower() for model_id, _ in spec.get("models", ())]
+    known_models = [item[0].lower() for item in _spec_models(spec)]
     if any(m in stripped for m in known_models):
         return True
     if provider == "grok":
@@ -383,15 +341,121 @@ def verify_channel(provider: str, home: Path, which, run, env=None) -> dict:
     }
 
 
-def saved_model(saved, provider: str) -> str:
+def _valid_saved_model(spec: dict, value: Any) -> str:
+    text = value.strip() if isinstance(value, str) else ""
+    if not text:
+        return ""
+    allowed = {item[0] for item in _spec_models(spec)}
+    if (text in allowed or MODEL_ID.fullmatch(text)) and SECRET_HINT.search(text) is None:
+        if "token" not in text.lower() and "secret" not in text.lower():
+            return text
+    return ""
+
+
+def saved_text_model(saved, provider: str) -> str:
     spec = channel(provider)
     raw = saved.get(provider) if isinstance(saved, dict) else None
-    model = raw.get("model") if isinstance(raw, dict) else ""
-    text = model.strip() if isinstance(model, str) else ""
-    if text and (text in {item[0] for item in spec["models"]} or MODEL_ID.fullmatch(text)):
-        if SECRET_HINT.search(text) is None:
-            return text
-    return spec["default_model"]
+    if isinstance(raw, dict):
+        explicit = _valid_saved_model(spec, raw.get("text_model"))
+        if explicit:
+            return explicit
+        legacy = _valid_saved_model(spec, raw.get("model"))
+        if legacy and not is_known_image_model(provider, legacy):
+            return legacy
+    return spec["default_text_model"]
+
+
+def saved_image_model(saved, provider: str) -> str:
+    spec = channel(provider)
+    raw = saved.get(provider) if isinstance(saved, dict) else None
+    if isinstance(raw, dict):
+        explicit = _valid_saved_model(spec, raw.get("image_model"))
+        if explicit:
+            return explicit
+        legacy = _valid_saved_model(spec, raw.get("model"))
+        if legacy and is_known_image_model(provider, legacy):
+            return legacy
+    return spec["default_image_model"]
+
+
+def saved_model(saved, provider: str) -> str:
+    return saved_text_model(saved, provider)
+
+
+def _active_session_summary(provider: str) -> dict | None:
+    """Return strictly non-sensitive active-session summary for list/refresh endpoints.
+
+    Device codes and authorization URLs are NEVER returned here; they are only delivered
+    by explicit POST /login or GET /login/{session_id} polling.
+    """
+    session = _ACTIVE_BY_PROVIDER.get(provider)
+    if session is None or session.closed_state is not None:
+        return None
+    if getattr(session.proc, "returncode", None) is not None:
+        return None
+    remaining = max(0, int(session.ttl_seconds - (time.monotonic() - session.created_monotonic)))
+    if remaining <= 0:
+        return None
+    return {
+        "provider": session.provider,
+        "session_id": session.session_id,
+        "mode": "device_auth",
+        "state": "pending",
+        "expires_in": remaining,
+    }
+
+
+def _format_model_items(rows, category: str) -> list[dict]:
+    return [
+        {
+            "id": model_id,
+            "label": label,
+            "category": category,
+            "capabilities": list(caps),
+            "entry_kind": entry_kind,
+            "capability_source": "catalog",
+        }
+        for model_id, label, caps, entry_kind in rows
+    ]
+
+
+def _channel_payload(spec: dict, saved, status: dict) -> dict:
+    text_model = saved_text_model(saved, spec["id"])
+    image_model = saved_image_model(saved, spec["id"])
+    text_models = _format_model_items(spec["text_models"], "text")
+    image_models = _format_model_items(spec["image_models"], "image")
+    video_models = _format_model_items(spec.get("video_models", ()), "video")
+    return {
+        "id": spec["id"],
+        "title": spec["title"],
+        "path_label": spec["path_label"],
+        "login_command": spec["login_command"],
+        "login_label": spec["login_label"],
+        "verify_label": spec["verify_label"],
+        "note": spec["note"],
+        "text_models": text_models,
+        "image_models": image_models,
+        "video_models": video_models,
+        "text_model": text_model,
+        "image_model": image_model,
+        "models": [*text_models, *image_models, *video_models],
+        "model": text_model,
+        "status": dict(status),
+        "verified": bool(status.get("verified")),
+        "active_session": _active_session_summary(spec["id"]),
+    }
+
+
+def collect_single_subscription(
+    provider: str,
+    saved,
+    home: Path | None = None,
+    which=shutil.which,
+    run=subprocess.run,
+    env=None,
+) -> dict:
+    root = home or Path.home()
+    return _probe_single_channel(provider, saved if isinstance(saved, dict) else {}, root, which, run, env)
 
 
 def collect_subscriptions(saved, home: Path | None = None, which=shutil.which, run=subprocess.run, env=None) -> dict:
@@ -401,23 +465,7 @@ def collect_subscriptions(saved, home: Path | None = None, which=shutil.which, r
         "codex": lambda: codex_status(which, run, env),
         "agy": lambda: agy_status(root, which),
     }
-    rows = []
-    for spec in _CHANNELS:
-        status = probes[spec["id"]]()
-        rows.append(
-            {
-                "id": spec["id"],
-                "title": spec["title"],
-                "path_label": spec["path_label"],
-                "login_command": spec["login_command"],
-                "login_label": spec["login_label"],
-                "verify_label": spec["verify_label"],
-                "note": spec["note"],
-                "models": [{"id": model_id, "label": label} for model_id, label in spec["models"]],
-                "model": saved_model(saved, spec["id"]),
-                "status": status,
-            }
-        )
+    rows = [_channel_payload(spec, saved, probes[spec["id"]]()) for spec in _CHANNELS]
     return {"channels": rows, "ready_count": sum(1 for row in rows if row["status"]["ready"])}
 
 
@@ -607,18 +655,7 @@ def _probe_single_channel(
         status = codex_status(which, run, env)
     else:
         status = agy_status(home, which)
-    return {
-        "id": spec["id"],
-        "title": spec["title"],
-        "path_label": spec["path_label"],
-        "login_command": spec["login_command"],
-        "login_label": spec["login_label"],
-        "verify_label": spec["verify_label"],
-        "note": spec["note"],
-        "models": [{"id": mid, "label": label} for mid, label in spec["models"]],
-        "model": saved_model(saved, spec["id"]),
-        "status": status,
-    }
+    return _channel_payload(spec, saved, status)
 
 
 async def start_oauth_login(

@@ -41,18 +41,22 @@ class ScopeRename(Strict):
 ScopePatch = ScopeRename
 
 
+Capability = Literal["text", "text_to_image", "video", "image_to_image", "image_to_video", "text_to_video"]
+Purpose = Literal["plan", "write", "revise", "judge", "judge_secondary"]
+
+
 class ModelConfigurationInput(Strict):
     id: str | None = Field(default=None, max_length=80)
     name: str = Field(min_length=1, max_length=80)
     supplier: str = Field(default="兼容接口", max_length=64)
+    platform_id: str = Field(default="", max_length=64)
     transport: Literal["http", "cli_oauth"] = "http"
     cli_provider: Literal["", "grok", "codex", "agy"] = ""
     base_url: str = Field(default="", max_length=512)
     auth_ref: str = Field(default="NCC_MODEL_KEY", max_length=128)
     model_key: str = Field(default="", max_length=128)
-    purposes: list[Literal["plan", "write", "revise", "judge", "judge_secondary"]] = Field(
-        min_length=1, max_length=5
-    )
+    capabilities: list[Capability] | None = Field(default=None, max_length=6)
+    purposes: list[Purpose] = Field(default_factory=list, max_length=5)
     enabled: bool = False
 
     @field_validator("id")
@@ -63,18 +67,62 @@ class ModelConfigurationInput(Strict):
         text = value.strip()
         return text or None
 
+    @model_validator(mode="after")
+    def check_capabilities_and_purposes(self):
+        if self.capabilities is None:
+            if not self.purposes:
+                raise ValueError("至少选择一项模型能力或小说文本用途")
+            self.capabilities = ["text"]
+        else:
+            seen: list[Capability] = []
+            for item in self.capabilities:
+                if item not in seen:
+                    seen.append(item)
+            if not seen:
+                raise ValueError("至少选择一项模型能力")
+            self.capabilities = seen
+            if "text" not in seen and self.purposes:
+                raise ValueError("未声明文本能力的模型不能勾选小说文本进阶用途")
+            if "text" in seen and not self.purposes:
+                self.purposes = ["plan", "write", "revise", "judge"]
+        return self
+
 
 class ModelEnabledInput(Strict):
     enabled: bool
 
 
 class ModelDefaultInput(Strict):
-    purpose: Literal["plan", "write", "revise", "judge", "judge_secondary"]
+    purpose: Purpose
     configuration_id: str = Field(default="", max_length=80)
 
 
+class CapabilityDefaultInput(Strict):
+    capability: Capability
+    source: Literal["", "api", "subscription"] = ""
+    configuration_id: str = Field(default="", max_length=80)
+    provider: Literal["", "grok", "codex", "agy"] = ""
+    model_key: str = Field(default="", max_length=128)
+
+    @model_validator(mode="after")
+    def check_source_target(self):
+        if self.source == "api" and (not self.configuration_id.strip() or not self.model_key.strip()):
+            raise ValueError("API 默认配置需要同时指定已保存的配置标识与一致的模型标识")
+        if self.source == "subscription" and (not self.provider.strip() or not self.model_key.strip()):
+            raise ValueError("订阅默认配置需要指定订阅平台与公开模型标识")
+        return self
+
+
 class SubscriptionModelInput(Strict):
-    model: str = Field(min_length=1, max_length=128)
+    model: str | None = Field(default=None, min_length=1, max_length=128)
+    text_model: str | None = Field(default=None, min_length=1, max_length=128)
+    image_model: str | None = Field(default=None, min_length=1, max_length=128)
+
+    @model_validator(mode="after")
+    def check_any_model(self):
+        if self.model is None and self.text_model is None and self.image_model is None:
+            raise ValueError("文本模型与图片模型至少提供一项")
+        return self
 
 
 class Operation(Strict):

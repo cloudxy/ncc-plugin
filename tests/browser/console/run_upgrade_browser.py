@@ -17,6 +17,7 @@ import httpx
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
 from playwright.sync_api import expect, sync_playwright  # noqa: E402
 from support.browser import browser_test  # noqa: E402
+from support.synthetic_cli import synthetic_subscription_env  # noqa: E402
 
 from ncc_data.creation.worker import Worker  # noqa: E402
 from ncc_data.persistence.database import database  # noqa: E402
@@ -137,11 +138,14 @@ def main(runtime):
     inline_basemap_headers: dict[str, str] = {}
     worker_runner: _ScopedWorkerThread | None = None
 
-    with httpx.Client(
-        base_url=origin,
-        timeout=30,
-        limits=httpx.Limits(max_keepalive_connections=0),
-    ) as admin_http:
+    with (
+        synthetic_subscription_env(),
+        httpx.Client(
+            base_url=origin,
+            timeout=30,
+            limits=httpx.Limits(max_keepalive_connections=0),
+        ) as admin_http,
+    ):
         me = (
             admin_http.post(
                 "/api/v1/auth/login",
@@ -332,38 +336,70 @@ def main(runtime):
                         _select_scope_by_name(main_scope["name"])
 
                         # =====================================================================
-                        # 2. /admin/models HTTP <-> CLI OAuth toggle + Subscription tab bind
+                        # 2. /admin/models 3-tab Defaults / API Config / Subscription Config
                         # =====================================================================
                         page.goto(origin + "/admin/models")
                         expect(page.locator("[data-component='model-settings']")).to_be_visible()
-                        expect(page.get_by_label("网关地址")).to_be_visible()
+                        expect(page.locator("[data-component='defaults-tab']")).to_be_visible()
+                        expect(page.get_by_role("tab", name="默认配置")).to_have_attribute(
+                            "aria-selected", "true"
+                        )
+                        for cap_id in (
+                            "text",
+                            "text_to_image",
+                            "video",
+                            "image_to_image",
+                            "image_to_video",
+                            "text_to_video",
+                        ):
+                            expect(
+                                page.locator(f"[data-default-capability='{cap_id}']")
+                            ).to_be_visible()
 
-                        page.locator(".ant-segmented").get_by_text(
-                            "本机 CLI OAuth 订阅", exact=True
-                        ).click()
-                        expect(page.get_by_label("网关地址")).to_have_count(0)
-                        expect(page.get_by_text("CLI 订阅通道")).to_be_visible()
-
-                        page.locator(".ant-segmented").get_by_text(
-                            "兼容 HTTP 接口（API Key）", exact=True
-                        ).click()
-                        expect(page.get_by_label("网关地址")).to_be_visible()
-
-                        page.get_by_role("tab", name="本机 CLI OAuth 订阅").click()
-                        expect(page.locator("[data-component='subscription-auth']")).to_be_visible()
-                        page.get_by_role("button", name="绑定为写作/审评模型").first.click()
-
-                        # Returned to "模型与连接" tab with CLI OAuth fields populated
-                        expect(page.get_by_text("CLI 订阅通道")).to_be_visible()
-                        name_input = page.get_by_label("配置名称")
-                        assert "CLI OAuth" in name_input.input_value()
-                        name_input.fill(synthetic_model_name)
-                        # Keep disabled so global active defaults for other scopes are untouched
+                        # Switch to API Config tab, create a disabled synthetic API model config
+                        page.get_by_role("tab", name="API 配置").click()
+                        expect(page.locator("[data-component='api-config-tab']")).to_be_visible()
+                        expect(page.locator("[data-rail='api-platforms']")).to_be_visible()
+                        page.get_by_role("button", name="新建此平台配置").click()
+                        page.get_by_label("配置名称").fill(synthetic_model_name)
+                        page.get_by_label("模型标识").fill("gpt-5")
                         switch_btn = page.get_by_role("switch")
                         if switch_btn.get_attribute("aria-checked") == "true":
                             switch_btn.click()
                         page.get_by_role("button", name="保存配置").click()
-                        expect(page.locator(".model-list")).to_contain_text(synthetic_model_name)
+                        expect(page.locator(".platform-config-strip")).to_contain_text(
+                            synthetic_model_name
+                        )
+
+                        # Switch to Subscription Config tab, verify platform rail, actions, filters & bottom capabilities
+                        page.get_by_role("tab", name="订阅配置").click()
+                        sub_tab = page.locator("[data-component='subscription-auth']")
+                        expect(sub_tab).to_be_visible()
+                        expect(sub_tab.locator("[data-rail='subscription-platforms']")).to_be_visible()
+                        expect(sub_tab.get_by_role("button", name=re.compile(r"^授\s*权$"))).to_be_visible()
+                        expect(sub_tab.get_by_role("button", name="刷新状态", exact=True)).to_be_visible()
+                        expect(sub_tab.get_by_role("button", name="查看本机授权", exact=True)).to_be_visible()
+                        expect(
+                            sub_tab.locator("[data-component='capability-defaults-panel']")
+                        ).to_be_visible()
+
+                        # Open & close local auth summary modal
+                        sub_tab.get_by_role("button", name="查看本机授权", exact=True).click()
+                        local_modal = page.locator(".ant-modal:visible").filter(has_text="本机授权摘要")
+                        expect(local_modal).to_be_visible()
+                        local_modal.get_by_role("button", name="关闭返回").click()
+                        expect(local_modal).to_be_hidden()
+
+                        # Switch to image filter and confirm bottom capabilities switch to image slots
+                        sub_tab.locator(".subscription-model-header .ant-segmented").get_by_text(
+                            "图片", exact=True
+                        ).click()
+                        expect(
+                            sub_tab.locator("[data-capability='text_to_image']")
+                        ).to_have_attribute("data-supported", "true")
+                        expect(
+                            sub_tab.locator("[data-capability='text']")
+                        ).to_have_attribute("data-supported", "false")
 
                         after_models = (
                             admin_http.get("/api/v1/model-settings").raise_for_status().json()

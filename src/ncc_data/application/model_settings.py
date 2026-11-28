@@ -1,4 +1,8 @@
-"""Global model registry on the existing system scope. No secret values are written."""
+"""Global model registry and unified 6-capability defaults on the system scope.
+
+No secret values are written. External CLI probes and HTTP connectivity checks NEVER run
+while holding PostgreSQL FOR UPDATE row locks.
+"""
 
 import asyncio
 import shutil
@@ -11,10 +15,12 @@ from sqlalchemy import select
 from ncc_data.creation.model_route import (
     _check_url,
     active_registry,
+    apply_capability_default,
     apply_configuration,
     apply_default,
     apply_delete,
     apply_enabled,
+    clean_capability_defaults,
     connection,
     describe,
     materialize_one,
@@ -22,7 +28,7 @@ from ncc_data.creation.model_route import (
     snapshot_from,
     writable_registry,
 )
-from ncc_data.creation.subscription_auth import verify_channel
+from ncc_data.creation.subscription_auth import collect_subscriptions, verify_channel
 from ncc_data.domain.definitions import SYSTEM_SCOPE
 from ncc_data.persistence.models import Audit, Scope, uid
 from ncc_shared.errors import require
@@ -46,18 +52,42 @@ def _detail(row) -> dict:
     return {
         "name": row["name"],
         "model_key": row["model_key"],
+        "capabilities": list(row.get("capabilities") or ["text"]),
         "purposes": list(row["purposes"]),
         "enabled": bool(row["enabled"]),
         "auth_ref": row["auth_ref"],
         "supplier": row["supplier"],
+        "platform_id": row.get("platform_id", "custom"),
         "transport": row.get("transport", "http"),
         "cli_provider": row.get("cli_provider", ""),
     }
 
 
-async def _persist(svc, scope, settings, registry, action, detail):
+async def _precollect_subscriptions(db, scope_id: str, settings) -> dict:
+    """Collect read-only subscription status BEFORE acquiring any FOR UPDATE lock."""
+    scope = await db.get(Scope, scope_id)
+    config = scope.config if scope is not None and isinstance(scope.config, dict) else {}
+    saved_sub = config.get("subscription_auth") if isinstance(config.get("subscription_auth"), dict) else {}
+    home = getattr(settings, "cli_home", None)
+    which = getattr(settings, "cli_which", None) or shutil.which
+    run = getattr(settings, "cli_run", None) or subprocess.run
+    return await asyncio.to_thread(
+        collect_subscriptions,
+        saved_sub,
+        Path(home) if home else None,
+        which,
+        run,
+    )
+
+
+async def _persist(svc, scope, settings, registry, action, detail, *, capability_defaults=None, subscription_view=None):
+    """Pure locked DB write + in-memory view assembly; zero external I/O or CLI subprocesses inside lock."""
     config = dict(scope.config or {})
     config["model_registry"] = registry
+    if capability_defaults is not None:
+        config["capability_defaults"] = capability_defaults
+    else:
+        config["capability_defaults"] = clean_capability_defaults(config, registry)
     scope.config = config
     svc.db.add(
         Audit(
@@ -69,19 +99,20 @@ async def _persist(svc, scope, settings, registry, action, detail):
         )
     )
     await svc.db.flush()
-    view = describe(config, settings)
-    return view
+    return describe(config, settings, subscription_view=subscription_view)
 
 
 async def load_model_settings(svc, settings, *, scope_id: str = SYSTEM_SCOPE):
     _guard(svc.actor)
+    sub_view = await _precollect_subscriptions(svc.db, scope_id, settings)
     scope = await svc.db.get(Scope, scope_id)
-    return describe(scope.config if scope else None, settings)
+    return describe(scope.config if scope else None, settings, subscription_view=sub_view)
 
 
 async def save_configuration(svc, settings, value, *, scope_id: str = SYSTEM_SCOPE):
     _guard(svc.actor)
     fields = normalize_configuration(value)
+    sub_view = await _precollect_subscriptions(svc.db, scope_id, settings)
     scope = await _system_scope(svc.db, scope_id=scope_id, lock=True)
     registry = writable_registry(scope.config)
     existing = value.id or ""
@@ -89,21 +120,39 @@ async def save_configuration(svc, settings, value, *, scope_id: str = SYSTEM_SCO
     registry = apply_configuration(registry, fields, existing or None, new_id)
     saved_id = existing or new_id
     row = next(item for item in registry["configurations"] if item["id"] == saved_id)
-    view = await _persist(svc, scope, settings, registry, "model_registry.save", _detail(row))
+    view = await _persist(
+        svc,
+        scope,
+        settings,
+        registry,
+        "model_registry.save",
+        _detail(row),
+        subscription_view=sub_view,
+    )
     view["saved_id"] = saved_id
     return view
 
 
 async def set_configuration_enabled(svc, settings, cid, enabled, *, scope_id: str = SYSTEM_SCOPE):
     _guard(svc.actor)
+    sub_view = await _precollect_subscriptions(svc.db, scope_id, settings)
     scope = await _system_scope(svc.db, scope_id=scope_id, lock=True)
     registry = apply_enabled(writable_registry(scope.config), cid, enabled)
     row = next(item for item in registry["configurations"] if item["id"] == cid)
-    return await _persist(svc, scope, settings, registry, "model_registry.enabled", _detail(row))
+    return await _persist(
+        svc,
+        scope,
+        settings,
+        registry,
+        "model_registry.enabled",
+        _detail(row),
+        subscription_view=sub_view,
+    )
 
 
 async def bind_default(svc, settings, value, *, scope_id: str = SYSTEM_SCOPE):
     _guard(svc.actor)
+    sub_view = await _precollect_subscriptions(svc.db, scope_id, settings)
     scope = await _system_scope(svc.db, scope_id=scope_id, lock=True)
     registry = apply_default(writable_registry(scope.config), value.purpose, value.configuration_id)
     return await _persist(
@@ -113,22 +162,60 @@ async def bind_default(svc, settings, value, *, scope_id: str = SYSTEM_SCOPE):
         registry,
         "model_registry.default",
         {"purpose": value.purpose, "configuration_id": registry["defaults"].get(value.purpose, "")},
+        subscription_view=sub_view,
+    )
+
+
+async def bind_capability_default(svc, settings, value, *, scope_id: str = SYSTEM_SCOPE):
+    _guard(svc.actor)
+    sub_view = await _precollect_subscriptions(svc.db, scope_id, settings)
+    scope = await _system_scope(svc.db, scope_id=scope_id, lock=True)
+    registry = writable_registry(scope.config)
+    current_caps = clean_capability_defaults(scope.config, registry)
+    updated_caps = apply_capability_default(registry, current_caps, value)
+    entry = updated_caps.get(value.capability)
+    detail = {
+        "capability": value.capability,
+        "source": entry.get("source", "") if isinstance(entry, dict) else "",
+        "configuration_id": entry.get("configuration_id", "") if isinstance(entry, dict) else "",
+        "provider": entry.get("provider", "") if isinstance(entry, dict) else "",
+        "model_key": entry.get("model_key", "") if isinstance(entry, dict) else "",
+    }
+    return await _persist(
+        svc,
+        scope,
+        settings,
+        registry,
+        "model_registry.capability_default",
+        detail,
+        capability_defaults=updated_caps,
+        subscription_view=sub_view,
     )
 
 
 async def delete_configuration(svc, settings, cid, *, scope_id: str = SYSTEM_SCOPE):
     _guard(svc.actor)
+    sub_view = await _precollect_subscriptions(svc.db, scope_id, settings)
     scope = await _system_scope(svc.db, scope_id=scope_id, lock=True)
     current, _ = active_registry(scope.config)
     row = next((item for item in current["configurations"] if item["id"] == cid), None)
     require(row is not None, "not_found", "模型配置不存在", 404)
     registry = apply_delete(writable_registry(scope.config), cid)
-    return await _persist(svc, scope, settings, registry, "model_registry.delete", _detail(row))
+    return await _persist(
+        svc,
+        scope,
+        settings,
+        registry,
+        "model_registry.delete",
+        _detail(row),
+        subscription_view=sub_view,
+    )
 
 
 async def check_configuration(
     svc, settings, cid, *, live: bool = False, scope_id: str = SYSTEM_SCOPE, transport=None
 ):
+    """Read-only configuration check or live connectivity probe (zero row locks, no paid generation)."""
     _guard(svc.actor)
     scope = await svc.db.get(Scope, scope_id)
     registry, _ = active_registry(scope.config if scope else None)

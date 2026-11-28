@@ -1,4 +1,10 @@
-"""Several chat configurations, one binding per purpose. Credential values never enter results."""
+"""Text model configurations, purpose bindings, and job route snapshots.
+
+Catalog definitions and 6-capability global default logic live in model_catalog.py
+so text routing and subscription channels share one acyclic source of truth.
+"""
+
+from __future__ import annotations
 
 import os
 import re
@@ -8,14 +14,32 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from ncc_data.creation.model_catalog import (
+    API_PLATFORMS,
+    CAPABILITIES,
+    CAPABILITY_LABELS,
+    CAPABILITY_META,
+    CLI_MODEL_ID,
+    CLI_PROVIDERS,
+    ENV_REF,
+    SECRET_HINT,
+    SUBSCRIPTION_CHANNELS,
+    apply_capability_default,
+    capability_candidates_view,
+    catalog_model_caps,
+    clean_capability_defaults,
+    deprecated_model_notice,
+    effective_capabilities_view,
+    empty_capability_defaults,
+    infer_platform_id,
+    platforms_catalog,
+    subscription_channel,
+)
 from ncc_data.domain.contracts import ModelConfigurationInput
 from ncc_shared.errors import require
 
-ENV_REF = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,127}$")
-CLI_MODEL_ID = re.compile(r"^[A-Za-z0-9_.:/-]{1,128}$")
-CLI_PROVIDERS = ("grok", "codex", "agy")
-SECRET_HINT = re.compile(r"(bearer\s+|api[_-]?key\s*=|sk-[A-Za-z0-9]{8,})", re.I)
 PURPOSES = ("plan", "write", "revise", "judge", "judge_secondary")
+TEXT_GENERAL_PURPOSES = ("plan", "write", "revise", "judge")
 PURPOSE_LABELS = (
     ("plan", "场景计划"),
     ("write", "正文与设定"),
@@ -34,6 +58,49 @@ ROUTE_KEYS = (
 )
 MAX_CONFIGS = 40
 
+__all__ = [
+    "API_PLATFORMS",
+    "CAPABILITIES",
+    "CAPABILITY_LABELS",
+    "CAPABILITY_META",
+    "CLI_MODEL_ID",
+    "CLI_PROVIDERS",
+    "ENV_REF",
+    "MAX_CONFIGS",
+    "PURPOSES",
+    "PURPOSE_LABELS",
+    "ROUTE_KEYS",
+    "ResolvedRoute",
+    "SECRET_HINT",
+    "_check_url",
+    "active_registry",
+    "apply_capability_default",
+    "apply_configuration",
+    "apply_default",
+    "apply_delete",
+    "apply_enabled",
+    "clean_capability_defaults",
+    "clean_registry",
+    "connection",
+    "describe",
+    "empty_capability_defaults",
+    "empty_registry",
+    "ensure_job_route",
+    "environment_snapshot",
+    "infer_platform_id",
+    "key_present",
+    "materialize_one",
+    "normalize_configuration",
+    "platforms_catalog",
+    "presets",
+    "purpose_slot",
+    "resolve_credential",
+    "snapshot_from",
+    "stored_route",
+    "synthesize_legacy",
+    "writable_registry",
+]
+
 
 @dataclass(frozen=True)
 class ResolvedRoute:
@@ -48,6 +115,15 @@ def _clean(value) -> str:
     return value.strip() if isinstance(value, str) else ""
 
 
+def _clean_capabilities(raw) -> list[str]:
+    result: list[str] = []
+    if isinstance(raw, list | tuple):
+        for item in raw:
+            if item in CAPABILITIES and item not in result:
+                result.append(item)
+    return result
+
+
 def empty_registry() -> dict:
     return {"configurations": [], "defaults": {purpose: "" for purpose in PURPOSES}}
 
@@ -58,6 +134,13 @@ def stored_route(raw) -> dict | None:
     return {key: raw.get(key) for key in ROUTE_KEYS}
 
 
+def _check_url(base: str):
+    parts = urlsplit(base)
+    require(parts.scheme in {"http", "https"} and parts.hostname, "base_url", "网关地址需要 http 或 https")
+    require(not parts.username and not parts.password, "base_url", "不要把密钥写进地址")
+    require(not parts.query and not parts.fragment, "base_url", "网关地址只保留到主机和路径")
+
+
 def normalize_configuration(value: ModelConfigurationInput) -> dict:
     name = _clean(value.name)
     supplier = _clean(value.supplier) or "兼容接口"
@@ -66,16 +149,31 @@ def normalize_configuration(value: ModelConfigurationInput) -> dict:
     base = _clean(value.base_url).rstrip("/")
     auth = _clean(value.auth_ref) or "NCC_MODEL_KEY"
     model = _clean(value.model_key)
+    platform_id = infer_platform_id(
+        supplier,
+        base,
+        getattr(value, "platform_id", ""),
+        transport=transport,
+        cli_provider=cli_provider,
+    )
     require(1 <= len(name) <= 80, "name", "配置名称需要 1 到 80 个字")
     require(transport in {"http", "cli_oauth"}, "transport", "未知的模型传输方式")
     for field, text in (("name", name), ("supplier", supplier), ("base_url", base), ("model_key", model)):
         require(SECRET_HINT.search(text) is None, field, "不要填写密钥，只填写地址、模型标识或环境变量名")
+    raw_caps = getattr(value, "capabilities", None)
+    capabilities = _clean_capabilities(raw_caps) if raw_caps is not None else ["text"]
+    require(capabilities, "capabilities", "至少选择一项模型能力")
     purposes = []
     for item in value.purposes:
         require(item in PURPOSES, "purposes", "用途只能是计划、正文、修订、评价或第二评价")
         if item not in purposes:
             purposes.append(item)
-    require(purposes, "purposes", "至少选择一个用途")
+    if "text" not in capabilities:
+        require(not purposes, "purposes", "未声明文本能力的模型不能勾选小说文本进阶用途")
+    elif not purposes:
+        purposes = list(TEXT_GENERAL_PURPOSES)
+    catalog_caps = catalog_model_caps(platform_id, model) if transport == "http" else None
+    capability_source = "catalog" if catalog_caps and set(catalog_caps) == set(capabilities) else "explicit"
     if transport == "cli_oauth":
         require(cli_provider in CLI_PROVIDERS, "cli_provider", "CLI 订阅通道只能是 grok、codex 或 agy")
         if model:
@@ -92,11 +190,14 @@ def normalize_configuration(value: ModelConfigurationInput) -> dict:
         return {
             "name": name,
             "supplier": effective_supplier,
+            "platform_id": platform_id,
             "transport": "cli_oauth",
             "cli_provider": cli_provider,
             "base_url": "",
             "auth_ref": "NCC_MODEL_KEY",
             "model_key": model,
+            "capabilities": capabilities,
+            "capability_source": capability_source,
             "purposes": purposes,
             "enabled": bool(value.enabled),
         }
@@ -108,21 +209,17 @@ def normalize_configuration(value: ModelConfigurationInput) -> dict:
     return {
         "name": name,
         "supplier": supplier,
+        "platform_id": platform_id,
         "transport": "http",
         "cli_provider": "",
         "base_url": base,
         "auth_ref": auth,
         "model_key": model,
+        "capabilities": capabilities,
+        "capability_source": capability_source,
         "purposes": purposes,
         "enabled": bool(value.enabled),
     }
-
-
-def _check_url(base: str):
-    parts = urlsplit(base)
-    require(parts.scheme in {"http", "https"} and parts.hostname, "base_url", "网关地址需要 http 或 https")
-    require(not parts.username and not parts.password, "base_url", "不要把密钥写进地址")
-    require(not parts.query and not parts.fragment, "base_url", "网关地址只保留到主机和路径")
 
 
 def _clean_stored(row) -> dict | None:
@@ -142,14 +239,34 @@ def _clean_stored(row) -> dict | None:
     if ENV_REF.match(auth) is None:
         auth = "NCC_MODEL_KEY"
     model = _clean(row.get("model_key"))[:128]
+    platform_id = infer_platform_id(
+        supplier,
+        base,
+        _clean(row.get("platform_id")),
+        transport=transport,
+        cli_provider=cli_provider,
+    )
     purposes = []
-    raw = row.get("purposes")
-    if isinstance(raw, list):
-        for item in raw:
+    raw_purposes = row.get("purposes")
+    if isinstance(raw_purposes, list):
+        for item in raw_purposes:
             if item in PURPOSES and item not in purposes:
                 purposes.append(item)
-    if not purposes:
-        return None
+    has_explicit_caps = "capabilities" in row and isinstance(row.get("capabilities"), list)
+    if has_explicit_caps:
+        capabilities = _clean_capabilities(row.get("capabilities"))
+        if not capabilities:
+            return None
+        cap_source = _clean(row.get("capability_source"))
+        if cap_source not in {"catalog", "explicit", "legacy_text_route"}:
+            cap_source = "explicit"
+        if "text" not in capabilities:
+            purposes = []
+    else:
+        if not purposes:
+            return None
+        capabilities = ["text"]
+        cap_source = "legacy_text_route"
     enabled = bool(row.get("enabled"))
     if transport == "cli_oauth":
         if enabled and not (cli_provider and model):
@@ -160,11 +277,14 @@ def _clean_stored(row) -> dict | None:
         "id": cid,
         "name": name,
         "supplier": supplier,
+        "platform_id": platform_id,
         "transport": transport,
         "cli_provider": cli_provider,
         "base_url": base,
         "auth_ref": auth,
         "model_key": model,
+        "capabilities": capabilities,
+        "capability_source": cap_source,
         "purposes": purposes,
         "enabled": enabled,
     }
@@ -191,7 +311,11 @@ def _valid_defaults(configurations, raw) -> dict:
     for purpose in PURPOSES:
         chosen = _clean(incoming.get(purpose))
         row = by_id.get(chosen)
-        defaults[purpose] = chosen if row and row["enabled"] and purpose in row["purposes"] else ""
+        defaults[purpose] = (
+            chosen
+            if row and row["enabled"] and purpose in row["purposes"] and "text" in row.get("capabilities", ["text"])
+            else ""
+        )
     return defaults
 
 
@@ -200,7 +324,14 @@ def _clear_invalid_defaults(registry) -> None:
 
 
 def _copy_registry(registry) -> dict:
-    configurations = [{**row, "purposes": list(row.get("purposes") or [])} for row in registry.get("configurations") or []]
+    configurations = [
+        {
+            **row,
+            "purposes": list(row.get("purposes") or []),
+            "capabilities": list(row.get("capabilities") or ["text"]),
+        }
+        for row in registry.get("configurations") or []
+    ]
     defaults = {purpose: "" for purpose in PURPOSES}
     raw = registry.get("defaults") or {}
     for purpose in PURPOSES:
@@ -227,9 +358,12 @@ def synthesize_legacy(saved) -> dict:
             "id": "legacy-writer",
             "name": "原写作模型",
             "supplier": supplier,
+            "platform_id": infer_platform_id(supplier, base),
             "base_url": base,
             "auth_ref": auth,
             "model_key": writer,
+            "capabilities": ["text"],
+            "capability_source": "legacy_text_route",
             "purposes": writer_purposes,
             "enabled": enabled,
         }
@@ -240,9 +374,12 @@ def synthesize_legacy(saved) -> dict:
                 "id": "legacy-judge",
                 "name": "原评价模型",
                 "supplier": supplier,
+                "platform_id": infer_platform_id(supplier, base),
                 "base_url": base,
                 "auth_ref": auth,
                 "model_key": judge,
+                "capabilities": ["text"],
+                "capability_source": "legacy_text_route",
                 "purposes": ["judge"],
                 "enabled": enabled,
             }
@@ -253,9 +390,12 @@ def synthesize_legacy(saved) -> dict:
                 "id": "legacy-second",
                 "name": "原第二评价",
                 "supplier": supplier,
+                "platform_id": infer_platform_id(supplier, base),
                 "base_url": base,
                 "auth_ref": auth,
                 "model_key": second,
+                "capabilities": ["text"],
+                "capability_source": "legacy_text_route",
                 "purposes": ["judge_secondary"],
                 "enabled": enabled,
             }
@@ -293,7 +433,11 @@ def _find(registry, cid):
 
 def apply_configuration(registry, fields, existing_id, new_id) -> dict:
     reg = _copy_registry(registry)
-    stored = {**fields, "purposes": list(fields["purposes"])}
+    stored = {
+        **fields,
+        "purposes": list(fields["purposes"]),
+        "capabilities": list(fields.get("capabilities") or ["text"]),
+    }
     if existing_id:
         row = _find(reg, existing_id)
         require(row is not None, "not_found", "模型配置不存在", 404)
@@ -334,6 +478,7 @@ def apply_default(registry, purpose, configuration_id) -> dict:
     row = _find(reg, chosen)
     require(row is not None, "not_found", "模型配置不存在", 404)
     require(row.get("enabled"), "model_registry", "只能把默认用途绑到已启用的配置")
+    require("text" in (row.get("capabilities") or ["text"]), "model_registry", "这个配置未声明文本能力")
     require(purpose in row.get("purposes", []), "model_registry", "这个配置不包含所选用途")
     reg["defaults"][purpose] = chosen
     return reg
@@ -362,6 +507,19 @@ def _slot(row) -> dict:
     return slot
 
 
+def _subscription_text_slot(provider: str, model_key: str) -> dict:
+    spec = subscription_channel(provider)
+    return {
+        "configuration_id": f"subscription:{provider}",
+        "name": f"{spec['title']}（订阅默认）",
+        "base_url": "",
+        "auth_ref": "NCC_MODEL_KEY",
+        "model_key": _clean(model_key),
+        "transport": "cli_oauth",
+        "cli_provider": provider,
+    }
+
+
 def _env_model(purpose, settings) -> str:
     writer = _clean(getattr(settings, "writer_model", ""))
     judge = _clean(getattr(settings, "judge_model", "")) or writer
@@ -386,23 +544,61 @@ def _env_slot(purpose, settings):
     }
 
 
-def _resolve(registry, purpose, settings):
+def _resolve_with_origin(registry, purpose, settings, capability_defaults=None) -> tuple[dict | None, str]:
     chosen = (registry.get("defaults") or {}).get(purpose) or ""
     row = _find(registry, chosen)
-    if row and row.get("enabled") and purpose in row.get("purposes", []):
-        return _slot(row)
+    if (
+        row
+        and row.get("enabled")
+        and purpose in row.get("purposes", [])
+        and "text" in row.get("capabilities", ["text"])
+    ):
+        return _slot(row), "explicit_purpose"
+    if purpose in TEXT_GENERAL_PURPOSES and isinstance(capability_defaults, dict):
+        text_default = capability_defaults.get("text")
+        if isinstance(text_default, dict):
+            if text_default.get("source") == "api":
+                api_row = _find(registry, _clean(text_default.get("configuration_id")))
+                if (
+                    api_row
+                    and api_row.get("transport", "http") == "http"
+                    and api_row.get("enabled")
+                    and "text" in api_row.get("capabilities", [])
+                    and _clean(text_default.get("model_key")) == _clean(api_row.get("model_key"))
+                ):
+                    return _slot(api_row), "global_text"
+            elif text_default.get("source") == "subscription":
+                provider = _clean(text_default.get("provider"))
+                model_key = _clean(text_default.get("model_key"))
+                if provider in CLI_PROVIDERS and model_key:
+                    return _subscription_text_slot(provider, model_key), "global_text"
     for item in registry.get("configurations") or []:
-        if item.get("enabled") and purpose in (item.get("purposes") or []):
-            return _slot(item)
+        if (
+            item.get("enabled")
+            and purpose in (item.get("purposes") or [])
+            and "text" in item.get("capabilities", ["text"])
+        ):
+            return _slot(item), "auto_match"
     if settings is None:
-        return None
-    return _env_slot(purpose, settings)
+        return None, "unset"
+    env_slot = _env_slot(purpose, settings)
+    return env_slot, ("environment" if env_slot and env_slot.get("model_key") else "unset")
 
 
-def _snapshot(registry, settings, source, fallback: bool) -> dict:
+def _resolve(registry, purpose, settings, capability_defaults=None):
+    slot, _ = _resolve_with_origin(registry, purpose, settings, capability_defaults=capability_defaults)
+    return slot
+
+
+def _snapshot(registry, settings, source, fallback: bool, capability_defaults=None) -> dict:
     by = {}
     for purpose in PURPOSES:
-        slot = _resolve(registry, purpose, settings if fallback else None)
+        slot = _resolve(
+            registry,
+            purpose,
+            settings if fallback else None,
+            capability_defaults=capability_defaults,
+        )
         if not slot or not slot.get("model_key"):
             continue
         by[purpose] = slot
@@ -416,10 +612,19 @@ def environment_snapshot(settings) -> dict:
 
 def snapshot_from(scope_config, settings) -> dict:
     registry, source = active_registry(scope_config)
+    cap_defaults = clean_capability_defaults(scope_config, registry)
     if source == "environment":
+        if cap_defaults.get("text"):
+            return _snapshot(registry, settings, "registry", fallback=True, capability_defaults=cap_defaults)
         return environment_snapshot(settings)
     # A saved single route already names every purpose, including an empty second judge.
-    return _snapshot(registry, settings, source, fallback=source == "registry")
+    return _snapshot(
+        registry,
+        settings,
+        source,
+        fallback=source == "registry",
+        capability_defaults=cap_defaults,
+    )
 
 
 def _legacy_job_snapshot(route) -> dict:
@@ -503,9 +708,7 @@ def key_present(row, settings) -> bool:
     return bool(resolve_credential(ref, settings))
 
 
-def _cli_oauth_connection(row, settings) -> dict:
-    from ncc_data.creation.subscription_auth import agy_status, codex_status, grok_status
-
+def _cli_oauth_connection(row, settings, subscription_view=None) -> dict:
     provider = _clean(row.get("cli_provider"))
     model = _clean(row.get("model_key"))
     if provider not in CLI_PROVIDERS or not model:
@@ -514,15 +717,24 @@ def _cli_oauth_connection(row, settings) -> dict:
             "credential": "absent",
             "message": "未选择 CLI 订阅通道或模型标识。不会生成演示内容。",
         }
-    home = getattr(settings, "cli_home", None) or Path.home()
-    which = getattr(settings, "cli_which", None) or shutil.which
-    run = getattr(settings, "cli_run", None) or subprocess.run
-    if provider == "grok":
-        sub = grok_status(Path(home), which)
-    elif provider == "codex":
-        sub = codex_status(which, run)
-    else:
-        sub = agy_status(Path(home), which)
+    sub = None
+    if isinstance(subscription_view, dict):
+        for ch in subscription_view.get("channels") or []:
+            if ch.get("id") == provider:
+                sub = ch.get("status")
+                break
+    if sub is None:
+        from ncc_data.creation.subscription_auth import agy_status, codex_status, grok_status
+
+        home = getattr(settings, "cli_home", None) or Path.home()
+        which = getattr(settings, "cli_which", None) or shutil.which
+        run = getattr(settings, "cli_run", None) or subprocess.run
+        if provider == "grok":
+            sub = grok_status(Path(home), which)
+        elif provider == "codex":
+            sub = codex_status(which, run)
+        else:
+            sub = agy_status(Path(home), which)
     if not sub.get("cli_installed"):
         return {
             "status": "not_configured",
@@ -542,9 +754,9 @@ def _cli_oauth_connection(row, settings) -> dict:
     }
 
 
-def connection(row, settings) -> dict:
+def connection(row, settings, *, subscription_view=None) -> dict:
     if row.get("transport") == "cli_oauth":
-        return _cli_oauth_connection(row, settings)
+        return _cli_oauth_connection(row, settings, subscription_view=subscription_view)
     if not row.get("base_url") or not row.get("model_key"):
         return {
             "status": "not_configured",
@@ -581,97 +793,124 @@ def materialize_one(slot, settings) -> ResolvedRoute:
     )
 
 
-def _public(row, settings) -> dict:
+def _public(row, settings, *, subscription_view=None) -> dict:
+    notice = deprecated_model_notice(row["model_key"]) if row.get("transport", "http") == "http" else ""
     return {
         "id": row["id"],
         "name": row["name"],
         "supplier": row["supplier"],
+        "platform_id": row.get("platform_id")
+        or infer_platform_id(
+            row.get("supplier", ""),
+            row.get("base_url", ""),
+            transport=row.get("transport", "http"),
+            cli_provider=row.get("cli_provider", ""),
+        ),
         "transport": row.get("transport", "http"),
         "cli_provider": row.get("cli_provider", ""),
         "base_url": row["base_url"],
         "auth_ref": row["auth_ref"],
         "model_key": row["model_key"],
+        "capabilities": list(row.get("capabilities") or ["text"]),
+        "capability_source": row.get("capability_source") or "explicit",
         "purposes": list(row["purposes"]),
         "enabled": bool(row["enabled"]),
-        "connection": connection(row, settings),
+        "deprecated_notice": notice,
+        "connection": connection(row, settings, subscription_view=subscription_view),
     }
 
 
 def presets(settings) -> list[dict]:
-    fixed = [
-        ("openai", "OpenAI 兼容", "OpenAI", "https://api.openai.com/v1", "OPENAI_API_KEY"),
-        ("xai", "xAI", "xAI", "https://api.x.ai/v1", "XAI_API_KEY"),
-        ("ark", "火山方舟", "火山方舟", "https://ark.cn-beijing.volces.com/api/v3", "ARK_API_KEY"),
-        ("deepseek", "DeepSeek", "DeepSeek", "https://api.deepseek.com", "DEEPSEEK_API_KEY"),
-    ]
-    cli_presets = [
-        ("cli-grok", "Grok CLI 订阅", "xAI Grok 订阅", "grok", "grok-4"),
-        ("cli-codex", "Codex CLI 订阅", "ChatGPT Codex 订阅", "codex", "gpt-5"),
-        ("cli-agy", "AGY CLI 订阅", "Google AGY 订阅", "agy", "gemini-2.5-pro"),
-    ]
-    purposes = ["plan", "write", "revise", "judge"]
+    """Derive legacy preset list from shared API_PLATFORMS and SUBSCRIPTION_CHANNELS (single source of truth)."""
+    purposes = list(TEXT_GENERAL_PURPOSES)
     rows = [
         {
             "id": "environment",
             "name": "当前进程环境",
             "supplier": "环境变量",
+            "platform_id": "custom",
             "transport": "http",
             "cli_provider": "",
             "base_url": _clean(getattr(settings, "model_url", "")).rstrip("/"),
             "auth_ref": "NCC_MODEL_KEY",
             "model_key": _clean(getattr(settings, "writer_model", "")),
+            "capabilities": ["text"],
             "purposes": purposes + (["judge_secondary"] if _clean(getattr(settings, "second_judge_model", "")) else []),
         }
     ]
-    for pid, name, supplier, base, auth in fixed:
+    for platform in API_PLATFORMS:
+        if platform["id"] == "custom":
+            continue
         rows.append(
             {
-                "id": pid,
-                "name": name,
-                "supplier": supplier,
+                "id": platform["id"],
+                "name": platform["name"],
+                "supplier": platform["supplier"],
+                "platform_id": platform["id"],
                 "transport": "http",
                 "cli_provider": "",
-                "base_url": base,
-                "auth_ref": auth,
+                "base_url": platform["base_url"],
+                "auth_ref": platform["auth_ref"],
                 "model_key": "",
+                "capabilities": ["text"],
                 "purposes": list(purposes),
             }
         )
-    for pid, name, supplier, provider, default_model in cli_presets:
+    for spec in SUBSCRIPTION_CHANNELS:
         rows.append(
             {
-                "id": pid,
-                "name": name,
-                "supplier": supplier,
+                "id": f"cli-{spec['id']}",
+                "name": f"{spec['id'].upper()} CLI 订阅",
+                "supplier": spec["title"],
+                "platform_id": f"cli-{spec['id']}",
                 "transport": "cli_oauth",
-                "cli_provider": provider,
+                "cli_provider": spec["id"],
                 "base_url": "",
                 "auth_ref": "NCC_MODEL_KEY",
-                "model_key": default_model,
+                "model_key": spec["default_text_model"],
+                "capabilities": ["text"],
                 "purposes": list(purposes),
             }
         )
     return rows
 
 
-def describe(scope_config, settings) -> dict:
+def describe(scope_config, settings, *, subscription_view=None) -> dict:
+    """Pure assembly of model settings view. Pass pre-collected subscription_view to avoid I/O under locks."""
     registry, source = active_registry(scope_config)
+    cap_defaults = clean_capability_defaults(scope_config, registry)
     snap = snapshot_from(scope_config, settings)
+    public_configs = [_public(row, settings, subscription_view=subscription_view) for row in registry["configurations"]]
+    by_id = {row["id"]: row for row in public_configs}
     effective = {}
     for purpose, label in PURPOSE_LABELS:
-        slot = snap["by_purpose"].get(purpose) or {}
+        slot, origin = _resolve_with_origin(
+            registry,
+            purpose,
+            settings if source != "saved" else None,
+            capability_defaults=cap_defaults,
+        )
+        slot = slot or {}
         effective[purpose] = {
             "label": label,
             "configuration_id": slot.get("configuration_id", ""),
             "name": slot.get("name", ""),
             "model_key": slot.get("model_key", ""),
             "bound": bool(registry["defaults"].get(purpose)),
+            "source_kind": origin if slot.get("model_key") else "unset",
         }
     return {
-        "configurations": [_public(row, settings) for row in registry["configurations"]],
+        "configurations": public_configs,
         "defaults": dict(registry["defaults"]),
         "purposes": [{"id": purpose, "label": label} for purpose, label in PURPOSE_LABELS],
         "presets": presets(settings),
-        "source": source,
+        "platforms": platforms_catalog(),
+        "capabilities": [dict(item) for item in CAPABILITY_META],
+        "capability_defaults": cap_defaults,
+        "effective_capabilities": effective_capabilities_view(
+            cap_defaults, by_id, snap, subscription_view=subscription_view
+        ),
+        "capability_candidates": capability_candidates_view(public_configs, subscription_view=subscription_view),
+        "source": "registry" if source == "environment" and cap_defaults.get("text") else source,
         "effective": effective,
     }

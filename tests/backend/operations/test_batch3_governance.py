@@ -596,7 +596,268 @@ async def test_safe_map_basemap_inline_whitelist_and_cli_oauth_model_settings(
             overview = (await reader_client.get(f"/api/v1/scopes/{sid}/studio/overview")).json()
             assert overview["map_config"] == {"basemap_attachment_id": png_id}
 
-            # CLI OAuth model configuration save, bind default, static & live check
+            # Subscription dual model preferences (text model + image model) & isolated single-channel refresh
+            sub_save = await owner_client.post(
+                "/api/v1/model-settings/subscriptions/grok/model",
+                headers=oh,
+                json={
+                    "text_model": "grok-3",
+                    "image_model": "grok-imagine-image-2.0",
+                },
+            )
+            assert sub_save.status_code == 200, sub_save.text
+            grok_ch = next(row for row in sub_save.json()["channels"] if row["id"] == "grok")
+            assert grok_ch["text_model"] == "grok-3"
+            assert grok_ch["image_model"] == "grok-imagine-image-2.0"
+            assert any(item["id"] == "grok-4" for item in grok_ch["text_models"])
+            assert any(item["id"] == "image_edit" for item in grok_ch["image_models"])
+
+            single_sub = await owner_client.get("/api/v1/model-settings/subscriptions/grok")
+            assert single_sub.status_code == 200, single_sub.text
+            assert single_sub.json()["id"] == "grok"
+            assert single_sub.json()["text_model"] == "grok-3"
+
+            # Unified 6-capability global defaults across API & Subscription + strict rejection guards
+            t2v_save = await owner_client.post(
+                "/api/v1/model-settings/configurations",
+                headers=oh,
+                json={
+                    "name": "合成文生视频",
+                    "supplier": "火山方舟",
+                    "platform_id": "ark",
+                    "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+                    "auth_ref": "ARK_API_KEY",
+                    "model_key": "doubao-seedance-1-0-lite-t2v-250428",
+                    "capabilities": ["video", "text_to_video"],
+                    "purposes": [],
+                    "enabled": True,
+                },
+            )
+            assert t2v_save.status_code == 200, t2v_save.text
+            t2v_cid = t2v_save.json()["saved_id"]
+
+            i2v_save = await owner_client.post(
+                "/api/v1/model-settings/configurations",
+                headers=oh,
+                json={
+                    "name": "合成图生视频",
+                    "supplier": "火山方舟",
+                    "platform_id": "ark",
+                    "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+                    "auth_ref": "ARK_API_KEY",
+                    "model_key": "doubao-seedance-1-0-lite-i2v-250428",
+                    "capabilities": ["video", "image_to_video"],
+                    "purposes": [],
+                    "enabled": True,
+                },
+            )
+            assert i2v_save.status_code == 200, i2v_save.text
+            i2v_cid = i2v_save.json()["saved_id"]
+
+            disabled_img = await owner_client.post(
+                "/api/v1/model-settings/configurations",
+                headers=oh,
+                json={
+                    "name": "停用生图配置",
+                    "supplier": "OpenAI",
+                    "platform_id": "openai",
+                    "base_url": "https://api.openai.com/v1",
+                    "auth_ref": "OPENAI_API_KEY",
+                    "model_key": "gpt-image-1.5",
+                    "capabilities": ["text_to_image", "image_to_image"],
+                    "purposes": [],
+                    "enabled": False,
+                },
+            )
+            assert disabled_img.status_code == 200, disabled_img.text
+            disabled_cid = disabled_img.json()["saved_id"]
+
+            api_text_save = await owner_client.post(
+                "/api/v1/model-settings/configurations",
+                headers=oh,
+                json={
+                    "name": "合成文本API",
+                    "supplier": "DeepSeek",
+                    "platform_id": "deepseek",
+                    "base_url": "https://api.deepseek.com",
+                    "auth_ref": "DEEPSEEK_API_KEY",
+                    "model_key": "deepseek-chat",
+                    "capabilities": ["text"],
+                    "purposes": ["plan", "write", "revise", "judge"],
+                    "enabled": True,
+                },
+            )
+            assert api_text_save.status_code == 200, api_text_save.text
+            api_text_cid = api_text_save.json()["saved_id"]
+
+            # Non-admin reader is blocked with 403
+            reader_me = (await reader_client.get("/api/v1/me")).json()
+            assert (
+                await reader_client.post(
+                    "/api/v1/model-settings/capability-defaults",
+                    headers={"x-csrf-token": reader_me["csrf"]},
+                    json={"capability": "text", "source": "subscription", "provider": "grok", "model_key": "grok-4"},
+                )
+            ).status_code == 403
+
+            # Bind all 6 capabilities across Subscription (grounded CLI tools/models) and HTTP API sources
+            bindings = [
+                {"capability": "text", "source": "subscription", "provider": "grok", "model_key": "grok-4"},
+                {
+                    "capability": "text_to_image",
+                    "source": "subscription",
+                    "provider": "grok",
+                    "model_key": "image_edit",
+                },
+                {
+                    "capability": "image_to_image",
+                    "source": "subscription",
+                    "provider": "codex",
+                    "model_key": "image-generation",
+                },
+                {
+                    "capability": "video",
+                    "source": "api",
+                    "configuration_id": t2v_cid,
+                    "model_key": "doubao-seedance-1-0-lite-t2v-250428",
+                },
+                {
+                    "capability": "text_to_video",
+                    "source": "api",
+                    "configuration_id": t2v_cid,
+                    "model_key": "doubao-seedance-1-0-lite-t2v-250428",
+                },
+                {
+                    "capability": "image_to_video",
+                    "source": "api",
+                    "configuration_id": i2v_cid,
+                    "model_key": "doubao-seedance-1-0-lite-i2v-250428",
+                },
+            ]
+            for payload in bindings:
+                resp = await owner_client.post(
+                    "/api/v1/model-settings/capability-defaults",
+                    headers=oh,
+                    json=payload,
+                )
+                assert resp.status_code == 200, (payload, resp.text)
+
+            # Reject incompatible (t2v config for image_to_video), unknown subscription model,
+            # disabled API config, and stale model_key mismatch
+            for bad_payload in (
+                {
+                    "capability": "image_to_video",
+                    "source": "api",
+                    "configuration_id": t2v_cid,
+                    "model_key": "doubao-seedance-1-0-lite-t2v-250428",
+                },
+                {
+                    "capability": "text",
+                    "source": "subscription",
+                    "provider": "grok",
+                    "model_key": "unknown-unlisted-model-x",
+                },
+                {
+                    "capability": "text_to_image",
+                    "source": "api",
+                    "configuration_id": disabled_cid,
+                    "model_key": "gpt-image-1.5",
+                },
+                {
+                    "capability": "text",
+                    "source": "api",
+                    "configuration_id": api_text_cid,
+                    "model_key": "stale-wrong-model",
+                },
+            ):
+                bad_resp = await owner_client.post(
+                    "/api/v1/model-settings/capability-defaults",
+                    headers=oh,
+                    json=bad_payload,
+                )
+                assert bad_resp.status_code == 422, (bad_payload, bad_resp.text)
+
+            # Verify all 6 persisted defaults remain intact after rejections
+            reloaded = (await owner_client.get("/api/v1/model-settings")).json()
+            assert reloaded["capability_defaults"]["text"]["model_key"] == "grok-4"
+            assert reloaded["capability_defaults"]["text_to_image"]["model_key"] == "image_edit"
+            assert reloaded["capability_defaults"]["image_to_image"]["model_key"] == "image-generation"
+            assert reloaded["capability_defaults"]["video"]["configuration_id"] == t2v_cid
+            assert reloaded["capability_defaults"]["text_to_video"]["configuration_id"] == t2v_cid
+            assert reloaded["capability_defaults"]["image_to_video"]["configuration_id"] == i2v_cid
+
+            # Switch same 'text' default from Subscription -> HTTP API and verify judge_secondary stays unset
+            switch_to_api = await owner_client.post(
+                "/api/v1/model-settings/capability-defaults",
+                headers=oh,
+                json={
+                    "capability": "text",
+                    "source": "api",
+                    "configuration_id": api_text_cid,
+                    "model_key": "deepseek-chat",
+                },
+            )
+            assert switch_to_api.status_code == 200
+            assert switch_to_api.json()["effective_capabilities"]["text"]["source"] == "api"
+            assert switch_to_api.json()["effective_capabilities"]["text"]["model_key"] == "deepseek-chat"
+            assert switch_to_api.json()["effective"]["judge_secondary"]["model_key"] == ""
+
+            # Switch 'text' to AGY Gemini 4 Neon (xhigh) and verify preference + default persistence
+            agy_pref = await owner_client.post(
+                "/api/v1/model-settings/subscriptions/agy/model",
+                headers=oh,
+                json={"text_model": "gemini-4-neon-xhigh"},
+            )
+            assert agy_pref.status_code == 200, agy_pref.text
+            agy_row = next(c for c in agy_pref.json()["channels"] if c["id"] == "agy")
+            assert agy_row["text_model"] == "gemini-4-neon-xhigh"
+
+            switch_to_agy = await owner_client.post(
+                "/api/v1/model-settings/capability-defaults",
+                headers=oh,
+                json={
+                    "capability": "text",
+                    "source": "subscription",
+                    "provider": "agy",
+                    "model_key": "gemini-4-neon-xhigh",
+                },
+            )
+            assert switch_to_agy.status_code == 200, switch_to_agy.text
+            assert switch_to_agy.json()["effective_capabilities"]["text"]["source"] == "subscription"
+            assert switch_to_agy.json()["effective_capabilities"]["text"]["provider"] == "agy"
+            assert switch_to_agy.json()["effective_capabilities"]["text"]["model_key"] == "gemini-4-neon-xhigh"
+
+            # Switch 'text' back to Grok Subscription
+            switch_back_sub = await owner_client.post(
+                "/api/v1/model-settings/capability-defaults",
+                headers=oh,
+                json={"capability": "text", "source": "subscription", "provider": "grok", "model_key": "grok-4"},
+            )
+            assert switch_back_sub.status_code == 200
+            assert switch_back_sub.json()["effective_capabilities"]["text"]["source"] == "subscription"
+
+            # Clear image_to_video and verify generic video (t2v-only) does NOT fall back to image_to_video
+            cleared = await owner_client.post(
+                "/api/v1/model-settings/capability-defaults",
+                headers=oh,
+                json={"capability": "image_to_video", "source": ""},
+            )
+            assert cleared.status_code == 200
+            assert cleared.json()["effective_capabilities"]["image_to_video"]["fallback"] is False
+            assert "图生视频" in cleared.json()["effective_capabilities"]["image_to_video"]["fallback_blocked_reason"]
+
+            # Disabling t2v_cid clears both video and text_to_video defaults while preserving text default
+            dis_t2v = await owner_client.post(
+                f"/api/v1/model-settings/configurations/{t2v_cid}/enabled",
+                headers=oh,
+                json={"enabled": False},
+            )
+            assert dis_t2v.status_code == 200
+            assert dis_t2v.json()["capability_defaults"]["video"] is None
+            assert dis_t2v.json()["capability_defaults"]["text_to_video"] is None
+            assert dis_t2v.json()["capability_defaults"]["text"]["model_key"] == "grok-4"
+
+            # CLI OAuth model configuration save, bind default, spoof-as-API rejection, static & live check
             save_cfg = await owner_client.post(
                 "/api/v1/model-settings/configurations",
                 headers=oh,
@@ -613,6 +874,14 @@ async def test_safe_map_basemap_inline_whitelist_and_cli_oauth_model_settings(
             saved_view = save_cfg.json()
             cid = saved_view["saved_id"]
             assert "sk-grok-secret-do-not-leak" not in save_cfg.text
+
+            # Spoofing cli_oauth configuration as source='api' MUST be rejected with 422!
+            spoof_resp = await owner_client.post(
+                "/api/v1/model-settings/capability-defaults",
+                headers=oh,
+                json={"capability": "text", "source": "api", "configuration_id": cid, "model_key": "grok-4"},
+            )
+            assert spoof_resp.status_code == 422, spoof_resp.text
 
             bind_resp = await owner_client.post(
                 "/api/v1/model-settings/defaults",
@@ -646,3 +915,79 @@ async def test_safe_map_basemap_inline_whitelist_and_cli_oauth_model_settings(
             )
             if sys_scope is not None:
                 sys_scope.config = original_sys_config
+
+
+async def test_concurrent_scope_config_three_partitions_preserve_all(store):
+    """Verify FOR UPDATE row lock preserves model_registry, subscription_auth, and capability_defaults concurrently."""
+    import asyncio
+
+    from ncc_data.application.model_settings import bind_capability_default, save_configuration
+    from ncc_data.application.service import Service
+    from ncc_data.application.subscription_settings import save_subscription_model
+    from ncc_data.domain.contracts import CapabilityDefaultInput, ModelConfigurationInput
+
+    factory, ids = store
+    synth_sys_id = str(uuid4())
+    async with factory() as db, db.begin():
+        actor = await db.get(User, ids[0])
+        actor.admin = True
+        db.add(Scope(id=synth_sys_id, name="synthetic-sys-3way", kind="system", owner_id=actor.id, config={}))
+
+    settings = Settings(database_url="unused")
+
+    async def tx_api_config():
+        async with factory() as db, db.begin():
+            svc = Service(db, await db.get(User, ids[0]))
+            await save_configuration(
+                svc,
+                settings,
+                ModelConfigurationInput(
+                    name="并发文本API",
+                    supplier="DeepSeek",
+                    platform_id="deepseek",
+                    base_url="https://api.deepseek.com",
+                    auth_ref="DEEPSEEK_API_KEY",
+                    model_key="deepseek-chat",
+                    capabilities=["text"],
+                    purposes=["write"],
+                    enabled=True,
+                ),
+                scope_id=synth_sys_id,
+            )
+
+    async def tx_sub_pref():
+        async with factory() as db, db.begin():
+            svc = Service(db, await db.get(User, ids[0]))
+            await save_subscription_model(
+                svc,
+                "grok",
+                text_model="grok-3",
+                image_model="grok-imagine-image-2.0",
+                scope_id=synth_sys_id,
+            )
+
+    async def tx_cap_default():
+        async with factory() as db, db.begin():
+            svc = Service(db, await db.get(User, ids[0]))
+            await bind_capability_default(
+                svc,
+                settings,
+                CapabilityDefaultInput(
+                    capability="text",
+                    source="subscription",
+                    provider="grok",
+                    model_key="grok-4",
+                ),
+                scope_id=synth_sys_id,
+            )
+
+    await asyncio.gather(tx_api_config(), tx_sub_pref(), tx_cap_default())
+
+    async with factory() as db:
+        merged = await db.get(Scope, synth_sys_id)
+        assert len(merged.config["model_registry"]["configurations"]) == 1
+        assert merged.config["model_registry"]["configurations"][0]["model_key"] == "deepseek-chat"
+        assert merged.config["subscription_auth"]["grok"]["text_model"] == "grok-3"
+        assert merged.config["subscription_auth"]["grok"]["image_model"] == "grok-imagine-image-2.0"
+        assert merged.config["capability_defaults"]["text"]["provider"] == "grok"
+        assert merged.config["capability_defaults"]["text"]["model_key"] == "grok-4"
